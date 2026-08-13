@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rlc"
+version = "0.1.0"
+description = "RL Computation research platform"
+requires-python = ">=3.10"
+dependencies = [
+    "jax>=0.4.26",
+    "flax>=0.8.4",
+    "optax",
+    "distrax>=0.1.5",
+    "ml-collections",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["impls*", "ogbench*"]
