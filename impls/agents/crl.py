@@ -1,4 +1,4 @@
-"""Contrastive reinforcement learning with an optional actor computation slot."""
+"""Contrastive reinforcement learning with independent computation slots."""
 
 from typing import Any
 
@@ -15,7 +15,7 @@ from ..utils.flax_utils import ModuleDict, TrainState, nonpytree_field
 
 
 class CRLAgent(flax.struct.PyTreeNode):
-    """OGBench CRL with legacy critic/value and configurable actor body."""
+    """OGBench CRL with configurable actor, critic, and AWR value bodies."""
 
     rng: Any
     network: Any
@@ -174,6 +174,9 @@ class CRLAgent(flax.struct.PyTreeNode):
                 encoders['value_state'] = encoder_module()
                 encoders['value_goal'] = encoder_module()
 
+        critic_state_spec = resolve_slot_spec(config, 'critic_state')
+        critic_goal_spec = resolve_slot_spec(config, 'critic_goal')
+
         if config['discrete']:
             critic_def = GCDiscreteBilinearCritic(
                 hidden_dims=config['value_hidden_dims'],
@@ -183,6 +186,8 @@ class CRLAgent(flax.struct.PyTreeNode):
                 value_exp=False,
                 state_encoder=encoders.get('critic_state'),
                 goal_encoder=encoders.get('critic_goal'),
+                state_computation_spec=critic_state_spec,
+                goal_computation_spec=critic_goal_spec,
                 action_dim=action_dim,
             )
         else:
@@ -194,12 +199,16 @@ class CRLAgent(flax.struct.PyTreeNode):
                 value_exp=False,
                 state_encoder=encoders.get('critic_state'),
                 goal_encoder=encoders.get('critic_goal'),
+                state_computation_spec=critic_state_spec,
+                goal_computation_spec=critic_goal_spec,
             )
 
         network_info = {
             'critic': (critic_def, (ex_observations, ex_goals, ex_actions)),
         }
         if config['actor_loss'] == 'awr':
+            value_state_spec = resolve_slot_spec(config, 'value_state')
+            value_goal_spec = resolve_slot_spec(config, 'value_goal')
             network_info['value'] = (
                 GCBilinearValue(
                     hidden_dims=config['value_hidden_dims'],
@@ -209,6 +218,8 @@ class CRLAgent(flax.struct.PyTreeNode):
                     value_exp=False,
                     state_encoder=encoders.get('value_state'),
                     goal_encoder=encoders.get('value_goal'),
+                    state_computation_spec=value_state_spec,
+                    goal_computation_spec=value_goal_spec,
                 ),
                 (ex_observations, ex_goals),
             )
@@ -249,9 +260,23 @@ def get_config():
             latent_dim=512, layer_norm=True, discount=0.99,
             actor_loss='ddpgbc', alpha=0.1, const_std=True, discrete=False,
             encoder=None, compute=ml_collections.ConfigDict(
-                dict(actor=ml_collections.ConfigDict(
-                    dict(enabled=False, primitive='mlp', topology='feedforward', credit='direct')
-                ))
+                dict(
+                    actor=ml_collections.ConfigDict(
+                        dict(enabled=False, primitive='mlp', topology='feedforward', credit='direct')
+                    ),
+                    critic_state=ml_collections.ConfigDict(
+                        dict(enabled=True, primitive='mlp', topology='feedforward', credit='direct')
+                    ),
+                    critic_goal=ml_collections.ConfigDict(
+                        dict(enabled=True, primitive='mlp', topology='feedforward', credit='direct')
+                    ),
+                    value_state=ml_collections.ConfigDict(
+                        dict(enabled=True, primitive='mlp', topology='feedforward', credit='direct')
+                    ),
+                    value_goal=ml_collections.ConfigDict(
+                        dict(enabled=True, primitive='mlp', topology='feedforward', credit='direct')
+                    ),
+                )
             ),
             dataset_class='GCDataset',
             value_p_curgoal=0.0, value_p_trajgoal=1.0, value_p_randomgoal=0.0,

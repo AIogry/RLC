@@ -9,7 +9,7 @@ import jax
 import numpy as np
 
 from .agents import agent_configs, agents
-from .utils.datasets import GCDataset, HGCDataset
+from .utils.datasets import GCDataset, HGCDataset, MultiHGCDataset
 from .utils.env_utils import make_env_and_datasets, resolve_dataset_dir
 from .utils.evaluation import evaluate
 from .utils.flax_utils import restore_agent, save_agent
@@ -69,7 +69,13 @@ def _make_config(args):
         for slot in ('low_actor', 'high_actor', 'value'):
             config['compute'][slot]['enabled'] = bool(args.computation)
     elif args.agent == 'crl':
-        config['compute']['actor']['enabled'] = bool(args.computation)
+        for slot in ('actor', 'critic_state', 'critic_goal', 'value_state', 'value_goal'):
+            config['compute'][slot]['enabled'] = bool(args.computation)
+        if config['actor_loss'] != 'awr':
+            for slot in ('value_state', 'value_goal'):
+                config['compute'][slot]['enabled'] = False
+    elif args.agent == 'coghp' and args.computation:
+        raise ValueError('Vanilla CoGHP does not use --computation; use its official Mixer core.')
     return config
 
 
@@ -84,7 +90,10 @@ def _as_float_metrics(metrics):
 
 def _loss_metric(update_info):
     """Return the algorithm-specific total from the shared update info."""
-    keys = ('critic/contrastive_loss', 'value/contrastive_loss', 'actor/actor_loss')
+    keys = (
+        'critic/contrastive_loss', 'value/contrastive_loss', 'actor/actor_loss',
+        'value/value_loss', 'high_actor/actor_loss', 'low_actor/actor_loss',
+    )
     return sum(update_info[key] for key in keys if key in update_info)
 
 
@@ -123,6 +132,11 @@ def _evaluate_tasks(agent, env, config, args, eval_seed):
 def _validate_checkpoint(agent, save_dir, step, observations, goals, actions=None):
     restored = restore_agent(agent, save_dir, step)
     key = jax.random.PRNGKey(derive_seed(step, 17))
+    if agent.config.get('agent_name') == 'coghp':
+        # CoGHP's public policy API receives one unbatched observation; the
+        # dataset example batch used by the shared trainer is (1, D).
+        observations = observations[0]
+        goals = goals[0]
     before_action = agent.sample_actions(observations, goals, seed=key)
     after_action = restored.sample_actions(observations, goals, seed=key)
     np.testing.assert_array_equal(np.asarray(before_action), np.asarray(after_action))
@@ -151,7 +165,11 @@ def run(args):
         dataset_seed=derive_seed(args.seed, 1),
         dataset_dir=dataset_dir,
     )
-    dataset_class = {'GCDataset': GCDataset, 'HGCDataset': HGCDataset}[config['dataset_class']]
+    dataset_class = {
+        'GCDataset': GCDataset,
+        'HGCDataset': HGCDataset,
+        'MultiHGCDataset': MultiHGCDataset,
+    }[config['dataset_class']]
     train_dataset = dataset_class(raw_train, config, rng=derive_seed(args.seed, 11))
     val_dataset = dataset_class(raw_val, config, rng=derive_seed(args.seed, 12)) if raw_val is not None else None
 

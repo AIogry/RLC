@@ -45,6 +45,28 @@ class _ComputationValueBody(nn.Module):
         return output
 
 
+class _ComputationBilinearBody(nn.Module):
+    """One computationized branch of a CRL bilinear representation."""
+
+    hidden_dims: Sequence[int]
+    layer_norm: bool
+    computation_spec: ComputationSpec
+
+    def setup(self):
+        self.core = make_computation_core(
+            self.computation_spec,
+            hidden_dims=self.hidden_dims,
+            activate_final=False,
+            layer_norm=self.layer_norm,
+        )
+
+    def __call__(self, x):
+        output = self.core(x)
+        if isinstance(output, ComputationOutput):
+            output = output.representation
+        return output
+
+
 class Identity(nn.Module):
     def __call__(self, x):
         return x
@@ -206,11 +228,12 @@ class GCValue(nn.Module):
 
 
 class GCBilinearValue(nn.Module):
-    """Legacy CRL bilinear value/critic.
+    """CRL bilinear value/critic with independently replaceable branches.
 
-    The CRL critic deliberately stays outside the computation-slot boundary:
-    ``phi`` and ``psi`` are the original OGBench MLPs and their dot product is
-    the contrastive score.
+    ``state_computation_spec`` and ``goal_computation_spec`` only replace the
+    MLPs that produce ``phi`` and ``psi``. The bilinear interaction remains
+    here so CRL's ensemble and contrastive semantics stay unchanged. Equal
+    specs still create independent Flax submodules and parameters.
     """
 
     hidden_dims: Sequence[int]
@@ -220,21 +243,33 @@ class GCBilinearValue(nn.Module):
     value_exp: bool = False
     state_encoder: nn.Module = None
     goal_encoder: nn.Module = None
+    state_computation_spec: Optional[ComputationSpec] = None
+    goal_computation_spec: Optional[ComputationSpec] = None
 
     def setup(self):
-        mlp_module = MLP
-        if self.ensemble:
-            mlp_module = ensemblize(MLP, 2)
-        self.phi = mlp_module(
-            (*self.hidden_dims, self.latent_dim),
-            activate_final=False,
-            layer_norm=self.layer_norm,
-        )
-        self.psi = mlp_module(
-            (*self.hidden_dims, self.latent_dim),
-            activate_final=False,
-            layer_norm=self.layer_norm,
-        )
+        branch_dims = (*self.hidden_dims, self.latent_dim)
+
+        def make_branch(computation_spec):
+            if computation_spec is None:
+                branch_cls = MLP
+                branch_kwargs = dict(
+                    hidden_dims=branch_dims,
+                    activate_final=False,
+                    layer_norm=self.layer_norm,
+                )
+            else:
+                branch_cls = _ComputationBilinearBody
+                branch_kwargs = dict(
+                    hidden_dims=branch_dims,
+                    layer_norm=self.layer_norm,
+                    computation_spec=computation_spec,
+                )
+            if self.ensemble:
+                branch_cls = ensemblize(branch_cls, 2)
+            return branch_cls(**branch_kwargs)
+
+        self.phi = make_branch(self.state_computation_spec)
+        self.psi = make_branch(self.goal_computation_spec)
 
     def __call__(self, observations, goals, actions=None, info=False):
         if self.state_encoder is not None:

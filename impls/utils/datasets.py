@@ -252,3 +252,88 @@ class HGCDataset(GCDataset):
                     rng,
                 )
         return batch
+
+
+@dataclasses.dataclass
+class MultiHGCDataset(GCDataset):
+    """Official CoGHP multi-subgoal dataset wrapper.
+
+    The goal-index equations and returned field names match the official
+    ``MultiHGCDataset``.  Sampling keeps RLC's explicit Generator plumbing so
+    repeated runs do not depend on process-global NumPy state.
+    """
+
+    def sample(self, batch_size, idxs=None, evaluation=False, rng=None):
+        rng = self.rng if rng is None else rng
+        if idxs is None:
+            idxs = self.dataset.get_random_idxs(batch_size, rng=rng)
+
+        batch = self.dataset.sample(batch_size, idxs, rng=rng)
+        if self.config['frame_stack'] is not None:
+            batch['observations'] = self.get_observations(idxs)
+            batch['next_observations'] = self.get_observations(idxs + 1)
+
+        value_goal_idxs = self.sample_goals(
+            idxs,
+            self.config['value_p_curgoal'],
+            self.config['value_p_trajgoal'],
+            self.config['value_p_randomgoal'],
+            self.config['value_geom_sample'],
+            rng,
+        )
+        batch['value_goals'] = self.get_observations(value_goal_idxs)
+        successes = (idxs == value_goal_idxs).astype(float)
+        batch['masks'] = 1.0 - successes
+        batch['rewards'] = successes - (1.0 if self.config['gc_negative'] else 0.0)
+
+        final_state_idxs = self.terminal_locs[np.searchsorted(self.terminal_locs, idxs)]
+        low_goal_idxs = np.minimum(idxs + self.config['subgoal_steps'], final_state_idxs)
+        batch['low_actor_goals'] = self.get_observations(low_goal_idxs)
+
+        if self.config['actor_geom_sample']:
+            offsets = rng.geometric(p=1 - self.config['discount'], size=batch_size)
+            high_traj_goal_idxs = np.minimum(idxs + offsets, final_state_idxs)
+        else:
+            distances = rng.random(batch_size)
+            high_traj_goal_idxs = np.round(
+                np.minimum(idxs + 1, final_state_idxs) * distances
+                + final_state_idxs * (1 - distances)
+            ).astype(int)
+
+        num_subgoals = self.config['num_subgoals']
+        high_traj_target_idxs = np.minimum(
+            idxs[:, None]
+            + np.arange(num_subgoals, 0, -1) * self.config['subgoal_steps'],
+            high_traj_goal_idxs[:, None],
+        )
+
+        high_random_goal_idxs = self.dataset.get_random_idxs(batch_size, rng=rng)
+        high_random_target_idxs = np.minimum(
+            idxs[:, None]
+            + np.arange(1, num_subgoals + 1) * self.config['subgoal_steps'],
+            high_random_goal_idxs[:, None],
+        )
+
+        pick_random = rng.random(batch_size) < self.config['actor_p_randomgoal']
+        high_goal_idxs = np.where(pick_random, high_random_goal_idxs, high_traj_goal_idxs)
+        high_target_idxs = np.where(
+            pick_random[:, None], high_random_target_idxs, high_traj_target_idxs
+        )
+        batch['high_actor_goals'] = self.get_observations(high_goal_idxs)
+        batch['high_actor_targets'] = self.get_observations(high_target_idxs)
+
+        if self.config['p_aug'] is not None and not evaluation:
+            if rng.random() < self.config['p_aug']:
+                self.augment(
+                    batch,
+                    [
+                        'observations',
+                        'next_observations',
+                        'value_goals',
+                        'low_actor_goals',
+                        'high_actor_goals',
+                        'high_actor_targets',
+                    ],
+                    rng,
+                )
+        return batch
