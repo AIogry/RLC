@@ -1,0 +1,14 @@
+study_id: M9A
+config_id: M9A-C003
+slug: k2_residual
+executable: false
+description: Planned K=2 residual configuration; no SingleState implementation exists yet.
+factors:
+  internal_iterations_K: 2
+  residual: true
+  state_scope: decision_local
+  state_learned: false
+  input_injection: z+x
+  update_module: mlp
+  parameter_sharing: shared
+  crosses_environment_step: false

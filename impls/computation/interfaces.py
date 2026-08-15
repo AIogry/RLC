@@ -19,14 +19,18 @@ class ComputationOutput(NamedTuple):
 
 
 class ComputationCore(nn.Module):
-    """Apply one topology to one representation primitive."""
+    """Apply one topology to one representation primitive.
+
+    The core owns result normalization, while the selected topology owns the
+    meaning of an optional execution state.  This keeps the interface ready
+    for a future stateful topology without making the current feed-forward
+    path pretend to carry state.
+    """
 
     topology: nn.Module
 
     def __call__(self, x, state=None):
-        if state is not None:
-            raise ValueError('The feedforward core does not accept recurrent state.')
-        output = self.topology(x)
+        output = self.topology(x, state=state)
         if isinstance(output, ComputationOutput):
             return output
         return ComputationOutput(representation=output)

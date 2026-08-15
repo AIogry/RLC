@@ -1,0 +1,10 @@
+study_id,config_id,slug,algorithm,placement,topology,block,iterations,residual,environment,seed,git_commit,status,run_dir,final_success,best_success,best_step
+M9A,M9A-C001,k1_no_residual,,,,,1,False,antmaze-medium-navigate-v0,0,,planned,runs/M9A/M9A-C001__k1_no_residual/antmaze-medium-navigate-v0/seed_000,,,
+M9A,M9A-C001,k1_no_residual,,,,,1,False,antmaze-medium-navigate-v0,1,,planned,runs/M9A/M9A-C001__k1_no_residual/antmaze-medium-navigate-v0/seed_001,,,
+M9A,M9A-C001,k1_no_residual,,,,,1,False,antmaze-medium-navigate-v0,2,,planned,runs/M9A/M9A-C001__k1_no_residual/antmaze-medium-navigate-v0/seed_002,,,
+M9A,M9A-C002,k2_no_residual,,,,,2,False,antmaze-medium-navigate-v0,0,,planned,runs/M9A/M9A-C002__k2_no_residual/antmaze-medium-navigate-v0/seed_000,,,
+M9A,M9A-C002,k2_no_residual,,,,,2,False,antmaze-medium-navigate-v0,1,,planned,runs/M9A/M9A-C002__k2_no_residual/antmaze-medium-navigate-v0/seed_001,,,
+M9A,M9A-C002,k2_no_residual,,,,,2,False,antmaze-medium-navigate-v0,2,,planned,runs/M9A/M9A-C002__k2_no_residual/antmaze-medium-navigate-v0/seed_002,,,
+M9A,M9A-C003,k2_residual,,,,,2,True,antmaze-medium-navigate-v0,0,,planned,runs/M9A/M9A-C003__k2_residual/antmaze-medium-navigate-v0/seed_000,,,
+M9A,M9A-C003,k2_residual,,,,,2,True,antmaze-medium-navigate-v0,1,,planned,runs/M9A/M9A-C003__k2_residual/antmaze-medium-navigate-v0/seed_001,,,
+M9A,M9A-C003,k2_residual,,,,,2,True,antmaze-medium-navigate-v0,2,,planned,runs/M9A/M9A-C003__k2_residual/antmaze-medium-navigate-v0/seed_002,,,

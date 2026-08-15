@@ -1,0 +1,39 @@
+study_id: M9A
+name: Decision-local single-state iteration for GCRL
+question: Does decision-local single-state iterative computation improve goal-conditioned reinforcement learning?
+primary_factors:
+  - internal_iterations_K
+  - residual
+fixed_design:
+  state_scope: decision_local
+  state_learned: false
+  input_injection: z+x
+  update_module: mlp
+  parameter_sharing: shared
+  crosses_environment_step: false
+deferred_factors:
+  - state_initialization_alternatives
+  - input_injection_alternatives
+  - gating
+  - normalization_recipe
+  - multi_state
+  - hrm
+algorithms:
+  - hiql
+  - crl
+placements:
+  - low_actor
+  - high_actor
+  - value
+  - actor
+  - critic_state
+  - critic_goal
+  - value_state
+  - value_goal
+environments:
+  - antmaze-medium-navigate-v0
+seeds:
+  - 0
+  - 1
+  - 2
+primary_metric: evaluation/overall_success

@@ -63,6 +63,20 @@ the `38/38` CPU regression, and paired GPU 1000-step AWR smokes pass.
 See the full record in
 [`docs/milestone_2026-08-12_hiql.md`](docs/milestone_2026-08-12_hiql.md).
 
+The 2026-08-13 CRL and Vanilla CoGHP milestone is recorded in
+[`docs/milestone_2026-08-13_coghp.md`](docs/milestone_2026-08-13_coghp.md).
+
+The M8 computation foundation is documented in
+[`docs/m8_computation_foundation.md`](docs/m8_computation_foundation.md) and
+[`docs/computation_ontology.md`](docs/computation_ontology.md).
+
+The file-based Study → Configuration → Run layer is documented in
+[`docs/experiment_management.md`](docs/experiment_management.md), with the
+planned M9A example under `experiments/M9A_single_state_iteration/`.
+
+The 2026-08-15 milestone is recorded in
+[`docs/milestone_2026-08-15.md`](docs/milestone_2026-08-15.md).
+
 See:
 
 - `docs/milestone_2026-08-12_hiql.md`
@@ -85,7 +99,8 @@ JAX_PLATFORMS=cpu PYTHONPATH=. \
 python -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
-The current suite contains 38 tests, including real-data determinism,
+The current suite contains 54 tests, including experiment-management
+serialization/manifest/aggregation checks, real-data determinism,
 trajectory/goal sampling sanity, and real N=20 legacy-vs-computation parity.
 
 The opt-in GPU N=1000 diagnostic is kept separate from the fast CPU suite:

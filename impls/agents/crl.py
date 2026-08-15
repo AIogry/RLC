@@ -265,16 +265,16 @@ def get_config():
                         dict(enabled=False, primitive='mlp', topology='feedforward', credit='direct')
                     ),
                     critic_state=ml_collections.ConfigDict(
-                        dict(enabled=True, primitive='mlp', topology='feedforward', credit='direct')
+                        dict(enabled=False, primitive='mlp', topology='feedforward', credit='direct')
                     ),
                     critic_goal=ml_collections.ConfigDict(
-                        dict(enabled=True, primitive='mlp', topology='feedforward', credit='direct')
+                        dict(enabled=False, primitive='mlp', topology='feedforward', credit='direct')
                     ),
                     value_state=ml_collections.ConfigDict(
-                        dict(enabled=True, primitive='mlp', topology='feedforward', credit='direct')
+                        dict(enabled=False, primitive='mlp', topology='feedforward', credit='direct')
                     ),
                     value_goal=ml_collections.ConfigDict(
-                        dict(enabled=True, primitive='mlp', topology='feedforward', credit='direct')
+                        dict(enabled=False, primitive='mlp', topology='feedforward', credit='direct')
                     ),
                 )
             ),

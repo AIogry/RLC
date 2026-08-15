@@ -101,7 +101,11 @@ def restore_agent(agent, restore_path, restore_epoch):
     candidates = glob.glob(restore_path)
     if len(candidates) != 1:
         raise ValueError(f'Expected one checkpoint directory, found {len(candidates)}: {candidates}')
-    checkpoint_path = os.path.join(candidates[0], f'params_{restore_epoch}.pkl')
+    checkpoint_dir = candidates[0]
+    canonical_checkpoint_dir = os.path.join(checkpoint_dir, 'checkpoints')
+    if os.path.isdir(canonical_checkpoint_dir):
+        checkpoint_dir = canonical_checkpoint_dir
+    checkpoint_path = os.path.join(checkpoint_dir, f'params_{restore_epoch}.pkl')
     with open(checkpoint_path, 'rb') as file:
         loaded = pickle.load(file)
     restored = flax.serialization.from_state_dict(agent, loaded['agent'])

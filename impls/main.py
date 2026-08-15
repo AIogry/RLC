@@ -1,9 +1,10 @@
 """Small OGBench-style HIQL training entry point for RLC."""
 
 import argparse
-import json
 import os
 import time
+from collections.abc import Mapping
+from pathlib import Path
 
 import jax
 import numpy as np
@@ -13,8 +14,13 @@ from .utils.datasets import GCDataset, HGCDataset, MultiHGCDataset
 from .utils.env_utils import make_env_and_datasets, resolve_dataset_dir
 from .utils.evaluation import evaluate
 from .utils.flax_utils import restore_agent, save_agent
-from .utils.log_utils import CsvLogger, get_exp_name
+from .utils.log_utils import CsvLogger
 from .utils.reproducibility import derive_seed, seed_everything
+from .experiment import (
+    create_run_context,
+    finalize_run,
+    prepare_run_design,
+)
 
 
 def _parse_args(argv=None):
@@ -22,7 +28,10 @@ def _parse_args(argv=None):
     parser.add_argument('--agent', choices=sorted(agents), default='hiql')
     parser.add_argument('--env_name', default='antmaze-medium-navigate-v0')
     parser.add_argument('--seed', type=int, default=0)
-    parser.add_argument('--save_dir', default='exp')
+    parser.add_argument('--save_dir', default=None, help='Legacy/debug artifact root.')
+    parser.add_argument('--run_root', default='runs', help='Canonical experiment artifact root.')
+    parser.add_argument('--study', default=None, help='Path to a Study study.yaml.')
+    parser.add_argument('--config', default=None, help='Path or ID of a Study configuration YAML.')
     parser.add_argument('--restore_path', default=None)
     parser.add_argument('--restore_epoch', type=int, default=None)
     parser.add_argument('--train_steps', type=int, default=1000)
@@ -86,6 +95,31 @@ def _as_float_metrics(metrics):
         if array.size == 1:
             result[key] = float(array)
     return result
+
+
+def _jsonable(value):
+    """Convert ConfigDict/numpy containers into stable JSON values."""
+
+    if isinstance(value, Mapping) or hasattr(value, 'items'):
+        items = value.items()
+        return {
+            str(key): _jsonable(item)
+            for key, item in sorted(items, key=lambda pair: str(pair[0]))
+        }
+    if isinstance(value, (tuple, list)):
+        return [_jsonable(item) for item in value]
+    if isinstance(value, np.generic):
+        return value.item()
+    return value
+
+
+def _resolved_compute_snapshot(config):
+    """Return every resolved computation slot in stable JSON form."""
+
+    compute = config.get('compute', {}) if config is not None else {}
+    if compute is None:
+        return {}
+    return _jsonable(compute)
 
 
 def _loss_metric(update_info):
@@ -158,51 +192,73 @@ def run(args):
     seed_everything(args.seed)
     config = _make_config(args)
     dataset_dir = resolve_dataset_dir()
-    env, raw_train, raw_val = make_env_and_datasets(
-        args.env_name,
-        frame_stack=config['frame_stack'],
-        seed=derive_seed(args.seed, 3),
-        dataset_seed=derive_seed(args.seed, 1),
-        dataset_dir=dataset_dir,
-    )
-    dataset_class = {
-        'GCDataset': GCDataset,
-        'HGCDataset': HGCDataset,
-        'MultiHGCDataset': MultiHGCDataset,
-    }[config['dataset_class']]
-    train_dataset = dataset_class(raw_train, config, rng=derive_seed(args.seed, 11))
-    val_dataset = dataset_class(raw_val, config, rng=derive_seed(args.seed, 12)) if raw_val is not None else None
-
-    example_batch = train_dataset.sample(1)
-    if config['discrete']:
-        example_batch['actions'] = np.full_like(example_batch['actions'], env.action_space.n - 1)
-    agent_class = agents[config['agent_name']]
-    agent = agent_class.create(args.seed, example_batch['observations'], example_batch['actions'], config)
-    if args.restore_path is not None:
-        if args.restore_epoch is None:
-            raise ValueError('--restore_epoch is required with --restore_path')
-        agent = restore_agent(agent, args.restore_path, args.restore_epoch)
-
-    run_dir = os.path.join(args.save_dir, get_exp_name(args.seed))
-    os.makedirs(run_dir, exist_ok=True)
-    with open(os.path.join(run_dir, 'runtime_metadata.json'), 'w') as file:
-        json.dump(
-            {
-                'agent': args.agent,
-                'environment': args.env_name,
-                'dataset_dir': dataset_dir,
-                'ogbench_module': os.path.abspath(__import__('ogbench').__file__),
-                'seed': args.seed,
-                'computation': bool(args.computation),
-            },
-            file,
-            indent=2,
-        )
-
-    train_logger = CsvLogger(os.path.join(run_dir, 'train.csv'))
-    eval_logger = CsvLogger(os.path.join(run_dir, 'eval.csv'))
-    first_time = last_time = time.time()
+    if (args.study is None) != (args.config is None):
+        raise ValueError('--study and --config must be supplied together')
+    study = configuration = None
+    if args.study is not None:
+        study, configuration = prepare_run_design(args.study, args.config)
+        if configuration.data.get('executable', True) is False:
+            raise ValueError(
+                f'{configuration.config_id} is a planned/non-executable configuration; '
+                'no scientific run was started.'
+            )
+    compute_snapshot = _resolved_compute_snapshot(config)
     try:
+        ogbench_module = os.path.abspath(__import__('ogbench').__file__)
+    except (ImportError, AttributeError):
+        ogbench_module = None
+    artifact_root = args.save_dir or args.run_root
+    run_context = create_run_context(
+        study=study,
+        configuration=configuration,
+        run_root=artifact_root,
+        legacy_root=args.save_dir or os.path.join(args.run_root, 'legacy'),
+        algorithm=args.agent,
+        environment=args.env_name,
+        seed=args.seed,
+        dataset_dir=dataset_dir,
+        computation=args.computation,
+        compute_slots=compute_snapshot,
+        resolved_config={'launcher': vars(args), 'agent': config},
+        repo_root=Path(__file__).resolve().parents[1],
+        ogbench_module=ogbench_module,
+    )
+    run_dir = str(run_context.run_dir)
+    checkpoints_dir = os.path.join(run_dir, 'checkpoints')
+    env = None
+    train_logger = None
+    eval_logger = None
+    failure_reason = None
+    terminal_status = 'completed'
+    try:
+        env, raw_train, raw_val = make_env_and_datasets(
+            args.env_name,
+            frame_stack=config['frame_stack'],
+            seed=derive_seed(args.seed, 3),
+            dataset_seed=derive_seed(args.seed, 1),
+            dataset_dir=dataset_dir,
+        )
+        dataset_class = {
+            'GCDataset': GCDataset,
+            'HGCDataset': HGCDataset,
+            'MultiHGCDataset': MultiHGCDataset,
+        }[config['dataset_class']]
+        train_dataset = dataset_class(raw_train, config, rng=derive_seed(args.seed, 11))
+        val_dataset = dataset_class(raw_val, config, rng=derive_seed(args.seed, 12)) if raw_val is not None else None
+
+        example_batch = train_dataset.sample(1)
+        if config['discrete']:
+            example_batch['actions'] = np.full_like(example_batch['actions'], env.action_space.n - 1)
+        agent_class = agents[config['agent_name']]
+        agent = agent_class.create(args.seed, example_batch['observations'], example_batch['actions'], config)
+        if args.restore_path is not None:
+            if args.restore_epoch is None:
+                raise ValueError('--restore_epoch is required with --restore_path')
+            agent = restore_agent(agent, args.restore_path, args.restore_epoch)
+
+        train_logger = CsvLogger(os.path.join(run_dir, 'train.csv'))
+        eval_logger = CsvLogger(os.path.join(run_dir, 'eval.csv'))
+        first_time = last_time = time.time()
         for step in range(1, args.train_steps + 1):
             batch = train_dataset.sample(config['batch_size'])
             agent, update_info = agent.update(batch)
@@ -237,28 +293,50 @@ def run(args):
             if step % args.save_interval == 0 or step == args.train_steps:
                 checkpoint_path = save_agent(
                     agent,
-                    run_dir,
+                    checkpoints_dir,
                     step,
                     checkpoint_metadata={
                         'environment': args.env_name,
                         'dataset_dir': dataset_dir,
                         'computation': bool(args.computation),
+                        'compute_slots': compute_snapshot,
+                        'study_id': run_context.metadata['study_id'],
+                        'config_id': run_context.metadata['config_id'],
+                        'config_slug': run_context.metadata['config_slug'],
+                        'git_commit': run_context.metadata['git_commit'],
+                        'seed': args.seed,
                     },
                 )
                 del checkpoint_path
                 goal_key = 'high_actor_goals' if 'high_actor_goals' in example_batch else 'actor_goals'
                 _validate_checkpoint(
                     agent,
-                    run_dir,
+                    checkpoints_dir,
                     step,
                     example_batch['observations'],
                     example_batch[goal_key],
                     example_batch.get('actions'),
                 )
+    except KeyboardInterrupt as error:
+        terminal_status = 'aborted'
+        failure_reason = f'{type(error).__name__}: {error}'
+        raise
+    except BaseException as error:
+        terminal_status = 'failed'
+        failure_reason = f'{type(error).__name__}: {error}'
+        raise
     finally:
-        train_logger.close()
-        eval_logger.close()
-        env.close()
+        if train_logger is not None:
+            train_logger.close()
+        if eval_logger is not None:
+            eval_logger.close()
+        if env is not None:
+            env.close()
+        finalize_run(
+            run_dir,
+            terminal_status,
+            failure_reason=failure_reason,
+        )
     return run_dir
 
 

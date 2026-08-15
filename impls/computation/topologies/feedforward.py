@@ -10,5 +10,7 @@ class FeedForward(nn.Module):
 
     primitive: nn.Module
 
-    def __call__(self, x):
+    def __call__(self, x, state=None):
+        if state is not None:
+            raise ValueError('FeedForward topology does not accept non-None state.')
         return ComputationOutput(representation=self.primitive(x))
