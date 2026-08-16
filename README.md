@@ -21,7 +21,7 @@ semantics remain unchanged. The first HIQL OGBench runtime vertical slice is
 now integrated locally through real Dataset sampling, evaluation, logging,
 checkpointing, and a short native trainer smoke.
 
-## Current milestone — 2026-08-13
+## Current milestone
 
 HIQL is the first RLC agent with a locally validated end-to-end runtime path.
 The legacy and computationized variants both run through the same real OGBench
@@ -77,6 +77,38 @@ planned M9A example under `experiments/M9A_single_state_iteration/`.
 The 2026-08-15 milestone is recorded in
 [`docs/milestone_2026-08-15.md`](docs/milestone_2026-08-15.md).
 
+The M9A single-state iterative actor implementation, audit, 26-configuration
+matrix, parameter accounting, and short validation record are documented in
+[`docs/m9_single_state_iterative.md`](docs/m9_single_state_iterative.md).
+
+The M9B two-state hierarchical computation implementation, executable credit
+axis, 16-configuration Study, and validation record are documented in
+[`docs/m9b_two_state.md`](docs/m9b_two_state.md).
+
+The formal frozen-worktree execution procedure, generic GPU launcher,
+provenance fingerprint, lifecycle/retry policy, protocol audit, and M9A/M9B
+freeze checklist are documented in
+[`docs/experiment_execution.md`](docs/experiment_execution.md).
+
+The 2026-08-16 M9 milestone is recorded in
+[`docs/milestone_2026-08-16.md`](docs/milestone_2026-08-16.md).
+
+Formal Studies are launched only from a clean detached worktree with the
+explicit common protocol, for example:
+
+```bash
+bash scripts/run_study.sh --study experiments/M9B_two_state/study.yaml \
+  --gpus 0,1 --run-root /data/.../RLC/runs \
+  --dataset-root /data/.../ogbench \
+  --train-steps <confirmed> --batch-size <confirmed> \
+  --eval-interval <confirmed> --eval-tasks all \
+  --eval-episodes <confirmed> --save-interval <confirmed> \
+  --eval-temperature <confirmed>
+```
+
+Do not use the current dirty development tree or smoke artifacts as formal
+scientific results.
+
 See:
 
 - `docs/milestone_2026-08-12_hiql.md`
@@ -99,9 +131,10 @@ JAX_PLATFORMS=cpu PYTHONPATH=. \
 python -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
-The current suite contains 54 tests, including experiment-management
-serialization/manifest/aggregation checks, real-data determinism,
-trajectory/goal sampling sanity, and real N=20 legacy-vs-computation parity.
+The current suite contains 76 tests, including experiment-management
+serialization/manifest/aggregation checks, M9A/M9B topology and credit tests,
+real-data determinism, trajectory/goal sampling sanity, and real N=20
+legacy-vs-computation parity.
 
 The opt-in GPU N=1000 diagnostic is kept separate from the fast CPU suite:
 

@@ -1,14 +1,18 @@
 study_id: M9A
 config_id: M9A-C001
-slug: k1_no_residual
-executable: false
-description: Planned K=1 control configuration; no SingleState implementation exists yet.
+slug: hiql_vanilla
+algorithm: hiql
+placement: baseline
+executable: true
+description: HIQL vanilla baseline; high_actor, low_actor, and value remain baseline.
 factors:
-  internal_iterations_K: 1
-  residual: false
-  state_scope: decision_local
-  state_learned: false
-  input_injection: z+x
-  update_module: mlp
-  parameter_sharing: shared
-  crosses_environment_step: false
+  topology: feedforward
+  block: mlp
+  internal_iterations_K: null
+  residual: null
+  placement: baseline
+agent_overrides:
+  compute:
+    high_actor: {enabled: false}
+    low_actor: {enabled: false}
+    value: {enabled: false}

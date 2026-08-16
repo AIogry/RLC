@@ -1,0 +1,12 @@
+study_id: M9A
+config_id: M9A-C008
+slug: crl_actor_k4_res
+algorithm: crl
+placement: actor
+executable: true
+description: CRL actor SingleState K=4 residual.
+factors: {topology: single_state, block: mlp, internal_iterations_K: 4, residual: true, placement: actor}
+agent_overrides:
+  actor_loss: ddpgbc
+  compute:
+    actor: {enabled: true, primitive: mlp, topology: single_state, credit: direct, topology_kwargs: {iterations: 4, residual: true, input_injection: z_plus_x, state_dim: 512, state_init: normal_buffer, state_init_std: 1.0}}

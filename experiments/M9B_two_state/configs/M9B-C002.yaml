@@ -1,0 +1,12 @@
+study_id: M9B
+config_id: M9B-C002
+slug: crl_actor_h2l1_one_step
+algorithm: crl
+placement: actor
+executable: true
+description: CRL actor TwoState H2L1 with one-step gradient credit.
+factors: {topology: two_state, block: mlp, schedule: H2L1, h_cycles: 2, l_cycles: 1, credit: one_step, placement: actor}
+agent_overrides:
+  actor_loss: ddpgbc
+  compute:
+    actor: {enabled: true, primitive: mlp, topology: two_state, credit: one_step, topology_kwargs: {h_cycles: 2, l_cycles: 1, input_injection: l_receives_x, state_dim: 512, state_init: normal_buffer, state_init_std: 1.0}}

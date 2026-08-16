@@ -1,6 +1,7 @@
 """Small OGBench-style HIQL training entry point for RLC."""
 
 import argparse
+import copy
 import os
 import time
 from collections.abc import Mapping
@@ -8,8 +9,10 @@ from pathlib import Path
 
 import jax
 import numpy as np
+from flax.traverse_util import flatten_dict
 
 from .agents import agent_configs, agents
+from .computation.accounting import count_non_trainable, count_parameters
 from .utils.datasets import GCDataset, HGCDataset, MultiHGCDataset
 from .utils.env_utils import make_env_and_datasets, resolve_dataset_dir
 from .utils.evaluation import evaluate
@@ -20,10 +23,19 @@ from .experiment import (
     create_run_context,
     finalize_run,
     prepare_run_design,
+    update_runtime_metadata,
 )
 
 
 def _parse_args(argv=None):
+    def _eval_tasks(value):
+        if str(value).lower() in {'all', 'none'}:
+            return None
+        parsed = int(value)
+        if parsed <= 0:
+            raise argparse.ArgumentTypeError('eval_tasks must be positive or all')
+        return parsed
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--agent', choices=sorted(agents), default='hiql')
     parser.add_argument('--env_name', default='antmaze-medium-navigate-v0')
@@ -44,7 +56,7 @@ def _parse_args(argv=None):
     parser.add_argument('--log_interval', type=int, default=100)
     parser.add_argument('--eval_interval', type=int, default=1000)
     parser.add_argument('--save_interval', type=int, default=1000)
-    parser.add_argument('--eval_tasks', type=int, default=1)
+    parser.add_argument('--eval_tasks', type=_eval_tasks, default=1)
     parser.add_argument('--eval_episodes', type=int, default=1)
     parser.add_argument('--eval_temperature', type=float, default=0.0)
     parser.add_argument('--eval_gaussian', type=float, default=None)
@@ -52,7 +64,18 @@ def _parse_args(argv=None):
     return parser.parse_args(argv)
 
 
-def _make_config(args):
+def _merge_config(config, overrides):
+    """Apply explicit Study agent_overrides without slug-based inference."""
+
+    for key, value in (overrides or {}).items():
+        if isinstance(value, Mapping) and key in config and hasattr(config[key], 'items'):
+            _merge_config(config[key], value)
+        else:
+            config[key] = copy.deepcopy(value)
+    return config
+
+
+def _make_config(args, configuration=None):
     config = agent_configs[args.agent]()
     # Reference CRL configs historically used ml-collections placeholders for
     # optional visual settings.  The first RLC runtime slice is state-based;
@@ -85,7 +108,156 @@ def _make_config(args):
                 config['compute'][slot]['enabled'] = False
     elif args.agent == 'coghp' and args.computation:
         raise ValueError('Vanilla CoGHP does not use --computation; use its official Mixer core.')
+    if configuration is not None:
+        overrides = configuration.data.get('agent_overrides', {})
+        config = _merge_config(config, overrides)
+        hidden_dims = tuple(config['actor_hidden_dims'])
+        if hidden_dims != (512, 512, 512):
+            raise ValueError(
+                'M9 canonical actor hidden dims must remain (512, 512, 512), '
+                f'got {hidden_dims!r}'
+            )
+        if config.get('actor_loss') != 'ddpgbc' and configuration.data.get('algorithm') == 'crl':
+            raise ValueError('M9 CRL actor configurations must use actor_loss=ddpgbc.')
     return config
+
+
+def _computation_runtime_extras(config):
+    extras = {'resolved_actor_hidden_dims': list(config['actor_hidden_dims'])}
+    slots = config.get('compute', {})
+    single_state = {}
+    two_state = {}
+    for slot_name, slot in slots.items():
+        if not slot.get('enabled', False):
+            continue
+        kwargs = slot.get('topology_kwargs', {})
+        if slot.get('topology') == 'single_state':
+            single_state[slot_name] = {
+                'topology': 'single_state',
+                'primitive': slot.get('primitive', 'mlp'),
+                'credit': slot.get('credit', 'direct'),
+                'state_dim': int(kwargs.get('state_dim', config['actor_hidden_dims'][-1])),
+                'iterations': int(kwargs.get('iterations', 1)),
+                'residual': bool(kwargs.get('residual', False)),
+                'state_init': kwargs.get('state_init', 'normal_buffer'),
+                'state_init_std': float(kwargs.get('state_init_std', 1.0)),
+            }
+        elif slot.get('topology') == 'two_state':
+            h_cycles = int(kwargs.get('h_cycles', 2))
+            l_cycles = int(kwargs.get('l_cycles', 1))
+            two_state[slot_name] = {
+                'topology': 'two_state',
+                'primitive': slot.get('primitive', 'mlp'),
+                'credit': slot.get('credit'),
+                'state_dim': int(kwargs.get('state_dim', config['actor_hidden_dims'][-1])),
+                'h_cycles': h_cycles,
+                'l_cycles': l_cycles,
+                'h_update_executions': h_cycles,
+                'l_update_executions': h_cycles * l_cycles,
+                'total_update_executions': h_cycles * (l_cycles + 1),
+                'input_injection': kwargs.get('input_injection', 'l_receives_x'),
+                'state_init': kwargs.get('state_init', 'normal_buffer'),
+                'state_init_std': float(kwargs.get('state_init_std', 1.0)),
+            }
+    if single_state:
+        extras['single_state'] = single_state
+    if two_state:
+        extras['two_state'] = two_state
+    return extras
+
+
+# Backward-compatible private name used by earlier M9A diagnostics.
+_single_state_runtime_extras = _computation_runtime_extras
+
+
+def _actor_parameter_accounting(agent, config):
+    """Report actor/core totals, buffers, schedules, and credit metadata."""
+
+    if config['agent_name'] == 'hiql':
+        slot_names = ('high_actor', 'low_actor')
+    elif config['agent_name'] == 'crl':
+        slot_names = ('actor',)
+    else:
+        return {}
+
+    params = agent.network.params
+    model_state = agent.network.model_state or {}
+    buffers = model_state.get('buffers', {}) if hasattr(model_state, 'get') else {}
+    report = {}
+    for slot_name in slot_names:
+        module = params.get(f'modules_{slot_name}', params.get(slot_name, {}))
+        actor_net = module.get('actor_net', {}) if hasattr(module, 'get') else {}
+        core = actor_net.get('topology', actor_net) if hasattr(actor_net, 'get') else actor_net
+        buffer_module = buffers.get(f'modules_{slot_name}', buffers.get(slot_name, {})) if hasattr(buffers, 'get') else {}
+        spec = config.get('compute', {}).get(slot_name, {})
+        enabled = bool(spec.get('enabled', False))
+        topology_kwargs = spec.get('topology_kwargs', {})
+        iterations = int(topology_kwargs.get('iterations', 0)) if enabled and spec.get('topology') == 'single_state' else 0
+        flat_module = flatten_dict(module)
+        input_kernel = next(
+            (
+                value for path, value in flat_module.items()
+                if path[-3:] == ('input_mapping', 'Dense_0', 'kernel')
+                or path[-3:] == ('actor_net', 'Dense_0', 'kernel')
+            ),
+            None,
+        )
+        input_dim = int(input_kernel.shape[0]) if input_kernel is not None else None
+        output_kernel = next(
+            (
+                value for path, value in flat_module.items()
+                if path[-2:] in (('mean_net', 'kernel'), ('logit_net', 'kernel'))
+            ),
+            None,
+        )
+        output_dim = int(output_kernel.shape[1]) if output_kernel is not None else None
+        hidden_dim = int(config['actor_hidden_dims'][-1])
+        vanilla_params = None
+        if input_dim is not None and output_dim is not None:
+            vanilla_params = (
+                input_dim * hidden_dim + hidden_dim
+                + hidden_dim * hidden_dim + hidden_dim
+                + hidden_dim * hidden_dim + hidden_dim
+                + hidden_dim * output_dim + output_dim
+            )
+        topology = spec.get('topology') if enabled else None
+        topology_kwargs = topology_kwargs if enabled else {}
+        state_dim = (
+            int(topology_kwargs.get('state_dim', hidden_dim))
+            if topology in ('single_state', 'two_state') else None
+        )
+        input_mapping_params = count_parameters(core.get('input_mapping', {})) if hasattr(core, 'get') else 0
+        h_update_params = count_parameters(core.get('h_update', {})) if hasattr(core, 'get') else 0
+        l_update_params = count_parameters(core.get('l_update', {})) if hasattr(core, 'get') else 0
+        h_cycles = int(topology_kwargs.get('h_cycles', 0)) if topology == 'two_state' else 0
+        l_cycles = int(topology_kwargs.get('l_cycles', 0)) if topology == 'two_state' else 0
+        h_update_executions = h_cycles if topology == 'two_state' else 0
+        l_update_executions = h_cycles * l_cycles if topology == 'two_state' else 0
+        total_update_executions = h_update_executions + l_update_executions
+        report[slot_name] = {
+            'topology': topology,
+            'primitive': spec.get('primitive') if enabled else None,
+            'credit': spec.get('credit') if enabled else None,
+            'trainable_params': count_parameters(module),
+            'core_trainable_params': count_parameters(core),
+            'input_mapping_params': input_mapping_params,
+            'h_update_params': h_update_params,
+            'l_update_params': l_update_params,
+            'baseline_actor_trainable_params': vanilla_params,
+            'vanilla_actor_trainable_params': vanilla_params,
+            'buffer_elements': count_non_trainable(buffer_module),
+            'state_dim': state_dim,
+            'iterations': iterations,
+            'shared_update_executions': iterations,
+            'h_cycles': h_cycles or None,
+            'l_cycles': l_cycles or None,
+            'h_update_executions': h_update_executions,
+            'l_update_executions': l_update_executions,
+            'total_update_executions': total_update_executions,
+            'state_init': topology_kwargs.get('state_init') if topology in ('single_state', 'two_state') else None,
+            'state_init_std': float(topology_kwargs.get('state_init_std', 1.0)) if topology in ('single_state', 'two_state') else None,
+        }
+    return report
 
 
 def _as_float_metrics(metrics):
@@ -186,22 +358,45 @@ def _validate_checkpoint(agent, save_dir, step, observations, goals, actions=Non
         after_value = restored.network.select(module_name)(observations, goals)
     np.testing.assert_array_equal(np.asarray(before_value), np.asarray(after_value))
     print('Checkpoint save/load probe: PASS (same action/value)')
+    if agent.network.model_state:
+        before_state = jax.tree_util.tree_leaves(agent.network.model_state)
+        after_state = jax.tree_util.tree_leaves(restored.network.model_state)
+        if len(before_state) != len(after_state):
+            raise AssertionError('Checkpoint model_state leaf count changed during restore')
+        for before_leaf, after_leaf in zip(before_state, after_state):
+            np.testing.assert_array_equal(np.asarray(before_leaf), np.asarray(after_leaf))
+        print('Checkpoint buffer/model_state probe: PASS')
 
 
 def run(args):
     seed_everything(args.seed)
-    config = _make_config(args)
-    dataset_dir = resolve_dataset_dir()
     if (args.study is None) != (args.config is None):
         raise ValueError('--study and --config must be supplied together')
     study = configuration = None
     if args.study is not None:
         study, configuration = prepare_run_design(args.study, args.config)
-        if configuration.data.get('executable', True) is False:
+        if configuration.data.get('algorithm') != args.agent:
             raise ValueError(
-                f'{configuration.config_id} is a planned/non-executable configuration; '
-                'no scientific run was started.'
+                f'Study configuration algorithm {configuration.data.get("algorithm")!r} '
+                f'does not match --agent={args.agent!r}'
             )
+        if args.computation:
+            raise ValueError('Canonical Study configurations must control computation slots via agent_overrides, not --computation.')
+        if args.width is not None or args.depth is not None:
+            raise ValueError('Canonical Study runs do not allow --width or --depth architecture overrides.')
+        override_actor_loss = configuration.data.get('agent_overrides', {}).get('actor_loss')
+        if args.actor_loss is not None and override_actor_loss is not None and args.actor_loss != override_actor_loss:
+            raise ValueError(
+                f'--actor_loss={args.actor_loss!r} conflicts with Study agent_overrides '
+                f'actor_loss={override_actor_loss!r}'
+            )
+    config = _make_config(args, configuration=configuration)
+    dataset_dir = resolve_dataset_dir()
+    if configuration is not None and configuration.data.get('executable', True) is False:
+        raise ValueError(
+            f'{configuration.config_id} is a planned/non-executable configuration; '
+            'no scientific run was started.'
+        )
     compute_snapshot = _resolved_compute_snapshot(config)
     try:
         ogbench_module = os.path.abspath(__import__('ogbench').__file__)
@@ -222,6 +417,7 @@ def run(args):
         resolved_config={'launcher': vars(args), 'agent': config},
         repo_root=Path(__file__).resolve().parents[1],
         ogbench_module=ogbench_module,
+        runtime_extras=_computation_runtime_extras(config),
     )
     run_dir = str(run_context.run_dir)
     checkpoints_dir = os.path.join(run_dir, 'checkpoints')
@@ -251,6 +447,9 @@ def run(args):
             example_batch['actions'] = np.full_like(example_batch['actions'], env.action_space.n - 1)
         agent_class = agents[config['agent_name']]
         agent = agent_class.create(args.seed, example_batch['observations'], example_batch['actions'], config)
+        accounting = _actor_parameter_accounting(agent, config)
+        run_context.metadata['actor_parameter_accounting'] = accounting
+        update_runtime_metadata(run_dir, {'actor_parameter_accounting': accounting})
         if args.restore_path is not None:
             if args.restore_epoch is None:
                 raise ValueError('--restore_epoch is required with --restore_path')

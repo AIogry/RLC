@@ -1,0 +1,12 @@
+study_id: M9A
+config_id: M9A-C005
+slug: crl_actor_k2_nores
+algorithm: crl
+placement: actor
+executable: true
+description: CRL actor SingleState K=2 non-residual.
+factors: {topology: single_state, block: mlp, internal_iterations_K: 2, residual: false, placement: actor}
+agent_overrides:
+  actor_loss: ddpgbc
+  compute:
+    actor: {enabled: true, primitive: mlp, topology: single_state, credit: direct, topology_kwargs: {iterations: 2, residual: false, input_injection: z_plus_x, state_dim: 512, state_init: normal_buffer, state_init_std: 1.0}}

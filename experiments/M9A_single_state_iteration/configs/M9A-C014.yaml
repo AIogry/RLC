@@ -1,0 +1,11 @@
+study_id: M9A
+config_id: M9A-C014
+slug: hiql_high_k4_res
+algorithm: hiql
+placement: high_actor
+executable: true
+description: HIQL high_actor SingleState K=4 residual; low_actor and value remain baseline.
+factors: {topology: single_state, block: mlp, internal_iterations_K: 4, residual: true, placement: high_actor}
+agent_overrides:
+  compute:
+    high_actor: {enabled: true, primitive: mlp, topology: single_state, credit: direct, topology_kwargs: {iterations: 4, residual: true, input_injection: z_plus_x, state_dim: 512, state_init: normal_buffer, state_init_std: 1.0}}

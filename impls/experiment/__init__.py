@@ -5,6 +5,7 @@ from .management import (
     RunContext,
     Study,
     aggregate_manifest,
+    config_fingerprint,
     create_run_context,
     finalize_run,
     load_configuration,
@@ -12,6 +13,7 @@ from .management import (
     make_run_path,
     prepare_run_design,
     summarize_eval_csv,
+    update_runtime_metadata,
     write_manifest,
 )
 
@@ -20,6 +22,7 @@ __all__ = [
     'RunContext',
     'Study',
     'aggregate_manifest',
+    'config_fingerprint',
     'create_run_context',
     'finalize_run',
     'load_configuration',
@@ -27,5 +30,6 @@ __all__ = [
     'make_run_path',
     'prepare_run_design',
     'summarize_eval_csv',
+    'update_runtime_metadata',
     'write_manifest',
 ]

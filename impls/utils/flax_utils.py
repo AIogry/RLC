@@ -41,16 +41,18 @@ class TrainState(flax.struct.PyTreeNode):
     apply_fn: Any = nonpytree_field()
     model_def: Any = nonpytree_field()
     params: Any
+    model_state: Any
     tx: Any = nonpytree_field()
     opt_state: Any
 
     @classmethod
-    def create(cls, model_def, params, tx=None, **kwargs):
+    def create(cls, model_def, params, tx=None, model_state=None, **kwargs):
         return cls(
             step=1,
             apply_fn=model_def.apply,
             model_def=model_def,
             params=params,
+            model_state={} if model_state is None else model_state,
             tx=tx,
             opt_state=None if tx is None else tx.init(params),
             **kwargs,
@@ -59,7 +61,10 @@ class TrainState(flax.struct.PyTreeNode):
     def __call__(self, *args, params=None, method=None, **kwargs):
         params = self.params if params is None else params
         method_name = getattr(self.model_def, method) if method is not None else None
-        return self.apply_fn({'params': params}, *args, method=method_name, **kwargs)
+        variables = {'params': params}
+        if self.model_state:
+            variables.update(self.model_state)
+        return self.apply_fn(variables, *args, method=method_name, **kwargs)
 
     def select(self, name):
         return functools.partial(self, name=name)
@@ -108,6 +113,14 @@ def restore_agent(agent, restore_path, restore_epoch):
     checkpoint_path = os.path.join(checkpoint_dir, f'params_{restore_epoch}.pkl')
     with open(checkpoint_path, 'rb') as file:
         loaded = pickle.load(file)
-    restored = flax.serialization.from_state_dict(agent, loaded['agent'])
+    agent_state = loaded['agent']
+    # Checkpoints created before M9 had no TrainState.model_state field.
+    # Preserve their baseline restore compatibility with an empty collection.
+    network_state = agent_state.get('network') if isinstance(agent_state, Mapping) else None
+    if isinstance(network_state, Mapping) and 'model_state' not in network_state:
+        agent_state = dict(agent_state)
+        agent_state['network'] = dict(network_state)
+        agent_state['network']['model_state'] = {}
+    restored = flax.serialization.from_state_dict(agent, agent_state)
     print(f'Restored from {checkpoint_path}')
     return restored

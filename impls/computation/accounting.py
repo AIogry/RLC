@@ -17,6 +17,12 @@ def count_parameters(tree) -> int:
     return int(total)
 
 
+def count_non_trainable(tree) -> int:
+    """Count scalar elements in a non-parameter variable collection."""
+
+    return count_parameters(tree)
+
+
 def _lookup_module(tree, name):
     if not isinstance(tree, Mapping):
         raise KeyError(name)

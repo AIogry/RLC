@@ -6,6 +6,7 @@ semantics to the computation layer.
 """
 
 import csv
+import hashlib
 import json
 import os
 import re
@@ -46,6 +47,17 @@ _MANIFEST_FIELDS = (
     'block',
     'iterations',
     'residual',
+    'schedule',
+    'credit',
+    'state_dim',
+    'h_cycles',
+    'l_cycles',
+    'h_update_executions',
+    'l_update_executions',
+    'total_update_executions',
+    'trainable_params',
+    'core_trainable_params',
+    'buffer_elements',
     'environment',
     'seed',
     'git_commit',
@@ -116,6 +128,54 @@ def jsonable(value):
     if isinstance(value, (str, int, float, bool)) or value is None:
         return value
     return str(value)
+
+
+def config_fingerprint(value):
+    """Return a stable SHA-256 fingerprint for a resolved configuration.
+
+    The fingerprint intentionally excludes filesystem ordering and Python
+    mapping insertion order.  It is a provenance guard for a Run identity;
+    it is not a replacement for the Git commit, dataset identity, seed, or
+    training protocol recorded alongside it.
+    """
+
+    payload = json.dumps(
+        jsonable(value),
+        ensure_ascii=True,
+        sort_keys=True,
+        separators=(',', ':'),
+    ).encode('utf-8')
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _training_protocol(resolved_config):
+    """Extract launcher-level protocol fields for runtime provenance."""
+
+    resolved_config = resolved_config or {}
+    launcher = resolved_config.get('launcher', {})
+    agent_config = resolved_config.get('agent', {})
+    if not isinstance(launcher, Mapping):
+        launcher = {}
+    if not isinstance(agent_config, Mapping):
+        agent_config = {}
+    protocol = {
+        key: launcher.get(key)
+        for key in (
+            'train_steps',
+            'batch_size',
+            'eval_interval',
+            'eval_tasks',
+            'eval_episodes',
+            'save_interval',
+            'eval_temperature',
+            'eval_gaussian',
+            'video_episodes',
+        )
+        if key in launcher
+    }
+    if protocol.get('batch_size') is None and 'batch_size' in agent_config:
+        protocol['batch_size'] = agent_config['batch_size']
+    return jsonable(protocol)
 
 
 def _read_yaml(path):
@@ -320,6 +380,7 @@ def create_run_context(
     resolved_config=None,
     repo_root=None,
     ogbench_module=None,
+    runtime_extras=None,
 ):
     """Create a run directory and its initial metadata, failing if it exists."""
 
@@ -358,16 +419,35 @@ def create_run_context(
         repo_root=repo_root,
         ogbench_module=ogbench_module,
     )
+    if runtime_extras:
+        metadata.update(jsonable(runtime_extras))
+    resolved_payload = {
+        'study': None if study is None else study.data,
+        'configuration': None if configuration is None else configuration.data,
+        'algorithm_config': resolved_config or {},
+    }
+    resolved_fingerprint = config_fingerprint(resolved_payload)
+    metadata.update({
+        'resolved_config_fingerprint': resolved_fingerprint,
+        'training_protocol': _training_protocol(resolved_config),
+    })
     _write_json(run_dir / 'runtime_metadata.json', metadata)
     _write_json(
         run_dir / 'resolved_config.json',
-        {
-            'study': None if study is None else study.data,
-            'configuration': None if configuration is None else configuration.data,
-            'algorithm_config': resolved_config or {},
-        },
+        resolved_payload | {'resolved_config_fingerprint': resolved_fingerprint},
     )
     return RunContext(run_dir=run_dir, metadata=metadata, study=study, configuration=configuration)
+
+
+def update_runtime_metadata(run_dir, updates):
+    """Merge runtime-only fields after agent initialization."""
+
+    path = Path(run_dir) / 'runtime_metadata.json'
+    with path.open() as file:
+        metadata = json.load(file)
+    metadata.update(jsonable(updates))
+    _write_json(path, metadata)
+    return metadata
 
 
 def _float_or_none(value):
@@ -466,6 +546,35 @@ def _display_factor(configuration, key):
 def _manifest_row(study, configuration, *, environment='', seed='', metadata=None, summary=None, run_dir=''):
     metadata = metadata or {}
     summary = summary or {}
+    accounting = metadata.get('actor_parameter_accounting', {})
+    accounting_rows = [value for value in accounting.values() if isinstance(value, Mapping)]
+
+    def account_value(key, *, aggregate=False):
+        values = [value.get(key) for value in accounting_rows if value.get(key) is not None]
+        if not values:
+            return ''
+        if aggregate and all(isinstance(value, (int, float, np.integer, np.floating)) for value in values):
+            return sum(values)
+        return values[0]
+
+    override_compute = configuration.data.get('agent_overrides', {}).get('compute', {}) if configuration else {}
+    enabled_specs = [
+        value for value in override_compute.values()
+        if isinstance(value, Mapping) and value.get('enabled', False)
+    ]
+    planned_kwargs = enabled_specs[0].get('topology_kwargs', {}) if enabled_specs else {}
+    planned_h_cycles = _display_factor(configuration, 'h_cycles') or planned_kwargs.get('h_cycles', '')
+    planned_l_cycles = _display_factor(configuration, 'l_cycles') or planned_kwargs.get('l_cycles', '')
+    planned_state_dim = planned_kwargs.get('state_dim', '')
+    planned_h_executions = (
+        int(planned_h_cycles) if planned_h_cycles not in ('', None) else ''
+    )
+    planned_l_executions = (
+        planned_h_executions * int(planned_l_cycles)
+        if planned_h_executions != '' and planned_l_cycles not in ('', None)
+        else ''
+    )
+
     return {
         'study_id': metadata.get('study_id', study.study_id),
         'config_id': metadata.get('config_id', configuration.config_id if configuration else ''),
@@ -476,6 +585,17 @@ def _manifest_row(study, configuration, *, environment='', seed='', metadata=Non
         'block': metadata.get('block', _display_factor(configuration, 'block')),
         'iterations': metadata.get('iterations', _display_factor(configuration, 'iterations')),
         'residual': metadata.get('residual', _display_factor(configuration, 'residual')),
+        'schedule': metadata.get('schedule', _display_factor(configuration, 'schedule')),
+        'credit': metadata.get('credit', account_value('credit') or _display_factor(configuration, 'credit')),
+        'state_dim': metadata.get('state_dim', account_value('state_dim') or planned_state_dim),
+        'h_cycles': metadata.get('h_cycles', _display_factor(configuration, 'h_cycles') or account_value('h_cycles') or planned_h_cycles),
+        'l_cycles': metadata.get('l_cycles', _display_factor(configuration, 'l_cycles') or account_value('l_cycles') or planned_l_cycles),
+        'h_update_executions': metadata.get('h_update_executions', account_value('h_update_executions', aggregate=True) or planned_h_executions),
+        'l_update_executions': metadata.get('l_update_executions', account_value('l_update_executions', aggregate=True) or planned_l_executions),
+        'total_update_executions': metadata.get('total_update_executions', account_value('total_update_executions', aggregate=True) or (planned_h_executions + planned_l_executions if planned_h_executions != '' and planned_l_executions != '' else '')),
+        'trainable_params': metadata.get('trainable_params', account_value('trainable_params', aggregate=True)),
+        'core_trainable_params': metadata.get('core_trainable_params', account_value('core_trainable_params', aggregate=True)),
+        'buffer_elements': metadata.get('buffer_elements', account_value('buffer_elements', aggregate=True)),
         'environment': metadata.get('environment', environment),
         'seed': metadata.get('seed', seed),
         'git_commit': metadata.get('git_commit', ''),

@@ -244,11 +244,20 @@ class CRLAgent(flax.struct.PyTreeNode):
         network_info['actor'] = (actor_def, (ex_observations, ex_goals))
 
         network_def = ModuleDict({key: value[0] for key, value in network_info.items()})
-        network_params = network_def.init(
-            init_rng,
+        # Preserve the baseline params RNG while giving non-param buffers an
+        # independent deterministic stream.
+        variables = network_def.init(
+            {'params': init_rng, 'buffers': jax.random.fold_in(rng, 0x4D39)},
             **{key: value[1] for key, value in network_info.items()},
-        )['params']
-        network = TrainState.create(network_def, network_params, tx=optax.adam(learning_rate=config['lr']))
+        )
+        network_params = variables['params']
+        model_state = {key: value for key, value in variables.items() if key != 'params'}
+        network = TrainState.create(
+            network_def,
+            network_params,
+            model_state=model_state,
+            tx=optax.adam(learning_rate=config['lr']),
+        )
         return cls(rng, network=network, config=flax.core.FrozenDict(dict(config)))
 
 

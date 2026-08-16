@@ -1,0 +1,12 @@
+study_id: M9B
+config_id: M9B-C013
+slug: hiql_high_low_h2l1_full_bptt
+algorithm: hiql
+placement: high_actor+low_actor
+executable: true
+description: HIQL high and low actors TwoState H2L1 with full BPTT.
+factors: {topology: two_state, block: mlp, schedule: H2L1, h_cycles: 2, l_cycles: 1, credit: full_bptt, placement: high_actor+low_actor}
+agent_overrides:
+  compute:
+    high_actor: {enabled: true, primitive: mlp, topology: two_state, credit: full_bptt, topology_kwargs: {h_cycles: 2, l_cycles: 1, input_injection: l_receives_x, state_dim: 512, state_init: normal_buffer, state_init_std: 1.0}}
+    low_actor: {enabled: true, primitive: mlp, topology: two_state, credit: full_bptt, topology_kwargs: {h_cycles: 2, l_cycles: 1, input_injection: l_receives_x, state_dim: 512, state_init: normal_buffer, state_init_std: 1.0}}

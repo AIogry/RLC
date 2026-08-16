@@ -1,0 +1,12 @@
+study_id: M9A
+config_id: M9A-C025
+slug: hiql_high_low_k4_nores
+algorithm: hiql
+placement: high_actor+low_actor
+executable: true
+description: HIQL high_actor and low_actor SingleState K=4 non-residual; value remains baseline.
+factors: {topology: single_state, block: mlp, internal_iterations_K: 4, residual: false, placement: high_actor+low_actor}
+agent_overrides:
+  compute:
+    high_actor: {enabled: true, primitive: mlp, topology: single_state, credit: direct, topology_kwargs: {iterations: 4, residual: false, input_injection: z_plus_x, state_dim: 512, state_init: normal_buffer, state_init_std: 1.0}}
+    low_actor: {enabled: true, primitive: mlp, topology: single_state, credit: direct, topology_kwargs: {iterations: 4, residual: false, input_injection: z_plus_x, state_dim: 512, state_init: normal_buffer, state_init_std: 1.0}}

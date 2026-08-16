@@ -1,14 +1,22 @@
 study_id: M9A
 config_id: M9A-C003
-slug: k2_residual
-executable: false
-description: Planned K=2 residual configuration; no SingleState implementation exists yet.
+slug: crl_actor_k1_nores
+algorithm: crl
+placement: actor
+executable: true
+description: CRL actor SingleState K=1 non-residual.
 factors:
-  internal_iterations_K: 2
-  residual: true
-  state_scope: decision_local
-  state_learned: false
-  input_injection: z+x
-  update_module: mlp
-  parameter_sharing: shared
-  crosses_environment_step: false
+  topology: single_state
+  block: mlp
+  internal_iterations_K: 1
+  residual: false
+  placement: actor
+agent_overrides:
+  actor_loss: ddpgbc
+  compute:
+    actor:
+      enabled: true
+      primitive: mlp
+      topology: single_state
+      credit: direct
+      topology_kwargs: {iterations: 1, residual: false, input_injection: z_plus_x, state_dim: 512, state_init: normal_buffer, state_init_std: 1.0}

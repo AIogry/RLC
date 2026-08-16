@@ -1,0 +1,46 @@
+study_id: M9B
+name: Two-state hierarchical actor computation
+question: Does two-state hierarchical computation improve GCRL actor learning beyond feed-forward and single-state iterative computation, and how do hierarchical schedule and gradient credit affect its behavior?
+primary_factors:
+  - algorithm
+  - placement
+  - schedule
+  - credit
+fixed_design:
+  hidden_dim: 512
+  primitive: gelu_mlp
+  normalization: none
+  state_scope: decision_local
+  state_init: normal_buffer
+  state_init_std: 1.0
+  h_l_parameter_sharing: independent
+  repeated_update_parameter_reuse: shared_within_level
+  outer_residual: false
+deferred_factors:
+  - additional_h_l_schedules
+  - residual_update
+  - learned_initial_state
+  - cross_environment_step_carry
+  - swiglu
+  - rmsnorm
+  - transformer
+  - attention
+  - mlp_mixer
+algorithms:
+  - hiql
+  - crl
+placements:
+  - actor
+  - high_actor
+  - low_actor
+  - high_actor+low_actor
+environments:
+  - antmaze-medium-navigate-v0
+  - antmaze-large-navigate-v0
+seeds:
+  - 0
+primary_metric: evaluation/overall_success
+baseline_reference:
+  study: M9A
+  hiql: M9A-C001
+  crl: M9A-C002

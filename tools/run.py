@@ -49,8 +49,10 @@ def main(argv=None):
         str(args.seed),
         '--run_root',
         args.run_root,
-        *forwarded,
     ]
+    if not any(item == '--agent' or item.startswith('--agent=') for item in forwarded):
+        command.extend(['--agent', study.data['algorithms'][0] if configuration.data.get('algorithm') is None else configuration.data['algorithm']])
+    command.extend(forwarded)
     print('run_dir:', run_path)
     print('command:', shlex.join(command))
     if args.dry_run:

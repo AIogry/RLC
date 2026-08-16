@@ -1,14 +1,21 @@
 study_id: M9A
 config_id: M9A-C002
-slug: k2_no_residual
-executable: false
-description: Planned K=2 non-residual configuration; no SingleState implementation exists yet.
+slug: crl_vanilla
+algorithm: crl
+placement: baseline
+executable: true
+description: CRL DDPG+BC vanilla baseline; actor remains baseline and critic remains baseline.
 factors:
-  internal_iterations_K: 2
-  residual: false
-  state_scope: decision_local
-  state_learned: false
-  input_injection: z+x
-  update_module: mlp
-  parameter_sharing: shared
-  crosses_environment_step: false
+  topology: feedforward
+  block: mlp
+  internal_iterations_K: null
+  residual: null
+  placement: baseline
+agent_overrides:
+  actor_loss: ddpgbc
+  compute:
+    actor: {enabled: false}
+    critic_state: {enabled: false}
+    critic_goal: {enabled: false}
+    value_state: {enabled: false}
+    value_goal: {enabled: false}
