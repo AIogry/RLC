@@ -92,11 +92,13 @@ bash scripts/run_study.sh \
   --dataset-root /data/qijunrong/06-RL/offline-rl/data/raw_ogbench \
   --train-steps <confirmed> \
   --batch-size <confirmed> \
+  --log-interval 5000 \
   --eval-interval <confirmed> \
   --eval-tasks all \
   --eval-episodes <confirmed> \
   --save-interval <confirmed> \
-  --eval-temperature <confirmed>
+  --eval-temperature <confirmed> \
+  --dry-run
 ```
 
 For the first-round protocol frozen below, the two Study invocations differ
@@ -225,21 +227,33 @@ results; selected conditions require later multi-seed confirmation.
 
 ### Current runtime/documentation consistency
 
-The frozen protocol is the target formal protocol, but the current runtime has
-one known operational mismatch:
-
-- `impls/main.py` currently defaults to `log_interval=100`, while the frozen
-  protocol requires `log_interval=5000`;
-- `scripts/run_study.sh` currently forwards the common training/evaluation
-  fields but does not yet expose or forward `--log_interval`.
-
-The agent defaults and existing generic arguments already agree with the
+The formal launcher now exposes and forwards `--log-interval 5000` to every
+worker. Direct ad-hoc invocation of `impls.main` still has a development
+default of `log_interval=100`; it must not be used for formal Study execution.
+The agent defaults and existing generic arguments agree with the
 frozen `learning_rate=3e-4`, `batch_size=1024`, `eval_interval=100k`,
 `eval_tasks=all`, `eval_episodes=20`, `eval_temperature=0`, and
-`eval_gaussian=None` when explicitly supplied. This documentation-only task
-does not change the launcher or training loop. Formal execution must wait for
-that generic `log_interval` plumbing to be resolved and revalidated; no run
-may silently use the current default of 100.
+`eval_gaussian=None` when explicitly supplied. This launcher-level plumbing
+does not change the training loop; no formal run may silently use the direct
+runtime default of 100.
+
+`run_study.sh` requires exactly one of `--dry-run` and `--execute`. Both modes
+perform the same Git, Study, filtering, dataset, GPU, run-root, and protocol
+preflight. `--dry-run` prints the filtered canonical plan and starts no
+training subprocess; only `--execute` dispatches Runs.
+
+The generic launcher also accepts `--configs ID1,ID2,...` or
+`--exclude-configs ID1,ID2,...`; the two options are mutually exclusive and
+are matched against `config_id`, never against a slug. Unknown IDs fail fast.
+Before either mode proceeds, the Study environments are read and both files
+below must exist for every environment:
+
+```text
+<dataset-root>/<environment>.npz
+<dataset-root>/<environment>-val.npz
+```
+
+The launcher never downloads missing datasets.
 
 ## Previous smoke protocol
 
