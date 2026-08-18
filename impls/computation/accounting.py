@@ -1,4 +1,9 @@
-"""Parameter-count helpers for slots and computation cores."""
+"""Parameter-count and dense-MAC helpers for computation slots.
+
+The MAC helpers intentionally count only matrix multiplications represented by
+Flax ``Dense`` kernels.  Bias additions, activations, normalization, and
+environment/evaluation work are not silently folded into this number.
+"""
 
 import math
 from collections.abc import Mapping
@@ -21,6 +26,173 @@ def count_non_trainable(tree) -> int:
     """Count scalar elements in a non-parameter variable collection."""
 
     return count_parameters(tree)
+
+
+def count_dense_macs(tree) -> int:
+    """Count Dense matrix-multiplication MACs from a parameter subtree.
+
+    A Dense kernel has shape ``(input_features, output_features)``.  Counting
+    these products from the actual parameter shapes keeps the accounting
+    independent of a particular environment's observation/action dimensions.
+    """
+
+    if not hasattr(tree, 'items'):
+        return 0
+    total = 0
+    for name, value in tree.items():
+        if name == 'kernel':
+            shape = getattr(value, 'shape', None)
+            if shape is not None and len(shape) == 2:
+                total += math.prod(shape)
+        elif hasattr(value, 'items'):
+            total += count_dense_macs(value)
+    return int(total)
+
+
+def _mapping_get(tree, key, default=None):
+    return tree.get(key, default) if hasattr(tree, 'get') else default
+
+
+def _actor_core_params(actor_params):
+    actor_net = _mapping_get(actor_params, 'actor_net', actor_params)
+    topology = _mapping_get(actor_net, 'topology')
+    return topology if hasattr(topology, 'items') else actor_net
+
+
+def _actor_readout_params(actor_params):
+    readout = {}
+    for name in ('mean_net', 'logit_net', 'log_std_net', 'log_stds'):
+        value = _mapping_get(actor_params, name)
+        if value is not None:
+            readout[name] = value
+    return readout
+
+
+def actor_slot_accounting(actor_params, buffer_params=None, *, topology=None, iterations=0):
+    """Audit one actor slot using its actual parameter and buffer shapes.
+
+    ``iterations`` is supplied by the resolved configuration rather than
+    inferred from the number of parameters, because SingleState reuses one
+    physical update module for every execution.  The returned dictionary is
+    JSON-friendly and is suitable for runtime metadata and compact audit
+    tables.
+    """
+
+    actor_params = actor_params if hasattr(actor_params, 'items') else {}
+    buffer_params = buffer_params if hasattr(buffer_params, 'items') else {}
+    core = _actor_core_params(actor_params)
+    input_mapping = _mapping_get(core, 'input_mapping', {})
+    update_module = _mapping_get(core, 'update_module', {})
+    h_update = _mapping_get(core, 'h_update', {})
+    l_update = _mapping_get(core, 'l_update', {})
+    if topology == 'single_state':
+        iterations = int(iterations)
+
+    input_macs = count_dense_macs(input_mapping)
+    update_per_execution = count_dense_macs(update_module)
+    h_update_per_execution = count_dense_macs(h_update)
+    l_update_per_execution = count_dense_macs(l_update)
+    if topology == 'single_state':
+        update_executions = iterations
+        total_update_macs = update_per_execution * iterations
+    elif topology == 'two_state':
+        h_cycles = int(iterations[0]) if isinstance(iterations, (tuple, list)) else 0
+        l_cycles = int(iterations[1]) if isinstance(iterations, (tuple, list)) else 0
+        update_executions = h_cycles + l_cycles
+        total_update_macs = (
+            h_update_per_execution * h_cycles
+            + l_update_per_execution * l_cycles
+        )
+    else:
+        h_cycles = l_cycles = 0
+        update_executions = 0
+        total_update_macs = 0
+
+    core_macs = input_macs + total_update_macs
+    readout_macs = count_dense_macs(_actor_readout_params(actor_params))
+    if topology in ('single_state', 'two_state'):
+        full_actor_forward_macs = core_macs + readout_macs
+    else:
+        full_actor_forward_macs = count_dense_macs(actor_params)
+    return {
+        'topology': topology,
+        'input_mapping_dense_macs': input_macs,
+        'update_module_dense_macs_per_execution': update_per_execution,
+        'h_update_dense_macs_per_execution': h_update_per_execution,
+        'l_update_dense_macs_per_execution': l_update_per_execution,
+        'update_executions': update_executions,
+        'total_update_module_dense_macs': total_update_macs,
+        'computation_core_dense_macs': core_macs,
+        'readout_dense_macs': readout_macs,
+        'full_actor_forward_dense_macs': full_actor_forward_macs,
+        'parameter_tree_dense_macs': count_dense_macs(actor_params),
+        # Backward-compatible short name; it denotes one forward execution.
+        'full_actor_dense_macs': full_actor_forward_macs,
+        'trainable_params': count_parameters(actor_params),
+        'core_trainable_params': count_parameters(core),
+        'buffer_elements': count_non_trainable(buffer_params),
+    }
+
+
+def hiql_policy_accounting(params, buffers=None, slot_specs=None):
+    """Audit the independent HIQL high/low actor paths.
+
+    The function consumes resolved parameter trees and therefore does not
+    assume AntMaze dimensions.  ``slot_specs`` should map ``high_actor`` and
+    ``low_actor`` to resolved slot mappings.
+    """
+
+    params = params if hasattr(params, 'items') else {}
+    buffers = buffers if hasattr(buffers, 'items') else {}
+    slot_specs = slot_specs if hasattr(slot_specs, 'items') else {}
+    slots = {}
+    for slot_name in ('high_actor', 'low_actor'):
+        spec = slot_specs.get(slot_name, {}) or {}
+        enabled = bool(spec.get('enabled', False)) if hasattr(spec, 'get') else False
+        topology = spec.get('topology') if enabled and hasattr(spec, 'get') else None
+        kwargs = spec.get('topology_kwargs', {}) if hasattr(spec, 'get') else {}
+        if topology == 'single_state':
+            iterations = int(kwargs.get('iterations', 1))
+        elif topology == 'two_state':
+            iterations = (
+                int(kwargs.get('h_cycles', 0)),
+                int(kwargs.get('l_cycles', 0)),
+            )
+        else:
+            iterations = 0
+        module = _mapping_get(params, f'modules_{slot_name}', _mapping_get(params, slot_name, {}))
+        buffer_module = _mapping_get(buffers, f'modules_{slot_name}', _mapping_get(buffers, slot_name, {}))
+        slots[slot_name] = actor_slot_accounting(
+            module,
+            buffer_module,
+            topology=topology,
+            iterations=iterations,
+        )
+
+    high = slots['high_actor']
+    low = slots['low_actor']
+    return {
+        'slots': slots,
+        'combined_high_low_computation_core_dense_macs': (
+            high['computation_core_dense_macs']
+            + low['computation_core_dense_macs']
+        ),
+        'combined_high_low_full_actor_dense_macs': (
+            high['full_actor_dense_macs'] + low['full_actor_dense_macs']
+        ),
+        'combined_high_low_full_actor_forward_dense_macs': (
+            high['full_actor_forward_dense_macs']
+            + low['full_actor_forward_dense_macs']
+        ),
+        'combined_high_low_trainable_params': (
+            high['trainable_params'] + low['trainable_params']
+        ),
+        'combined_high_low_buffer_elements': (
+            high['buffer_elements'] + low['buffer_elements']
+        ),
+        'network_total_trainable_params': count_parameters(params),
+        'network_total_buffer_elements': count_non_trainable(buffers),
+    }
 
 
 def _lookup_module(tree, name):

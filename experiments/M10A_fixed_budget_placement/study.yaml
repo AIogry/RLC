@@ -1,0 +1,49 @@
+study_id: M10A
+name: Fixed-budget computation placement in HIQL
+question: Under a matched computation budget, does allocating computation between HIQL high_actor and low_actor change GCRL performance, and does the preferred allocation change as the total budget grows?
+primary_factors:
+  - high_iterations_K
+  - low_iterations_K
+  - body_compute_budget
+  - high_budget_fraction
+  - low_budget_fraction
+  - placement
+  - topology
+  - primitive
+fixed_design:
+  algorithm: hiql
+  actor_hidden_dims: [512, 512, 512]
+  value_hidden_dims: [512, 512, 512]
+  topology: single_state
+  primitive: mlp
+  credit: direct
+  residual: false
+  input_injection: z_plus_x
+  state_dim: 512
+  state_init: zero_buffer
+  state_scope: decision_local
+  crosses_environment_step: false
+  auxiliary_loss: false
+  critic_at_inference: false
+  environment: antmaze-large-navigate-v0
+  seeds: [0, 1, 2]
+  training_steps: 500000
+  primary_checkpoint_metric: final success at 500k
+deferred_factors:
+  - M10B
+  - hrm_topology
+  - ACT
+  - critic_at_inference
+  - adaptive_computation
+  - new_scientific_factors
+algorithms:
+  - hiql
+placements:
+  - high_actor+low_actor
+environments:
+  - antmaze-large-navigate-v0
+seeds:
+  - 0
+  - 1
+  - 2
+primary_metric: evaluation/overall_success

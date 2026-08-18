@@ -3,6 +3,7 @@
 import jax
 import jax.numpy as jnp
 import flax.linen as nn
+from numbers import Integral
 
 from ..interfaces import ComputationOutput
 from ..primitives.mlp import MLP
@@ -28,13 +29,15 @@ class SingleState(nn.Module):
     def setup(self):
         if self.state_dim <= 0:
             raise ValueError(f'state_dim must be positive, got {self.state_dim}')
-        if self.iterations not in (1, 2, 4):
-            raise ValueError(f'M9 SingleState iterations must be one of (1, 2, 4), got {self.iterations}')
+        if isinstance(self.iterations, bool) or not isinstance(self.iterations, Integral):
+            raise ValueError(f'SingleState iterations must be an integer, got {self.iterations!r}')
+        if self.iterations <= 0:
+            raise ValueError(f'SingleState iterations must be positive, got {self.iterations}')
         if self.input_injection != 'z_plus_x':
             raise ValueError(f'Unsupported SingleState input injection: {self.input_injection!r}')
-        if self.state_init != 'normal_buffer':
+        if self.state_init not in ('normal_buffer', 'zero_buffer'):
             raise ValueError(f'Unsupported SingleState state init: {self.state_init!r}')
-        if self.state_init_std <= 0:
+        if self.state_init == 'normal_buffer' and self.state_init_std <= 0:
             raise ValueError(f'state_init_std must be positive, got {self.state_init_std}')
 
         # D_in -> state_dim.  The update module is one physical module reused
@@ -49,14 +52,21 @@ class SingleState(nn.Module):
             activate_final=True,
             layer_norm=self.layer_norm,
         )
-        self.z_init = self.variable(
-            'buffers',
-            'z_init',
-            lambda: jax.random.normal(
-                self.make_rng('buffers'),
-                (self.state_dim,),
-            ) * self.state_init_std,
-        )
+        if self.state_init == 'zero_buffer':
+            self.z_init = self.variable(
+                'buffers',
+                'z_init',
+                lambda: jnp.zeros((self.state_dim,)),
+            )
+        else:
+            self.z_init = self.variable(
+                'buffers',
+                'z_init',
+                lambda: jax.random.normal(
+                    self.make_rng('buffers'),
+                    (self.state_dim,),
+                ) * self.state_init_std,
+            )
 
     def __call__(self, x_raw, state=None):
         if state is not None:

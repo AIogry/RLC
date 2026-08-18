@@ -12,7 +12,11 @@ import numpy as np
 from flax.traverse_util import flatten_dict
 
 from .agents import agent_configs, agents
-from .computation.accounting import count_non_trainable, count_parameters
+from .computation.accounting import (
+    count_non_trainable,
+    count_parameters,
+    hiql_policy_accounting,
+)
 from .utils.datasets import GCDataset, HGCDataset, MultiHGCDataset
 from .utils.env_utils import make_env_and_datasets, resolve_dataset_dir
 from .utils.evaluation import evaluate
@@ -256,6 +260,19 @@ def _actor_parameter_accounting(agent, config):
             'total_update_executions': total_update_executions,
             'state_init': topology_kwargs.get('state_init') if topology in ('single_state', 'two_state') else None,
             'state_init_std': float(topology_kwargs.get('state_init_std', 1.0)) if topology in ('single_state', 'two_state') else None,
+        }
+    if config['agent_name'] == 'hiql':
+        policy_audit = hiql_policy_accounting(
+            params,
+            buffers,
+            slot_specs=config.get('compute', {}),
+        )
+        for slot_name in slot_names:
+            report[slot_name].update(policy_audit['slots'][slot_name])
+        report['policy'] = {
+            key: value
+            for key, value in policy_audit.items()
+            if key != 'slots'
         }
     return report
 

@@ -1,0 +1,22 @@
+study_id: M10A
+config_id: M10A-C007
+slug: hiql_alloc_h15_l1_b16
+algorithm: hiql
+placement: high_actor+low_actor
+executable: true
+description: HIQL SingleState placement with K_H=15 and K_L=1 at matched B_body=16.
+factors:
+  high_iterations_K: 15
+  low_iterations_K: 1
+  body_compute_budget: 16
+  high_budget_fraction: 0.9375
+  low_budget_fraction: 0.0625
+  topology: single_state
+  primitive: mlp
+  residual: false
+  state_init: zero_buffer
+  placement: high_actor+low_actor
+agent_overrides:
+  compute:
+    high_actor: {enabled: true, primitive: mlp, topology: single_state, credit: direct, topology_kwargs: {iterations: 15, residual: false, input_injection: z_plus_x, state_dim: 512, state_init: zero_buffer}}
+    low_actor: {enabled: true, primitive: mlp, topology: single_state, credit: direct, topology_kwargs: {iterations: 1, residual: false, input_injection: z_plus_x, state_dim: 512, state_init: zero_buffer}}

@@ -1,0 +1,23 @@
+study_id: M10A
+config_id: M10A-C001
+slug: hiql_vanilla
+algorithm: hiql
+placement: baseline
+executable: true
+description: Vanilla HIQL external algorithm baseline with no SingleState computation slots.
+factors:
+  high_iterations_K: null
+  low_iterations_K: null
+  body_compute_budget: null
+  high_budget_fraction: null
+  low_budget_fraction: null
+  topology: feedforward
+  primitive: mlp
+  residual: null
+  state_init: null
+  placement: baseline
+agent_overrides:
+  compute:
+    high_actor: {enabled: false}
+    low_actor: {enabled: false}
+    value: {enabled: false}

@@ -85,6 +85,10 @@ The M9B two-state hierarchical computation implementation, executable credit
 axis, 16-configuration Study, and validation record are documented in
 [`docs/m9b_two_state.md`](docs/m9b_two_state.md).
 
+The M10A fixed-budget HIQL computation-placement study, 11-configuration matrix,
+zero-buffer SingleState semantics, and Dense-MAC/parameter audit are documented in
+[`docs/m10a_fixed_budget_placement.md`](docs/m10a_fixed_budget_placement.md).
+
 The formal frozen-worktree execution procedure, generic GPU launcher,
 provenance fingerprint, lifecycle/retry policy, protocol audit, and M9A/M9B
 freeze checklist are documented in
