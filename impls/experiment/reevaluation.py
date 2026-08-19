@@ -24,6 +24,7 @@ import numpy as np
 import yaml
 
 from .management import config_fingerprint, jsonable
+from ..utils.checkpointing import normalize_checkpoint_selector, resolve_checkpoint
 from ..utils.reproducibility import derive_seed
 
 
@@ -130,10 +131,22 @@ def load_reevaluation_spec(path):
         spec = yaml.safe_load(file) or {}
     if not isinstance(spec, dict):
         raise ReevaluationError(f'Reevaluation spec must be a mapping: {path}')
-    required = ('reevaluation_id', 'source_study_id', 'source_run_root', 'checkpoint_step', 'environments', 'protocol')
+    required = ('reevaluation_id', 'source_study_id', 'source_run_root', 'environments', 'protocol')
     missing = [key for key in required if key not in spec]
     if missing:
         raise ReevaluationError(f'Spec {path} is missing fields: {missing}')
+    if 'checkpoint' in spec:
+        try:
+            checkpoint = normalize_checkpoint_selector(spec['checkpoint'])
+        except (TypeError, ValueError, KeyError) as error:
+            raise ReevaluationError(f'Invalid checkpoint selector in {path}: {error}') from error
+    elif 'checkpoint_step' in spec:
+        try:
+            checkpoint = normalize_checkpoint_selector({'selector': 'step', 'step': spec['checkpoint_step']})
+        except (TypeError, ValueError, KeyError) as error:
+            raise ReevaluationError(f'Invalid checkpoint_step in {path}: {error}') from error
+    else:
+        raise ReevaluationError(f'Spec {path} requires checkpoint or checkpoint_step')
     protocol = dict(spec['protocol'] or {})
     protocol_defaults = {
         'task_selection': 'all',
@@ -155,6 +168,8 @@ def load_reevaluation_spec(path):
     if protocol['seed_scheme'] != COMMON_EPISODE_SEED_SCHEME:
         raise ReevaluationError(f'Unsupported seed_scheme: {protocol["seed_scheme"]!r}')
     spec['protocol'] = protocol
+    spec['checkpoint'] = checkpoint
+    spec['checkpoint_step'] = checkpoint.get('step') if checkpoint['selector'] == 'step' else None
     spec['environments'] = list(spec['environments'])
     spec['training_seeds'] = [int(seed) for seed in spec.get('training_seeds', [0, 1, 2])]
     spec['configs'] = spec.get('configs', 'all')
@@ -207,7 +222,8 @@ def _resolved_payload(resolved):
 def validate_source_run(
     source_run_dir,
     *,
-    checkpoint_step,
+    checkpoint_step=None,
+    checkpoint_selector=None,
     expected_study_id=None,
     expected_environment=None,
     check_checkpoint_metadata=True,
@@ -259,18 +275,31 @@ def validate_source_run(
             f'metadata={stored_fingerprint!r}, file={resolved_fingerprint!r}, calculated={calculated_fingerprint!r}'
         )
 
-    checkpoint_path = source_run_dir / 'checkpoints' / f'params_{int(checkpoint_step)}.pkl'
+    if checkpoint_selector is None:
+        if checkpoint_step is None:
+            raise ReevaluationError('A checkpoint_step or checkpoint_selector is required')
+        checkpoint_selector = {'selector': 'step', 'step': int(checkpoint_step)}
+    try:
+        checkpoint = resolve_checkpoint(
+            source_run_dir,
+            checkpoint_selector,
+            load_metadata=check_checkpoint_metadata,
+        )
+    except (FileNotFoundError, OSError, TypeError, ValueError, KeyError) as error:
+        raise ReevaluationError(f'Cannot resolve checkpoint {checkpoint_selector!r}: {error}') from error
+    checkpoint_path = Path(checkpoint['checkpoint_path'])
+    checkpoint_step = int(checkpoint['checkpoint_step'])
     if not checkpoint_path.is_file():
         raise ReevaluationError(f'Missing requested checkpoint: {checkpoint_path}')
-    if int(checkpoint_step) == 500000 and checkpoint_path.name != 'params_500000.pkl':
+    if checkpoint_step == 500000 and checkpoint_path.name != 'params_500000.pkl':
         raise ReevaluationError('M10A-R001 requires exactly params_500000.pkl')
-    checkpoint_metadata = {}
+    checkpoint_metadata = checkpoint.get('checkpoint_metadata') or {}
     if check_checkpoint_metadata:
         with checkpoint_path.open('rb') as file:
-            checkpoint = pickle.load(file)
-        if not isinstance(checkpoint, Mapping) or 'agent' not in checkpoint:
+            checkpoint_payload = pickle.load(file)
+        if not isinstance(checkpoint_payload, Mapping) or 'agent' not in checkpoint_payload:
             raise ReevaluationError(f'Checkpoint is not a serialized RLC agent: {checkpoint_path}')
-        checkpoint_metadata = checkpoint.get('checkpoint_metadata') or {}
+        checkpoint_metadata = checkpoint_payload.get('checkpoint_metadata') or checkpoint_metadata
         for key, source_key in (
             ('environment', 'environment'),
             ('study_id', 'study_id'),
@@ -302,6 +331,9 @@ def validate_source_run(
         'checkpoint_path': str(checkpoint_path),
         'checkpoint_sha256': sha256_file(checkpoint_path),
         'checkpoint_metadata': jsonable(checkpoint_metadata),
+        'requested_checkpoint_selector': normalize_checkpoint_selector(checkpoint_selector),
+        'resolved_checkpoint_role': checkpoint['checkpoint_role'],
+        'resolved_checkpoint_step': int(checkpoint['checkpoint_step']),
     }
 
 
@@ -318,7 +350,7 @@ def _make_restored_agent(provenance):
     from ..agents import agents
     from ..utils.datasets import GCDataset, HGCDataset, MultiHGCDataset
     from ..utils.env_utils import make_env_and_datasets
-    from ..utils.flax_utils import restore_agent
+    from ..utils.flax_utils import restore_agent_from_checkpoint
 
     metadata = provenance['source_metadata']
     resolved = provenance['resolved_config']
@@ -364,7 +396,7 @@ def _make_restored_agent(provenance):
         example_batch['actions'],
         config,
     )
-    restored = restore_agent(agent, provenance['source_run_dir'], provenance['checkpoint_step'])
+    restored = restore_agent_from_checkpoint(agent, provenance['checkpoint_path'])
     leaves = []
     leaves.extend(jax_leaf for jax_leaf in _tree_leaves(restored.network.params))
     if not all(np.all(np.isfinite(np.asarray(leaf))) for leaf in leaves):
@@ -508,6 +540,9 @@ def _metadata_for_reevaluation(provenance, spec, *, output_dir, assigned_gpu=Non
         'source_git_commit': provenance['source_git_commit'],
         'source_git_dirty': provenance['source_git_dirty'],
         'source_resolved_config_fingerprint': provenance['source_resolved_config_fingerprint'],
+        'requested_checkpoint_selector': spec['checkpoint'],
+        'resolved_checkpoint_role': provenance.get('resolved_checkpoint_role', 'explicit'),
+        'resolved_checkpoint_step': provenance.get('resolved_checkpoint_step', provenance['checkpoint_step']),
         'checkpoint_step': provenance['checkpoint_step'],
         'checkpoint_path': provenance['checkpoint_path'],
         'checkpoint_sha256': provenance['checkpoint_sha256'],
@@ -553,7 +588,7 @@ def run_checkpoint_reevaluation(
 
     provenance = validate_source_run(
         source_run_dir,
-        checkpoint_step=spec['checkpoint_step'],
+        checkpoint_selector=spec['checkpoint'],
         expected_study_id=spec['source_study_id'],
         expected_environment=spec['environments'][0] if len(spec['environments']) == 1 else None,
     )
@@ -580,6 +615,11 @@ def run_checkpoint_reevaluation(
         existing_metadata = _read_json(metadata_path)
         if existing_metadata.get('checkpoint_sha256') != provenance['checkpoint_sha256']:
             raise ReevaluationError('Resume checkpoint SHA256 mismatch')
+        if existing_metadata.get('requested_checkpoint_selector') is not None:
+            if existing_metadata['requested_checkpoint_selector'] != spec['checkpoint']:
+                raise ReevaluationError('Resume checkpoint selector mismatch')
+        elif spec['checkpoint']['selector'] == 'step' and existing_metadata.get('checkpoint_step') != spec['checkpoint']['step']:
+            raise ReevaluationError('Resume legacy checkpoint selector mismatch')
         if existing_metadata.get('reevaluation_protocol_fingerprint') != protocol_fingerprint(spec['protocol']):
             raise ReevaluationError('Resume reevaluation protocol fingerprint mismatch')
         if existing_metadata.get('status') == 'completed':
@@ -727,6 +767,10 @@ def aggregate_campaign(spec, *, reeval_root, source_runs):
 
     root = campaign_root(reeval_root, spec)
     root.mkdir(parents=True, exist_ok=True)
+    checkpoint_spec = spec.get('checkpoint') or {
+        'selector': 'step',
+        'step': int(spec['checkpoint_step']),
+    }
     manifest = []
     completed_task_rows = []
     for provenance in source_runs:
@@ -754,6 +798,9 @@ def aggregate_campaign(spec, *, reeval_root, source_runs):
             'config_slug': provenance['source_config_slug'],
             'environment': provenance['source_environment'],
             'training_seed': provenance['source_training_seed'],
+            'requested_checkpoint_selector': json.dumps(checkpoint_spec, sort_keys=True),
+            'resolved_checkpoint_role': provenance.get('resolved_checkpoint_role', 'explicit'),
+            'resolved_checkpoint_step': provenance.get('resolved_checkpoint_step', provenance['checkpoint_step']),
             'checkpoint_step': provenance['checkpoint_step'],
             'checkpoint_sha256': provenance['checkpoint_sha256'],
             'status': status,
@@ -773,7 +820,8 @@ def aggregate_campaign(spec, *, reeval_root, source_runs):
                     })
     manifest_fields = (
         'study_id', 'reevaluation_id', 'config_id', 'config_slug', 'environment',
-        'training_seed', 'checkpoint_step', 'checkpoint_sha256', 'status',
+        'training_seed', 'requested_checkpoint_selector', 'resolved_checkpoint_role',
+        'resolved_checkpoint_step', 'checkpoint_step', 'checkpoint_sha256', 'status',
         'overall_success', 'output_dir',
     )
     with (root / 'manifest.csv').open('w', newline='') as file:
@@ -834,7 +882,8 @@ def aggregate_campaign(spec, *, reeval_root, source_runs):
     campaign_metadata = {
         'reevaluation_id': spec['reevaluation_id'],
         'source_study_id': spec['source_study_id'],
-        'checkpoint_step': spec['checkpoint_step'],
+        'checkpoint': checkpoint_spec,
+        'checkpoint_step': checkpoint_spec.get('step'),
         'protocol': spec['protocol'],
         'protocol_fingerprint': protocol_fingerprint(spec['protocol']),
         'source_run_count': len(source_runs),

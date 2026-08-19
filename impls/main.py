@@ -20,7 +20,15 @@ from .computation.accounting import (
 from .utils.datasets import GCDataset, HGCDataset, MultiHGCDataset
 from .utils.env_utils import make_env_and_datasets, resolve_dataset_dir
 from .utils.evaluation import evaluate, extract_episode_success
-from .utils.flax_utils import restore_agent, save_agent
+from .utils.checkpointing import should_update_best
+from .utils.flax_utils import (
+    resolve_checkpoint,
+    restore_agent,
+    restore_agent_from_checkpoint,
+    save_agent,
+    save_semantic_checkpoint,
+    write_checkpoint_index,
+)
 from .utils.log_utils import CsvLogger
 from .utils.reproducibility import derive_seed, seed_everything
 from .experiment import (
@@ -65,6 +73,14 @@ def _parse_args(argv=None):
     parser.add_argument('--eval_temperature', type=float, default=0.0)
     parser.add_argument('--eval_gaussian', type=float, default=None)
     parser.add_argument('--video_episodes', type=int, default=0)
+    parser.add_argument(
+        '--save-best-checkpoint', '--save_best_checkpoint',
+        action=argparse.BooleanOptionalAction, default=True,
+    )
+    parser.add_argument(
+        '--save-last-checkpoint', '--save_last_checkpoint',
+        action=argparse.BooleanOptionalAction, default=True,
+    )
     return parser.parse_args(argv)
 
 
@@ -357,9 +373,8 @@ def _evaluate_tasks(agent, env, config, args, eval_seed):
     return metrics
 
 
-def _validate_checkpoint(agent, save_dir, step, observations, goals, actions=None):
-    restored = restore_agent(agent, save_dir, step)
-    key = jax.random.PRNGKey(derive_seed(step, 17))
+def _validate_restored_checkpoint(agent, restored, observations, goals, actions=None, seed_step=0):
+    key = jax.random.PRNGKey(derive_seed(seed_step, 17))
     if agent.config.get('agent_name') == 'coghp':
         # CoGHP's public policy API receives one unbatched observation; the
         # dataset example batch used by the shared trainer is (1, D).
@@ -388,6 +403,49 @@ def _validate_checkpoint(agent, save_dir, step, observations, goals, actions=Non
         for before_leaf, after_leaf in zip(before_state, after_state):
             np.testing.assert_array_equal(np.asarray(before_leaf), np.asarray(after_leaf))
         print('Checkpoint buffer/model_state probe: PASS')
+
+
+def _validate_checkpoint(agent, save_dir, step, observations, goals, actions=None):
+    restored = restore_agent(agent, save_dir, step)
+    _validate_restored_checkpoint(
+        agent, restored, observations, goals, actions=actions, seed_step=step
+    )
+
+
+def _validate_checkpoint_file(agent, checkpoint_path, observations, goals, actions=None, seed_step=0):
+    restored = restore_agent_from_checkpoint(agent, checkpoint_path)
+    _validate_restored_checkpoint(
+        agent, restored, observations, goals, actions=actions, seed_step=seed_step
+    )
+
+
+def _checkpoint_metadata(run_context, args, compute_snapshot, dataset_dir, *, role, step,
+                         best_step, metric_value, selected_from_training_evaluation):
+    return {
+        'environment': args.env_name,
+        'dataset_dir': str(dataset_dir),
+        'computation': bool(args.computation),
+        'compute_slots': compute_snapshot,
+        'study_id': run_context.metadata['study_id'],
+        'config_id': run_context.metadata['config_id'],
+        'config_slug': run_context.metadata['config_slug'],
+        'seed': args.seed,
+        'training_seed': args.seed,
+        'git_commit': run_context.metadata['git_commit'],
+        'selection_metric': 'evaluation/overall_success',
+        'selection_metric_value': metric_value,
+        'best_step': best_step,
+        'train_steps': args.train_steps,
+        'evaluation_protocol_at_selection': {
+            'eval_tasks': args.eval_tasks,
+            'eval_episodes': args.eval_episodes,
+            'eval_temperature': args.eval_temperature,
+            'eval_gaussian': args.eval_gaussian,
+        },
+        'selected_from_training_evaluation': bool(selected_from_training_evaluation),
+        'checkpoint_role': role,
+        'checkpoint_step': int(step),
+    }
 
 
 def run(args):
@@ -448,6 +506,25 @@ def run(args):
     eval_logger = None
     failure_reason = None
     terminal_status = 'completed'
+    best_metric = None
+    best_step = None
+    best_record = None
+    last_record = None
+    last_eval_metric = None
+    update_runtime_metadata(run_dir, {
+        'checkpoint_lifecycle': {
+            'selection_metric': 'evaluation/overall_success',
+            'selection_rule': 'strict_greater_than_keep_earlier_tie',
+            'save_best_checkpoint': bool(args.save_best_checkpoint),
+            'save_last_checkpoint': bool(args.save_last_checkpoint),
+            'evaluation_protocol_at_selection': {
+                'eval_tasks': args.eval_tasks,
+                'eval_episodes': args.eval_episodes,
+                'eval_temperature': args.eval_temperature,
+                'eval_gaussian': args.eval_gaussian,
+            },
+        },
+    })
     try:
         env, raw_train, raw_val = make_env_and_datasets(
             args.env_name,
@@ -510,6 +587,44 @@ def run(args):
                 if eval_metrics:
                     eval_logger.log(eval_metrics, step)
                     print('evaluation:', _as_float_metrics(eval_metrics))
+                    metric = eval_metrics.get('evaluation/overall_success')
+                    if metric is not None and np.isfinite(float(metric)):
+                        last_eval_metric = float(metric)
+                        if args.save_best_checkpoint and should_update_best(metric, best_metric):
+                            best_metric = float(metric)
+                            best_step = step
+                            best_record = save_semantic_checkpoint(
+                                agent,
+                                run_dir,
+                                'best',
+                                step,
+                                _checkpoint_metadata(
+                                    run_context,
+                                    args,
+                                    compute_snapshot,
+                                    dataset_dir,
+                                    role='best',
+                                    step=step,
+                                    best_step=best_step,
+                                    metric_value=best_metric,
+                                    selected_from_training_evaluation=True,
+                                ),
+                            )
+                            write_checkpoint_index(
+                                run_dir,
+                                best=best_record,
+                                last=last_record,
+                            )
+                            best_checkpoint = resolve_checkpoint(run_dir, 'best')
+                            goal_key = 'high_actor_goals' if 'high_actor_goals' in example_batch else 'actor_goals'
+                            _validate_checkpoint_file(
+                                agent,
+                                best_checkpoint['checkpoint_path'],
+                                example_batch['observations'],
+                                example_batch[goal_key],
+                                example_batch.get('actions'),
+                                seed_step=step,
+                            )
 
             if step % args.save_interval == 0 or step == args.train_steps:
                 checkpoint_path = save_agent(
@@ -526,6 +641,10 @@ def run(args):
                         'config_slug': run_context.metadata['config_slug'],
                         'git_commit': run_context.metadata['git_commit'],
                         'seed': args.seed,
+                        'training_seed': args.seed,
+                        'checkpoint_role': 'numeric',
+                        'checkpoint_step': step,
+                        'train_steps': args.train_steps,
                     },
                 )
                 del checkpoint_path
@@ -538,6 +657,39 @@ def run(args):
                     example_batch[goal_key],
                     example_batch.get('actions'),
                 )
+        if args.save_last_checkpoint:
+            last_record = save_semantic_checkpoint(
+                agent,
+                run_dir,
+                'last',
+                args.train_steps,
+                _checkpoint_metadata(
+                    run_context,
+                    args,
+                    compute_snapshot,
+                    dataset_dir,
+                    role='last',
+                    step=args.train_steps,
+                    best_step=best_step,
+                    metric_value=last_eval_metric,
+                    selected_from_training_evaluation=False,
+                ),
+            )
+            last_checkpoint = resolve_checkpoint(run_dir, 'last')
+            goal_key = 'high_actor_goals' if 'high_actor_goals' in example_batch else 'actor_goals'
+            _validate_checkpoint_file(
+                agent,
+                last_checkpoint['checkpoint_path'],
+                example_batch['observations'],
+                example_batch[goal_key],
+                example_batch.get('actions'),
+                seed_step=args.train_steps,
+            )
+            write_checkpoint_index(
+                run_dir,
+                best=best_record,
+                last=last_record,
+            )
     except KeyboardInterrupt as error:
         terminal_status = 'aborted'
         failure_reason = f'{type(error).__name__}: {error}'

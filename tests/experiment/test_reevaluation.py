@@ -22,6 +22,7 @@ from impls.experiment.reevaluation import (
     _restore_probe,
     _write_task_and_overall_summaries,
 )
+from impls.utils.checkpointing import sha256_file as checkpoint_sha256
 from impls.utils.evaluation import (
     COMMON_EPISODE_SEED_SCHEME,
     common_episode_seeds,
@@ -220,6 +221,119 @@ class ReevaluationTest(unittest.TestCase):
         self.assertEqual(provenance['checkpoint_sha256'], sha256_file(checkpoint))
         self.assertEqual(provenance['source_resolved_config_fingerprint'], fingerprint)
         self.assertEqual(provenance['source_training_seed'], 0)
+
+    def test_best_last_selectors_use_index_not_eval_csv(self):
+        root = Path(tempfile.mkdtemp())
+        source = root / 'runs' / 'TEST' / 'TEST-C001__control' / 'toy-v0' / 'seed_000'
+        (source / 'checkpoints' / 'best').mkdir(parents=True)
+        (source / 'checkpoints' / 'last').mkdir(parents=True)
+        resolved_payload = {
+            'study': {'study_id': 'TEST'},
+            'configuration': {'config_id': 'TEST-C001', 'slug': 'control'},
+            'algorithm_config': {'agent': {'agent_name': 'hiql'}},
+        }
+        fingerprint = config_fingerprint(resolved_payload)
+        runtime_metadata = {
+            'status': 'completed',
+            'git_dirty': False,
+            'run_dir': str(source.resolve()),
+            'study_id': 'TEST',
+            'config_id': 'TEST-C001',
+            'config_slug': 'control',
+            'environment': 'toy-v0',
+            'seed': 0,
+            'git_commit': 'abc',
+            'algorithm': 'hiql',
+            'dataset_dir': str(root / 'data'),
+            'resolved_config_fingerprint': fingerprint,
+        }
+        (source / 'runtime_metadata.json').write_text(json.dumps(runtime_metadata))
+        (source / 'resolved_config.json').write_text(
+            json.dumps(resolved_payload | {'resolved_config_fingerprint': fingerprint})
+        )
+        (source / 'eval.csv').write_text(
+            'step,evaluation/overall_success\n7,0.2\n99,1.0\n'
+        )
+
+        entries = {}
+        for role, step in (('best', 7), ('last', 8)):
+            path = source / 'checkpoints' / role / f'params_{step}.pkl'
+            metadata = {
+                'checkpoint_role': role,
+                'checkpoint_step': step,
+                'environment': 'toy-v0',
+                'study_id': 'TEST',
+                'config_id': 'TEST-C001',
+                'config_slug': 'control',
+                'git_commit': 'abc',
+                'seed': 0,
+            }
+            with path.open('wb') as file:
+                pickle.dump({'agent': {}, 'checkpoint_metadata': metadata}, file)
+            sha = checkpoint_sha256(path)
+            metadata |= {
+                'checkpoint_sha256': sha,
+                'path': str(path.relative_to(source)),
+                'metadata_path': str((path.parent / 'checkpoint.json').relative_to(source)),
+            }
+            (path.parent / 'checkpoint.json').write_text(json.dumps(metadata))
+            entries[role] = {
+                'step': step,
+                'metric': 0.2 if role == 'best' else 0.1,
+                'path': str(path.relative_to(source)),
+                'sha256': sha,
+                'metadata_path': str((path.parent / 'checkpoint.json').relative_to(source)),
+            }
+        (source / 'checkpoints' / 'index.json').write_text(json.dumps({
+            'schema_version': 1,
+            'selection_metric': 'evaluation/overall_success',
+            'best': entries['best'],
+            'last': entries['last'],
+        }))
+
+        best = validate_source_run(
+            source,
+            checkpoint_selector={'selector': 'best'},
+            expected_study_id='TEST',
+            expected_environment='toy-v0',
+        )
+        last = validate_source_run(
+            source,
+            checkpoint_selector={'selector': 'last'},
+            expected_study_id='TEST',
+            expected_environment='toy-v0',
+        )
+        self.assertEqual(best['resolved_checkpoint_role'], 'best')
+        self.assertEqual(best['checkpoint_step'], 7)
+        self.assertEqual(last['resolved_checkpoint_role'], 'last')
+        self.assertEqual(last['checkpoint_step'], 8)
+        self.assertEqual(best['checkpoint_sha256'], entries['best']['sha256'])
+
+    def test_reevaluation_spec_normalizes_semantic_and_legacy_selectors(self):
+        root = Path(tempfile.mkdtemp())
+        common = (
+            'reevaluation_id: TEST-R001\n'
+            'source_study_id: TEST\n'
+            'source_run_root: /tmp/runs\n'
+            'environments: [toy-v0]\n'
+            'configs: all\n'
+            'training_seeds: [0]\n'
+            'protocol:\n'
+            '  task_selection: all\n'
+            '  episodes_per_task: 2\n'
+            '  evaluation_seed: 20260819\n'
+            '  seed_scheme: common_task_episode_v1\n'
+        )
+        for selector in ('best', 'last'):
+            path = root / f'{selector}.yaml'
+            path.write_text(common + f'checkpoint:\n  selector: {selector}\n')
+            spec = load_reevaluation_spec(path)
+            self.assertEqual(spec['checkpoint'], {'selector': selector})
+        legacy = load_reevaluation_spec(
+            Path(__file__).resolve().parents[2]
+            / 'experiments/M10A_fixed_budget_placement/reevaluations/M10A-R001.yaml'
+        )
+        self.assertEqual(legacy['checkpoint'], {'selector': 'step', 'step': 500000})
 
     def test_campaign_aggregation_keeps_seed_and_episode_variability_separate(self):
         root = Path(tempfile.mkdtemp())

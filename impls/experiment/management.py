@@ -170,6 +170,8 @@ def _training_protocol(resolved_config):
             'eval_temperature',
             'eval_gaussian',
             'video_episodes',
+            'save_best_checkpoint',
+            'save_last_checkpoint',
         )
         if key in launcher
     }
@@ -518,6 +520,14 @@ def finalize_run(run_dir, status, failure_reason=None):
         )
     _write_json(metadata_path, metadata)
     summary = summarize_eval_csv(run_dir / 'eval.csv', status=status)
+    checkpoint_index_path = run_dir / 'checkpoints' / 'index.json'
+    if checkpoint_index_path.exists():
+        with checkpoint_index_path.open() as file:
+            checkpoint_index = json.load(file)
+        best = checkpoint_index.get('best') or {}
+        if best:
+            summary['best_success'] = _float_or_none(best.get('metric'))
+            summary['best_step'] = int(best['step'])
     _write_json(run_dir / 'summary.json', summary)
     return summary
 

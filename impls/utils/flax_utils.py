@@ -4,6 +4,7 @@ import functools
 import glob
 import os
 import pickle
+from pathlib import Path
 from typing import Any, Dict, Mapping, Sequence
 
 import flax
@@ -11,6 +12,14 @@ import flax.linen as nn
 import jax
 import jax.numpy as jnp
 import optax
+
+from .checkpointing import (
+    resolve_checkpoint,
+    sha256_file,
+    should_update_best,
+    write_checkpoint_index,
+    write_checkpoint_metadata,
+)
 
 
 nonpytree_field = functools.partial(flax.struct.field, pytree_node=False)
@@ -87,30 +96,64 @@ class TrainState(flax.struct.PyTreeNode):
         return self.apply_gradients(grads), info
 
 
-def save_agent(agent, save_dir, epoch, checkpoint_metadata=None):
+def _write_checkpoint(agent, checkpoint_path, checkpoint_metadata=None):
     """Serialize a complete agent PyTree, including optimizer and RNG state."""
-    os.makedirs(save_dir, exist_ok=True)
+
+    checkpoint_path = Path(checkpoint_path)
+    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
     save_dict = {
         'agent': flax.serialization.to_state_dict(agent),
         'checkpoint_metadata': checkpoint_metadata,
     }
-    save_path = os.path.join(save_dir, f'params_{epoch}.pkl')
-    with open(save_path, 'wb') as file:
+    with checkpoint_path.open('wb') as file:
         pickle.dump(save_dict, file)
-    print(f'Saved to {save_path}')
-    return save_path
+    print(f'Saved to {checkpoint_path}')
+    return str(checkpoint_path)
 
 
-def restore_agent(agent, restore_path, restore_epoch):
-    """Restore an agent from ``restore_path/params_<epoch>.pkl``."""
-    candidates = glob.glob(restore_path)
-    if len(candidates) != 1:
-        raise ValueError(f'Expected one checkpoint directory, found {len(candidates)}: {candidates}')
-    checkpoint_dir = candidates[0]
-    canonical_checkpoint_dir = os.path.join(checkpoint_dir, 'checkpoints')
-    if os.path.isdir(canonical_checkpoint_dir):
-        checkpoint_dir = canonical_checkpoint_dir
-    checkpoint_path = os.path.join(checkpoint_dir, f'params_{restore_epoch}.pkl')
+def save_agent(agent, save_dir, epoch, checkpoint_metadata=None):
+    """Serialize a complete agent PyTree to the legacy numeric layout."""
+
+    return _write_checkpoint(
+        agent,
+        Path(save_dir) / f'params_{epoch}.pkl',
+        checkpoint_metadata=checkpoint_metadata,
+    )
+
+
+def save_semantic_checkpoint(agent, run_dir, role, step, checkpoint_metadata=None):
+    """Save an independent, portable ``best`` or ``last`` checkpoint artifact."""
+
+    if role not in {'best', 'last'}:
+        raise ValueError(f'Unsupported semantic checkpoint role: {role!r}')
+    run_dir = Path(run_dir)
+    role_dir = run_dir / 'checkpoints' / role
+    role_dir.mkdir(parents=True, exist_ok=True)
+    checkpoint_path = role_dir / f'params_{int(step)}.pkl'
+    for previous in role_dir.glob('params_*.pkl'):
+        if previous != checkpoint_path:
+            previous.unlink()
+    metadata = dict(checkpoint_metadata or {})
+    metadata.update({
+        'checkpoint_role': role,
+        'checkpoint_step': int(step),
+    })
+    _write_checkpoint(agent, checkpoint_path, checkpoint_metadata=metadata)
+    checkpoint_sha = sha256_file(checkpoint_path)
+    record = {
+        **metadata,
+        'path': str(checkpoint_path.relative_to(run_dir)),
+        'sha256': checkpoint_sha,
+        'metadata_path': str((role_dir / 'checkpoint.json').relative_to(run_dir)),
+        'checkpoint_sha256': checkpoint_sha,
+    }
+    write_checkpoint_metadata(role_dir / 'checkpoint.json', record)
+    return record
+
+
+def restore_agent_from_checkpoint(agent, checkpoint_path):
+    """Restore an agent from one already-resolved checkpoint file."""
+
     with open(checkpoint_path, 'rb') as file:
         loaded = pickle.load(file)
     agent_state = loaded['agent']
@@ -124,3 +167,17 @@ def restore_agent(agent, restore_path, restore_epoch):
     restored = flax.serialization.from_state_dict(agent, agent_state)
     print(f'Restored from {checkpoint_path}')
     return restored
+
+
+def restore_agent(agent, restore_path, restore_epoch):
+    """Restore an agent from ``restore_path/params_<epoch>.pkl``."""
+
+    candidates = glob.glob(restore_path)
+    if len(candidates) != 1:
+        raise ValueError(f'Expected one checkpoint directory, found {len(candidates)}: {candidates}')
+    checkpoint_dir = candidates[0]
+    canonical_checkpoint_dir = os.path.join(checkpoint_dir, 'checkpoints')
+    if os.path.isdir(canonical_checkpoint_dir):
+        checkpoint_dir = canonical_checkpoint_dir
+    checkpoint_path = os.path.join(checkpoint_dir, f'params_{restore_epoch}.pkl')
+    return restore_agent_from_checkpoint(agent, checkpoint_path)

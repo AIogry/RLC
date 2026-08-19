@@ -91,7 +91,7 @@ def _source_candidates(spec, source_run_root, config_filter, seed_filter, check_
         try:
             provenance = validate_source_run(
                 source_dir,
-                checkpoint_step=spec['checkpoint_step'],
+                checkpoint_selector=spec['checkpoint'],
                 expected_study_id=spec['source_study_id'],
                 expected_environment=environment if len(spec['environments']) == 1 else None,
                 check_checkpoint_metadata=check_checkpoint_metadata,
@@ -158,6 +158,12 @@ def _status(item, spec, reeval_root):
     try:
         metadata = _read_json(metadata_path)
         if metadata.get('checkpoint_sha256') != provenance['checkpoint_sha256']:
+            return 'invalid'
+        requested = metadata.get('requested_checkpoint_selector')
+        if requested is not None:
+            if requested != spec['checkpoint']:
+                return 'invalid'
+        elif spec['checkpoint']['selector'] == 'step' and metadata.get('checkpoint_step') != spec['checkpoint']['step']:
             return 'invalid'
         if metadata.get('reevaluation_protocol_fingerprint') != protocol_fingerprint(spec['protocol']):
             return 'invalid'

@@ -92,7 +92,9 @@ make_env_and_datasets + one dataset example batch
         ↓
 agents registry -> agent skeleton
         ↓
-restore_agent(source_run_dir, checkpoint_step)
+resolve_checkpoint(source_run_dir, selector)
+        ↓
+restore_agent_from_checkpoint(resolved checkpoint path)
         ↓
 evaluate_episodes(restored_agent, env, ...)
 ```
@@ -109,7 +111,78 @@ evaluate_episodes(restored_agent, env, ...)
   training seed 一致；
 - restored 参数以及 action probe 是有限值。
 
-## 5. 输出 schema
+## 5. checkpoint lifecycle：best 与 last
+
+训练期的 checkpoint 选择规则在训练开始时固定记录在
+`runtime_metadata.json` 的 `checkpoint_lifecycle` 中。选择指标只有
+`evaluation/overall_success`，且只能来自 training-time evaluation。
+
+- `best`：在真实训练期 evaluation point 上，指标严格大于历史 best 时保存；
+  相等时保留更早的 step。它不是由 post-hoc reevaluation 结果选择的。
+- `last`：训练正常完成后，在 `train_steps` 保存的最终 agent snapshot。训练
+  失败或 KeyboardInterrupt 时，partial state 不会被标记为 `last`。
+- numeric checkpoint：原有的 `checkpoints/params_<step>.pkl` 继续保存并可用，
+  不受 semantic alias 影响。
+
+未来 run 的 canonical layout 为：
+
+```text
+checkpoints/
+  params_<step>.pkl
+  best/
+    params_<BEST_STEP>.pkl
+    checkpoint.json
+  last/
+    params_<LAST_STEP>.pkl
+    checkpoint.json
+  index.json
+```
+
+`index.json` 保存 `selection_metric`、`best`、`last`、step、相对路径、SHA256
+和 `best_equals_last`。每个 semantic checkpoint 的 `checkpoint.json` 记录
+checkpoint role/step、selection metric/value、`best_step`、`train_steps`、
+训练身份、Git commit、selection 时的 evaluation protocol，以及
+`selected_from_training_evaluation`。best 与 last 即使 step 相同，也各自有
+明确 role，两个 selector 都可以独立解析。
+
+`summary.json` 的既有 `best_success`、`best_step`、`final_success` 字段继续
+兼容；若存在 checkpoint index，`best_success/best_step` 以 index 为准。
+
+## 6. checkpoint selector 与后评估
+
+通用 resolver 支持 `best`、`last` 和显式 numeric step。reevaluation YAML 可以写：
+
+```yaml
+checkpoint:
+  selector: best
+```
+
+也可以将 `selector` 设置为 `last`，或使用：
+
+```yaml
+checkpoint:
+  selector: step
+  step: 500000
+```
+
+旧的 `checkpoint_step: 500000` 是兼容性 shorthand。resolver 只读取 source
+run 已保存的 checkpoint index 或显式 numeric path，不读取 `eval.csv` 来重新
+挑选 best，也不读取 post-hoc reevaluation summary 来反向选择 checkpoint。
+解析结果会写入 reevaluation metadata，包括 requested selector、resolved role、
+resolved step 和 checkpoint SHA256。
+
+M10A-R001 是历史边界：现有 M10A run 只有
+`checkpoints/params_500000.pkl`，没有可追溯的 historical best/last index。因此
+M10A-R001 继续使用固定的 `checkpoint_step: 500000`；不能根据 M10A 的
+`eval.csv` 中的 best_step 声称存在对应 checkpoint。best/last selector 只对
+未来保存了 semantic artifacts 的正式 run 生效。
+
+training-time best 来自较便宜、通常只有 20 episodes/task 的 noisy measurement，
+因此存在 selection bias。正式报告应保留 last 作为参考；当结果具有发表级重要性
+时，可以分别对 best 和 last 做 100-episode post-hoc reevaluation，但不能把
+post-hoc 的最高分当作 checkpoint-selection 规则。
+
+## 7. 输出 schema
 
 单个 run 的 canonical layout 为：
 
@@ -148,7 +221,7 @@ evaluate_episodes(restored_agent, env, ...)
 - training-seed variability：写入 campaign-level `config_summary.csv`，不能被
   episode SE 替代。
 
-## 6. resume 与生命周期
+## 8. resume 与生命周期
 
 单 run 在 rollout 前写入 `status=running` 的 metadata。每完成一个 episode，
 `episode_results.csv` 都会 flush。状态可能是：
@@ -162,7 +235,7 @@ running / completed / failed / aborted / invalid
 不会重复。没有 `--resume` 时，如果 canonical output 已存在则直接失败，不允许
 静默覆盖。
 
-## 7. launcher 与 GPU 调度
+## 9. launcher 与 GPU 调度
 
 单 checkpoint：
 
@@ -189,7 +262,7 @@ physical GPU 只有一个 persistent worker，worker 依次处理 checkpoint；�
 实现没有引入新的分布式框架，调度模式沿用了现有 `tools/sweep.py` 的动态 GPU
 队列思想。
 
-## 8. 将来复用到 M10B/M11
+## 10. 将来复用到 M10B/M11
 
 未来 study 只需要新增 reevaluation YAML，声明：
 
