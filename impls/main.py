@@ -19,7 +19,7 @@ from .computation.accounting import (
 )
 from .utils.datasets import GCDataset, HGCDataset, MultiHGCDataset
 from .utils.env_utils import make_env_and_datasets, resolve_dataset_dir
-from .utils.evaluation import evaluate
+from .utils.evaluation import evaluate, extract_episode_success
 from .utils.flax_utils import restore_agent, save_agent
 from .utils.log_utils import CsvLogger
 from .utils.reproducibility import derive_seed, seed_everything
@@ -347,6 +347,11 @@ def _evaluate_tasks(agent, env, config, args, eval_seed):
             if key.endswith('success') or key == 'success':
                 success_values.append(float(value))
                 metrics[f'evaluation/{name}_{key}'] = float(value)
+        if any(key.endswith('success') or key == 'success' for key in stats):
+            # Keep the legacy aggregate fields, while routing the canonical
+            # success interpretation through the shared ambiguity check used
+            # by post-hoc episode evaluation.
+            extract_episode_success(stats)
     if success_values:
         metrics['evaluation/overall_success'] = float(np.mean(success_values))
     return metrics

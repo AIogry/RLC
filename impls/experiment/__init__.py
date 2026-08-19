@@ -16,6 +16,18 @@ from .management import (
     update_runtime_metadata,
     write_manifest,
 )
+from .reevaluation import (
+    EPISODE_FIELDS,
+    TASK_SUMMARY_FIELDS,
+    ReevaluationError,
+    aggregate_campaign,
+    campaign_root,
+    load_reevaluation_spec,
+    protocol_fingerprint,
+    run_checkpoint_reevaluation,
+    sha256_file,
+    validate_source_run,
+)
 
 __all__ = [
     'Configuration',
@@ -32,4 +44,14 @@ __all__ = [
     'summarize_eval_csv',
     'update_runtime_metadata',
     'write_manifest',
+    'EPISODE_FIELDS',
+    'TASK_SUMMARY_FIELDS',
+    'ReevaluationError',
+    'aggregate_campaign',
+    'campaign_root',
+    'load_reevaluation_spec',
+    'protocol_fingerprint',
+    'run_checkpoint_reevaluation',
+    'sha256_file',
+    'validate_source_run',
 ]

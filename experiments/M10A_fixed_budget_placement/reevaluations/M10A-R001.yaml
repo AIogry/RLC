@@ -1,0 +1,25 @@
+reevaluation_id: M10A-R001
+name: M10A final-500k 100-episode checkpoint reevaluation
+
+source_study_id: M10A
+source_run_root: /data/qijunrong/06-RL/offline-rl/exp/RLC/runs
+expected_task_count: 5
+checkpoint_step: 500000
+
+environments:
+  - antmaze-large-navigate-v0
+
+configs: all
+training_seeds:
+  - 0
+  - 1
+  - 2
+
+protocol:
+  task_selection: all
+  episodes_per_task: 100
+  evaluation_seed: 20260819
+  seed_scheme: common_task_episode_v1
+  eval_temperature: 0.0
+  eval_gaussian: null
+  video_episodes: 0
