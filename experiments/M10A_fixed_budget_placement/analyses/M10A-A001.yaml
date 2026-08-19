@@ -1,0 +1,23 @@
+analysis_id: M10A-A001
+description: Provenance-aware allocation response analysis for the M10A-R001 reevaluation.
+source:
+  study_id: M10A
+  reevaluation_id: M10A-R001
+  path: /data/qijunrong/06-RL/offline-rl/exp/RLC/reevaluations/M10A/M10A-R001
+config_root: experiments/M10A_fixed_budget_placement/configs
+reference:
+  config_id: M10A-C002
+  label: within_parameterization_reference
+task_groups:
+  focal_task:
+    label: focal_task
+    task_ids: [2]
+  remaining_tasks:
+    label: remaining_tasks
+    task_ids: [1, 3, 4, 5]
+figures:
+  - allocation_response_overall
+  - allocation_response_by_task
+  - allocation_response_focal_remaining
+  - allocation_seed_consistency
+  - task_delta_vs_reference
