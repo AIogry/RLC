@@ -24,6 +24,7 @@ import numpy as np
 import yaml
 
 from .management import config_fingerprint, jsonable
+from ..utils.reproducibility import derive_seed
 
 
 COMMON_EPISODE_SEED_SCHEME = 'common_task_episode_v1'
@@ -318,7 +319,6 @@ def _make_restored_agent(provenance):
     from ..utils.datasets import GCDataset, HGCDataset, MultiHGCDataset
     from ..utils.env_utils import make_env_and_datasets
     from ..utils.flax_utils import restore_agent
-    from ..utils.reproducibility import derive_seed
 
     metadata = provenance['source_metadata']
     resolved = provenance['resolved_config']

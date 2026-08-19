@@ -19,6 +19,7 @@ from impls.experiment import (
 )
 from impls.experiment.reevaluation import (
     _read_episode_rows,
+    _restore_probe,
     _write_task_and_overall_summaries,
 )
 from impls.utils.evaluation import (
@@ -28,6 +29,7 @@ from impls.utils.evaluation import (
     evaluate_episodes,
     extract_episode_success,
 )
+from impls.utils.reproducibility import derive_seed
 
 
 class _FakeEnv:
@@ -56,6 +58,16 @@ class _FakeEnv:
 class _FakeAgent:
     def sample_actions(self, observations, goals=None, seed=None, temperature=1.0):
         del observations, goals, seed, temperature
+        return np.asarray([0.0], dtype=np.float32)
+
+
+class _ProbeAgent:
+    def __init__(self):
+        self.seed = None
+
+    def sample_actions(self, observations, goals=None, seed=None):
+        del observations, goals
+        self.seed = seed
         return np.asarray([0.0], dtype=np.float32)
 
 
@@ -107,6 +119,28 @@ class ReevaluationTest(unittest.TestCase):
         self.assertEqual(extract_episode_success({'success': True}), 1.0)
         with self.assertRaises(ValueError):
             extract_episode_success({'a_success': 1.0, 'b_success': 0.0})
+
+    def test_restore_probe_uses_deterministic_derived_seed(self):
+        import jax
+
+        agent = _ProbeAgent()
+        _restore_probe(
+            agent,
+            {'observations': np.asarray([[0.0]], dtype=np.float32)},
+            'hiql',
+            training_seed=7,
+        )
+        expected = jax.random.PRNGKey(derive_seed(7, 0xA11CE))
+        np.testing.assert_array_equal(agent.seed, expected)
+
+        second = _ProbeAgent()
+        _restore_probe(
+            second,
+            {'observations': np.asarray([[0.0]], dtype=np.float32)},
+            'hiql',
+            training_seed=7,
+        )
+        np.testing.assert_array_equal(second.seed, agent.seed)
 
     def test_task_and_overall_accounting(self):
         root = Path(tempfile.mkdtemp())
