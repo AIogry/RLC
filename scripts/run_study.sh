@@ -131,17 +131,21 @@ mkdir -p "$RUN_ROOT" || die "cannot create run root: $RUN_ROOT"
 
 GPU_CSV="$(printf '%s' "$GPUS" | tr -d '[:space:]')"
 [[ -n "$GPU_CSV" ]] || die '--gpus must contain at least one GPU ID'
-command -v nvidia-smi >/dev/null 2>&1 || die 'nvidia-smi is required for formal GPU execution'
-VISIBLE_GPUS="$(nvidia-smi --query-gpu=index --format=csv,noheader | awk 'NF { if (seen++) printf ","; printf "%s", $1 }')" \
-    || die 'unable to query visible GPUs with nvidia-smi'
-IFS=',' read -r -a GPU_IDS <<< "$GPU_CSV"
-for gpu in "${GPU_IDS[@]}"; do
-    [[ "$gpu" =~ ^[0-9]+$ ]] || die "invalid physical GPU ID: $gpu"
-    case ",$VISIBLE_GPUS," in
-        *,"$gpu",*) ;;
-        *) die "requested GPU $gpu is not visible; visible GPUs: $VISIBLE_GPUS" ;;
-    esac
-done
+if [[ "$MODE" == --execute ]]; then
+    command -v nvidia-smi >/dev/null 2>&1 || die 'nvidia-smi is required for formal GPU execution'
+    VISIBLE_GPUS="$(nvidia-smi --query-gpu=index --format=csv,noheader | awk 'NF { if (seen++) printf ","; printf "%s", $1 }')" \
+        || die 'unable to query visible GPUs with nvidia-smi'
+    IFS=',' read -r -a GPU_IDS <<< "$GPU_CSV"
+    for gpu in "${GPU_IDS[@]}"; do
+        [[ "$gpu" =~ ^[0-9]+$ ]] || die "invalid physical GPU ID: $gpu"
+        case ",$VISIBLE_GPUS," in
+            *,"$gpu",*) ;;
+            *) die "requested GPU $gpu is not visible; visible GPUs: $VISIBLE_GPUS" ;;
+        esac
+    done
+else
+    echo "GPU preflight: skipped for --dry-run (requested GPUs: $GPU_CSV)"
+fi
 
 export OGBENCH_DATASET_DIR="$DATASET_ROOT"
 export PYTHONPATH="$REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}"
