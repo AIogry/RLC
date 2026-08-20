@@ -675,6 +675,11 @@ def run(args):
                     selected_from_training_evaluation=False,
                 ),
             )
+            write_checkpoint_index(
+                run_dir,
+                best=best_record,
+                last=last_record,
+            )
             last_checkpoint = resolve_checkpoint(run_dir, 'last')
             goal_key = 'high_actor_goals' if 'high_actor_goals' in example_batch else 'actor_goals'
             _validate_checkpoint_file(
