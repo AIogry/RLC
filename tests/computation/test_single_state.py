@@ -10,7 +10,14 @@ from impls.computation.factory import ComputationSpec, make_computation_core
 from impls.computation.primitives.mlp import MLP
 
 
-def _spec(iterations=1, residual=False, state_dim=8, state_init='normal_buffer', state_init_std=1.0):
+def _spec(
+    iterations=1,
+    residual=False,
+    state_dim=8,
+    state_init='normal_buffer',
+    state_init_std=1.0,
+    update_depth=2,
+):
     return ComputationSpec.from_mapping({
         'primitive': 'mlp',
         'topology': 'single_state',
@@ -22,6 +29,7 @@ def _spec(iterations=1, residual=False, state_dim=8, state_init='normal_buffer',
             'state_dim': state_dim,
             'state_init': state_init,
             'state_init_std': state_init_std,
+            'update_depth': update_depth,
         },
     })
 
@@ -35,9 +43,10 @@ def _init_core(
     buffer_seed=1,
     state_init='normal_buffer',
     state_init_std=1.0,
+    update_depth=2,
 ):
     core = make_computation_core(
-        _spec(iterations, residual, state_dim, state_init, state_init_std),
+        _spec(iterations, residual, state_dim, state_init, state_init_std, update_depth),
         hidden_dims=(state_dim, state_dim, state_dim),
     )
     x = jnp.arange(2 * input_dim, dtype=jnp.float32).reshape(2, input_dim) / 10.0
@@ -120,6 +129,26 @@ class SingleStateTopologyTest(unittest.TestCase):
             with self.subTest(iterations=iterations):
                 with self.assertRaises(ValueError):
                     _init_core(iterations=iterations)
+
+    def test_generalized_update_depth_three(self):
+        core, variables, x = _init_core(update_depth=3)
+        update_params = variables['params']['topology']['update_module']
+        self.assertEqual(set(update_params), {'Dense_0', 'Dense_1', 'Dense_2'})
+        output = core.apply(variables, x).representation
+        self.assertEqual(output.shape, (2, 8))
+        self.assertTrue(np.all(np.isfinite(np.asarray(output))))
+
+        def loss(params):
+            return core.apply({'params': params, 'buffers': variables['buffers']}, x).representation.sum()
+
+        gradients = jax.grad(loss)(variables['params'])
+        self.assertTrue(all(np.all(np.isfinite(np.asarray(leaf))) for leaf in jax.tree_util.tree_leaves(gradients)))
+
+    def test_update_depth_validation(self):
+        for update_depth in (0, -1, 1.5, True):
+            with self.subTest(update_depth=update_depth):
+                with self.assertRaises(ValueError):
+                    _init_core(update_depth=update_depth)
 
     def test_zero_buffer_is_zero_non_trainable_deterministic_and_immutable(self):
         core, variables_a, x = _init_core(state_init='zero_buffer', state_init_std=0.0, buffer_seed=5)

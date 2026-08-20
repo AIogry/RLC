@@ -1,6 +1,7 @@
 """Factory for the intentionally small first-stage computation framework."""
 
 from dataclasses import dataclass, field
+from numbers import Integral
 from typing import Mapping, Optional, Sequence
 
 from .credit.direct import DirectCredit
@@ -67,6 +68,11 @@ def make_computation_core(
         spec = ComputationSpec.from_mapping(spec)
     if spec.primitive not in ('mlp', 'original_mlp'):
         raise ValueError(f'Unsupported baseline primitive: {spec.primitive}')
+    hidden_dims = tuple(hidden_dims)
+    if not hidden_dims:
+        raise ValueError('Recurrent computation cores require at least one hidden dimension')
+    if any(isinstance(dim, bool) or not isinstance(dim, Integral) or dim <= 0 for dim in hidden_dims):
+        raise ValueError(f'Computation hidden dims must be positive integers, got {hidden_dims!r}')
     hidden_dims = tuple(int(dim) for dim in hidden_dims)
     if spec.topology == 'feedforward':
         if spec.credit != DirectCredit.name:
@@ -81,16 +87,11 @@ def make_computation_core(
     if spec.topology == 'single_state':
         if spec.credit != DirectCredit.name:
             raise ValueError(f'SingleState requires credit={DirectCredit.name!r}, got {spec.credit!r}')
-        if len(hidden_dims) != 3 or len(set(hidden_dims)) != 1:
-            raise ValueError(
-                'SingleState requires homogeneous three-layer actor hidden dims, '
-                f'got {hidden_dims!r}'
-            )
         kwargs = dict(spec.topology_kwargs)
         state_dim = int(kwargs.get('state_dim', hidden_dims[-1]))
         if state_dim != hidden_dims[-1]:
             raise ValueError(
-                f'SingleState state_dim={state_dim} must match actor hidden width '
+                f'SingleState state_dim={state_dim} must match the final branch width '
                 f'{hidden_dims[-1]}'
             )
         kwargs.setdefault('iterations', 1)
@@ -99,6 +100,11 @@ def make_computation_core(
         kwargs.setdefault('state_dim', state_dim)
         kwargs.setdefault('state_init', 'normal_buffer')
         kwargs.setdefault('state_init_std', 1.0)
+        # Legacy actor configurations omit this field and therefore retain
+        # the historical two-Dense update module.  Critic configurations can
+        # explicitly request a deeper recurrent update while keeping the
+        # caller's branch depth (for example, (512, 512, 512, 512)) intact.
+        kwargs.setdefault('update_depth', 2)
         # M9's actor adapter/update use the existing MLP semantics and do not
         # add normalization or a new primitive recipe.
         kwargs['layer_norm'] = False
@@ -110,16 +116,11 @@ def make_computation_core(
                 'TwoState requires credit in '
                 f'{(FullBPTTCredit.name, OneStepCredit.name)!r}, got {spec.credit!r}'
             )
-        if len(hidden_dims) != 3 or len(set(hidden_dims)) != 1:
-            raise ValueError(
-                'TwoState requires homogeneous three-layer actor hidden dims, '
-                f'got {hidden_dims!r}'
-            )
         kwargs = dict(spec.topology_kwargs)
         state_dim = int(kwargs.get('state_dim', hidden_dims[-1]))
         if state_dim != hidden_dims[-1]:
             raise ValueError(
-                f'TwoState state_dim={state_dim} must match actor hidden width '
+                f'TwoState state_dim={state_dim} must match the final branch width '
                 f'{hidden_dims[-1]}'
             )
         kwargs.setdefault('h_cycles', 2)
@@ -128,6 +129,7 @@ def make_computation_core(
         kwargs.setdefault('input_injection', 'l_receives_x')
         kwargs.setdefault('state_init', 'normal_buffer')
         kwargs.setdefault('state_init_std', 1.0)
+        kwargs.setdefault('update_depth', 2)
         kwargs['credit'] = spec.credit
         # M9B deliberately keeps the existing GELU MLP semantics without
         # introducing normalization as a hidden scientific factor.

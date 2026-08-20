@@ -13,6 +13,7 @@ from flax.traverse_util import flatten_dict
 
 from .agents import agent_configs, agents
 from .computation.accounting import (
+    computation_slot_accounting,
     count_non_trainable,
     count_parameters,
     hiql_policy_accounting,
@@ -158,7 +159,9 @@ def _computation_runtime_extras(config):
                 'credit': slot.get('credit', 'direct'),
                 'state_dim': int(kwargs.get('state_dim', config['actor_hidden_dims'][-1])),
                 'iterations': int(kwargs.get('iterations', 1)),
+                'update_depth': int(kwargs.get('update_depth', 2)),
                 'residual': bool(kwargs.get('residual', False)),
+                'input_injection': kwargs.get('input_injection', 'z_plus_x'),
                 'state_init': kwargs.get('state_init', 'normal_buffer'),
                 'state_init_std': float(kwargs.get('state_init_std', 1.0)),
             }
@@ -172,6 +175,7 @@ def _computation_runtime_extras(config):
                 'state_dim': int(kwargs.get('state_dim', config['actor_hidden_dims'][-1])),
                 'h_cycles': h_cycles,
                 'l_cycles': l_cycles,
+                'update_depth': int(kwargs.get('update_depth', 2)),
                 'h_update_executions': h_cycles,
                 'l_update_executions': h_cycles * l_cycles,
                 'total_update_executions': h_cycles * (l_cycles + 1),
@@ -290,6 +294,70 @@ def _actor_parameter_accounting(agent, config):
             for key, value in policy_audit.items()
             if key != 'slots'
         }
+    return report
+
+
+def _computation_slot_accounting(agent, config):
+    """Account every enabled actor/critic/value computation slot.
+
+    ``actor_parameter_accounting`` is retained for backwards compatibility;
+    this generic report adds the same auditable schema for CRL bilinear
+    branches without changing the legacy actor metadata shape.
+    """
+
+    params = agent.network.params
+    model_state = agent.network.model_state or {}
+    buffers = model_state.get('buffers', {}) if hasattr(model_state, 'get') else {}
+    compute = config.get('compute', {})
+    slot_paths = {
+        'actor': (('modules_actor',), ('actor_net', 'topology')),
+        'critic_state': (('modules_critic', 'phi'), ('core', 'topology')),
+        'critic_goal': (('modules_critic', 'psi'), ('core', 'topology')),
+        'value_state': (('modules_value', 'phi'), ('core', 'topology')),
+        'value_goal': (('modules_value', 'psi'), ('core', 'topology')),
+    }
+
+    def path_get(tree, path):
+        for key in path:
+            if not hasattr(tree, 'get') or key not in tree:
+                raise KeyError(f'Missing parameter path component {key!r} in {path!r}')
+            tree = tree[key]
+        return tree
+
+    report = {}
+    for slot_name, spec in compute.items():
+        if not spec.get('enabled', False):
+            continue
+        if slot_name not in slot_paths:
+            raise ValueError(f'Unsupported computation slot for accounting: {slot_name!r}')
+        module_path, core_path = slot_paths[slot_name]
+        topology = spec.get('topology')
+        kwargs = dict(spec.get('topology_kwargs', {}))
+        hidden_dim = int(
+            config['value_hidden_dims'][-1]
+            if slot_name.startswith(('critic_', 'value_'))
+            else config['actor_hidden_dims'][-1]
+        )
+        if topology in ('single_state', 'two_state'):
+            kwargs.setdefault('state_dim', hidden_dim)
+            kwargs.setdefault('update_depth', 2)
+            if topology == 'single_state':
+                kwargs.setdefault('iterations', 1)
+            else:
+                kwargs.setdefault('h_cycles', 2)
+                kwargs.setdefault('l_cycles', 1)
+        module = path_get(params, module_path)
+        buffer_module = path_get(buffers, module_path) if buffers else {}
+        report[slot_name] = computation_slot_accounting(
+            module,
+            buffer_module,
+            slot_name=slot_name,
+            topology=topology,
+            primitive=spec.get('primitive', 'mlp'),
+            credit=spec.get('credit', 'direct'),
+            topology_kwargs=kwargs,
+            core_path=core_path,
+        )
     return report
 
 
@@ -548,7 +616,12 @@ def run(args):
         agent = agent_class.create(args.seed, example_batch['observations'], example_batch['actions'], config)
         accounting = _actor_parameter_accounting(agent, config)
         run_context.metadata['actor_parameter_accounting'] = accounting
-        update_runtime_metadata(run_dir, {'actor_parameter_accounting': accounting})
+        slot_accounting = _computation_slot_accounting(agent, config)
+        run_context.metadata['computation_slot_accounting'] = slot_accounting
+        update_runtime_metadata(run_dir, {
+            'actor_parameter_accounting': accounting,
+            'computation_slot_accounting': slot_accounting,
+        })
         if args.restore_path is not None:
             if args.restore_epoch is None:
                 raise ValueError('--restore_epoch is required with --restore_path')

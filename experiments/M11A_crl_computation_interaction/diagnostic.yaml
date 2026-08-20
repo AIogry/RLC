@@ -1,0 +1,21 @@
+diagnostic_id: M11A-D001
+source_study_id: M11A
+source_run_root: /data/qijunrong/06-RL/offline-rl/exp/RLC/runs
+environment: antmaze-large-navigate-v0
+config_ids: [M11A-C001, M11A-C002, M11A-C003, M11A-C004, M11A-C005, M11A-C006, M11A-C007]
+baseline_config_id: M11A-C001
+checkpoint: {selector: last}
+protocol:
+  task_selection: all
+  episodes_per_task: 20
+  evaluation_seed: 20260820
+  seed_scheme: common_task_episode_v1
+  eval_temperature: 0.0
+  eval_gaussian: null
+  video_episodes: 0
+anchor_stride: 25
+goal_offset_stride: 25
+max_goal_offset: 200
+epsilon: 1.0e-6
+bootstrap_replicates: 1000
+bootstrap_seed: 20260821

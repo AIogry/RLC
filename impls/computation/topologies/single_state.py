@@ -24,6 +24,7 @@ class SingleState(nn.Module):
     input_injection: str = 'z_plus_x'
     state_init: str = 'normal_buffer'
     state_init_std: float = 1.0
+    update_depth: int = 2
     layer_norm: bool = False
 
     def setup(self):
@@ -33,6 +34,14 @@ class SingleState(nn.Module):
             raise ValueError(f'SingleState iterations must be an integer, got {self.iterations!r}')
         if self.iterations <= 0:
             raise ValueError(f'SingleState iterations must be positive, got {self.iterations}')
+        if isinstance(self.update_depth, bool) or not isinstance(self.update_depth, Integral):
+            raise ValueError(
+                f'SingleState update_depth must be an integer, got {self.update_depth!r}'
+            )
+        if self.update_depth <= 0:
+            raise ValueError(
+                f'SingleState update_depth must be positive, got {self.update_depth}'
+            )
         if self.input_injection != 'z_plus_x':
             raise ValueError(f'Unsupported SingleState input injection: {self.input_injection!r}')
         if self.state_init not in ('normal_buffer', 'zero_buffer'):
@@ -41,14 +50,15 @@ class SingleState(nn.Module):
             raise ValueError(f'state_init_std must be positive, got {self.state_init_std}')
 
         # D_in -> state_dim.  The update module is one physical module reused
-        # for every cycle:  state_dim -> state_dim -> state_dim.
+        # for every cycle.  ``update_depth`` controls only this module's depth;
+        # it does not change the recurrent equation or the input mapping.
         self.input_mapping = MLP(
             hidden_dims=(self.state_dim,),
             activate_final=True,
             layer_norm=self.layer_norm,
         )
         self.update_module = MLP(
-            hidden_dims=(self.state_dim, self.state_dim),
+            hidden_dims=(self.state_dim,) * int(self.update_depth),
             activate_final=True,
             layer_norm=self.layer_norm,
         )

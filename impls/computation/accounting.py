@@ -146,6 +146,97 @@ def actor_slot_accounting(actor_params, buffer_params=None, *, topology=None, it
     }
 
 
+def _path_get(tree, path):
+    for key in path:
+        if not hasattr(tree, 'get') or key not in tree:
+            return {}
+        tree = tree[key]
+    return tree
+
+
+def computation_slot_accounting(
+    slot_params,
+    buffer_params=None,
+    *,
+    slot_name,
+    topology=None,
+    primitive=None,
+    credit=None,
+    topology_kwargs=None,
+    core_path=(),
+):
+    """Return generic accounting for any enabled computation slot.
+
+    ``core_path`` points from the slot module root to the topology-owned
+    parameter subtree.  Actor modules use ``('actor_net', 'topology')``;
+    CRL bilinear branches use ``('core', 'topology')``.  Keeping this path
+    explicit avoids making the accounting helper infer algorithm semantics
+    from parameter names while allowing actor and critic slots to share one
+    audit schema.
+    """
+
+    topology_kwargs = topology_kwargs if hasattr(topology_kwargs, 'get') else {}
+    slot_params = slot_params if hasattr(slot_params, 'items') else {}
+    buffer_params = buffer_params if hasattr(buffer_params, 'items') else {}
+    core = _path_get(slot_params, core_path) if core_path else slot_params
+    buffer_core = _path_get(buffer_params, core_path) if core_path else buffer_params
+    is_recurrent = topology in ('single_state', 'two_state')
+
+    state_dim = None
+    update_depth = None
+    iterations = None
+    residual = None
+    h_cycles = None
+    l_cycles = None
+    total_update_executions = 0
+    state_init = None
+    state_init_std = None
+    if is_recurrent:
+        state_dim = int(topology_kwargs.get('state_dim'))
+        update_depth = int(topology_kwargs.get('update_depth', 2))
+        state_init = topology_kwargs.get('state_init', 'normal_buffer')
+        state_init_std = float(topology_kwargs.get('state_init_std', 1.0))
+        if topology == 'single_state':
+            iterations = int(topology_kwargs.get('iterations', 1))
+            residual = bool(topology_kwargs.get('residual', False))
+            total_update_executions = iterations
+        else:
+            h_cycles = int(topology_kwargs.get('h_cycles', 2))
+            l_cycles = int(topology_kwargs.get('l_cycles', 1))
+            residual = False
+            total_update_executions = h_cycles * (l_cycles + 1)
+
+    input_mapping = _mapping_get(core, 'input_mapping', {})
+    update_module = _mapping_get(core, 'update_module', {})
+    h_update = _mapping_get(core, 'h_update', {})
+    l_update = _mapping_get(core, 'l_update', {})
+    return {
+        'slot_name': str(slot_name),
+        'topology': topology,
+        'primitive': primitive,
+        'credit': credit,
+        'state_dim': state_dim,
+        'update_depth': update_depth,
+        'iterations': iterations,
+        'residual': residual,
+        'h_cycles': h_cycles,
+        'l_cycles': l_cycles,
+        'total_update_executions': total_update_executions,
+        'h_update_executions': h_cycles if h_cycles is not None else 0,
+        'l_update_executions': h_cycles * l_cycles if h_cycles is not None else 0,
+        'state_init': state_init,
+        'state_init_std': state_init_std,
+        'trainable_params': count_parameters(slot_params),
+        'core_trainable_params': count_parameters(core),
+        'buffer_elements': count_non_trainable(buffer_params),
+        'core_buffer_elements': count_non_trainable(buffer_core),
+        'input_mapping_params': count_parameters(input_mapping),
+        'update_module_params': count_parameters(update_module),
+        'h_update_params': count_parameters(h_update),
+        'l_update_params': count_parameters(l_update),
+    }
+
+
 def hiql_policy_accounting(params, buffers=None, slot_specs=None):
     """Audit the independent HIQL high/low actor paths.
 

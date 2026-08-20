@@ -1,0 +1,76 @@
+study_id: M11A
+name: CRL actor-critic computation interaction
+question: >-
+  Does actor-side computation and critic-side computation in CRL show
+  descriptive substitution, complementarity, or approximately additive
+  interaction, and does that interaction replicate across SingleState and
+  TwoState topologies?
+primary_factors:
+  - topology
+  - actor_computation
+  - critic_computation
+fixed_design:
+  algorithm: crl
+  actor_loss: ddpgbc
+  critic_objective: contrastive_bilinear
+  critic_ensemble: 2
+  state_scope: decision_local
+  crosses_environment_step: false
+  state_learned: false
+  primitive: mlp
+  activation: gelu
+  normalization: none_in_recurrent_core
+  state_init: normal_buffer
+  state_init_std: 1.0
+  width: 512
+  actor_update_depth: 2
+  critic_update_depth: 3
+  single_state_iterations: 4
+  single_state_residual: false
+  two_state_schedule: H2L1
+  two_state_credit: full_bptt
+  critic_branches: [critic_state, critic_goal]
+  critic_branch_parameter_sharing: false
+  value_state: disabled
+  value_goal: disabled
+deferred_factors:
+  - antmaze-medium-navigate-v0
+  - antmaze-giant-navigate-v0
+  - antmaze-stitch-navigate-v0
+  - H2L6
+  - more_single_state_iterations
+  - residual_variants
+  - additional_credit_rules
+  - other_primitives
+  - adaptive_computation
+  - cross_environment_step_memory
+algorithms:
+  - crl
+placements:
+  - actor_computation
+  - critic_computation
+  - actor+critic_computation
+environments:
+  - antmaze-large-navigate-v0
+seeds:
+  - 0
+primary_metric: evaluation/overall_success
+protocol:
+  train_steps: 1000000
+  batch_size: 1024
+  learning_rate: 0.0003
+  log_interval: 5000
+  eval_interval: 100000
+  eval_tasks: all
+  eval_task_count: 5
+  eval_episodes: 20
+  eval_temperature: 0.0
+  eval_gaussian: null
+  video_episodes: 0
+  save_interval: 100000
+  save_best_checkpoint: true
+  save_last_checkpoint: true
+  selection_metric: evaluation/overall_success
+  primary_checkpoint: last@1M
+  secondary_checkpoint: best
+  selection_rule: strict_greater_than_keep_earlier_tie

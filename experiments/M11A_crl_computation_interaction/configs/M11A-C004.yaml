@@ -1,0 +1,16 @@
+study_id: M11A
+config_id: M11A-C004
+slug: crl_single_state_actor_single_state_critic
+algorithm: crl
+placement: actor+critic_computation
+executable: true
+description: CRL SingleState actor and SingleState critic branches.
+factors: {topology: single_state, actor_computation: single_state, critic_computation: single_state}
+agent_overrides:
+  actor_loss: ddpgbc
+  compute:
+    actor: {enabled: true, primitive: mlp, topology: single_state, credit: direct, topology_kwargs: {iterations: 4, residual: false, input_injection: z_plus_x, state_dim: 512, state_init: normal_buffer, state_init_std: 1.0, update_depth: 2}}
+    critic_state: {enabled: true, primitive: mlp, topology: single_state, credit: direct, topology_kwargs: {iterations: 4, residual: false, input_injection: z_plus_x, state_dim: 512, state_init: normal_buffer, state_init_std: 1.0, update_depth: 3}}
+    critic_goal: {enabled: true, primitive: mlp, topology: single_state, credit: direct, topology_kwargs: {iterations: 4, residual: false, input_injection: z_plus_x, state_dim: 512, state_init: normal_buffer, state_init_std: 1.0, update_depth: 3}}
+    value_state: {enabled: false, primitive: mlp, topology: feedforward, credit: direct}
+    value_goal: {enabled: false, primitive: mlp, topology: feedforward, credit: direct}

@@ -1,0 +1,16 @@
+study_id: M11A
+config_id: M11A-C001
+slug: crl_ff_actor_ff_critic
+algorithm: crl
+placement: none
+executable: true
+description: CRL feed-forward actor and feed-forward critic factorial anchor.
+factors: {topology: feedforward, actor_computation: feedforward, critic_computation: feedforward}
+agent_overrides:
+  actor_loss: ddpgbc
+  compute:
+    actor: {enabled: false, primitive: mlp, topology: feedforward, credit: direct}
+    critic_state: {enabled: false, primitive: mlp, topology: feedforward, credit: direct}
+    critic_goal: {enabled: false, primitive: mlp, topology: feedforward, credit: direct}
+    value_state: {enabled: false, primitive: mlp, topology: feedforward, credit: direct}
+    value_goal: {enabled: false, primitive: mlp, topology: feedforward, credit: direct}

@@ -12,10 +12,15 @@ from ..computation.primitives.mlp import MLP, default_init
 
 
 def ensemblize(cls, num_qs, out_axes=0, in_axes=None, **kwargs):
+    # Computationized CRL branches may own non-trainable recurrent state
+    # buffers.  Map and split the buffer collection exactly like parameters so
+    # ensemble members remain independent modules rather than sharing one
+    # hidden initialization buffer.  Legacy MLP branches do not create this
+    # collection, so their parameter structure is unchanged.
     return nn.vmap(
         cls,
-        variable_axes={'params': 0},
-        split_rngs={'params': True},
+        variable_axes={'params': 0, 'buffers': 0},
+        split_rngs={'params': True, 'buffers': True},
         in_axes=in_axes,
         out_axes=out_axes,
         axis_size=num_qs,

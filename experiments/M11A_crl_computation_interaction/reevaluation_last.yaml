@@ -1,0 +1,17 @@
+reevaluation_id: M11A-R001-last-100ep
+source_study_id: M11A
+source_run_root: /data/qijunrong/06-RL/offline-rl/exp/RLC/runs
+environments:
+  - antmaze-large-navigate-v0
+training_seeds: [0]
+configs: all
+expected_task_count: 5
+checkpoint: {selector: last}
+protocol:
+  task_selection: all
+  episodes_per_task: 100
+  evaluation_seed: 20260820
+  seed_scheme: common_task_episode_v1
+  eval_temperature: 0.0
+  eval_gaussian: null
+  video_episodes: 0

@@ -3,6 +3,7 @@
 import jax
 import jax.numpy as jnp
 import flax.linen as nn
+from numbers import Integral
 
 from ..credit.full_bptt import FullBPTTCredit
 from ..credit.one_step import OneStepCredit
@@ -41,6 +42,7 @@ class TwoState(nn.Module):
     input_injection: str = 'l_receives_x'
     state_init: str = 'normal_buffer'
     state_init_std: float = 1.0
+    update_depth: int = 2
     layer_norm: bool = False
 
     def setup(self):
@@ -50,6 +52,14 @@ class TwoState(nn.Module):
             raise ValueError(
                 'M9B TwoState schedules must be (h_cycles, l_cycles) in '
                 f'((2, 1), (2, 6)), got {(self.h_cycles, self.l_cycles)!r}'
+            )
+        if isinstance(self.update_depth, bool) or not isinstance(self.update_depth, Integral):
+            raise ValueError(
+                f'TwoState update_depth must be an integer, got {self.update_depth!r}'
+            )
+        if self.update_depth <= 0:
+            raise ValueError(
+                f'TwoState update_depth must be positive, got {self.update_depth}'
             )
         if self.credit not in _CREDIT_POLICIES:
             raise ValueError(f'Unsupported TwoState credit policy: {self.credit!r}')
@@ -66,12 +76,12 @@ class TwoState(nn.Module):
             layer_norm=self.layer_norm,
         )
         self.h_update = MLP(
-            hidden_dims=(self.state_dim, self.state_dim),
+            hidden_dims=(self.state_dim,) * int(self.update_depth),
             activate_final=True,
             layer_norm=self.layer_norm,
         )
         self.l_update = MLP(
-            hidden_dims=(self.state_dim, self.state_dim),
+            hidden_dims=(self.state_dim,) * int(self.update_depth),
             activate_final=True,
             layer_norm=self.layer_norm,
         )

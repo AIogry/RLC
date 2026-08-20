@@ -14,7 +14,7 @@ STATE_DIM = 8
 INPUT_DIM = 5
 
 
-def _spec(h_cycles=2, l_cycles=1, credit='full_bptt'):
+def _spec(h_cycles=2, l_cycles=1, credit='full_bptt', update_depth=2):
     return ComputationSpec.from_mapping({
         'primitive': 'mlp',
         'topology': 'two_state',
@@ -26,13 +26,14 @@ def _spec(h_cycles=2, l_cycles=1, credit='full_bptt'):
             'state_dim': STATE_DIM,
             'state_init': 'normal_buffer',
             'state_init_std': 1.0,
+            'update_depth': update_depth,
         },
     })
 
 
-def _init_core(h_cycles=2, l_cycles=1, credit='full_bptt', seed=0, buffer_seed=1):
+def _init_core(h_cycles=2, l_cycles=1, credit='full_bptt', seed=0, buffer_seed=1, update_depth=2):
     core = make_computation_core(
-        _spec(h_cycles, l_cycles, credit),
+        _spec(h_cycles, l_cycles, credit, update_depth),
         hidden_dims=(STATE_DIM, STATE_DIM, STATE_DIM),
     )
     x = jnp.arange(2 * INPUT_DIM, dtype=jnp.float32).reshape(2, INPUT_DIM) / 10.0
@@ -155,6 +156,28 @@ class TwoStateTopologyTest(unittest.TestCase):
                 )
         self.assertEqual(parameter_counts[(2, 1, 'full_bptt')], parameter_counts[(2, 6, 'full_bptt')])
         self.assertEqual(parameter_counts[(2, 1, 'full_bptt')], parameter_counts[(2, 1, 'one_step')])
+
+    def test_generalized_update_depth_three(self):
+        core, variables, x = _init_core(update_depth=3)
+        topology = variables['params']['topology']
+        self.assertEqual(set(topology['h_update']), {'Dense_0', 'Dense_1', 'Dense_2'})
+        self.assertEqual(set(topology['l_update']), {'Dense_0', 'Dense_1', 'Dense_2'})
+        self.assertGreater(_max_tree_difference(topology['h_update'], topology['l_update']), 0.0)
+        output = core.apply(variables, x).representation
+        self.assertEqual(output.shape, (2, STATE_DIM))
+        self.assertTrue(np.all(np.isfinite(np.asarray(output))))
+
+        def loss(params):
+            return core.apply({'params': params, 'buffers': variables['buffers']}, x).representation.sum()
+
+        gradients = jax.grad(loss)(variables['params'])
+        self.assertTrue(all(np.all(np.isfinite(np.asarray(leaf))) for leaf in jax.tree_util.tree_leaves(gradients)))
+
+    def test_update_depth_validation(self):
+        for update_depth in (0, -1, 1.5, True):
+            with self.subTest(update_depth=update_depth):
+                with self.assertRaises(ValueError):
+                    _init_core(update_depth=update_depth)
 
     def test_full_bptt_gradients_match_manual_reference(self):
         for h_cycles, l_cycles in ((2, 1), (2, 6)):

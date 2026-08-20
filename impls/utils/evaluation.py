@@ -139,7 +139,9 @@ def _rollout_episode(
     if task_id is not None:
         reset_options['task_id'] = task_id
     observation, info = env.reset(seed=int(episode_seed), options=reset_options)
+    initial_observation = np.asarray(observation)
     goal = info.get('goal')
+    original_eval_goal = None if goal is None else np.asarray(goal)
     goal_frame = info.get('goal_rendered')
     done = False
     step = 0
@@ -193,6 +195,8 @@ def _rollout_episode(
     return {
         'final_info': final_info,
         'trajectory': trajectory,
+        'initial_observation': initial_observation,
+        'original_eval_goal': original_eval_goal,
         'render': render_frames,
         'episode_return': float(episode_return),
         'episode_length': int(step),
