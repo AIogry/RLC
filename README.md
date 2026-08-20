@@ -2,6 +2,20 @@
 
 RLC is a research platform for comparing computation modules and computation organizations in goal-conditioned reinforcement learning.
 
+## Research handoff
+
+The current handoff contract, research questions, design invariants, experiment
+registry, and external-data ledger are maintained in
+[`handoff/HANDOFF.md`](handoff/HANDOFF.md). Before taking ownership, run the
+read-only handoff check:
+
+```bash
+PYTHONPATH=. python3 tools/handoff_doctor.py
+```
+
+The handoff package separates implementation status, scientific evidence,
+open hypotheses, immutable source data, and rebuildable analysis outputs.
+
 The project keeps the following boundary explicit:
 
 ```text
@@ -61,41 +75,46 @@ share parameters with the critic branches. Full AWR strict N=20 parity,
 the `38/38` CPU regression, and paired GPU 1000-step AWR smokes pass.
 
 See the full record in
-[`docs/milestone_2026-08-12_hiql.md`](docs/milestone_2026-08-12_hiql.md).
+[`docs/8-12/milestone_2026-08-12_hiql.md`](docs/8-12/milestone_2026-08-12_hiql.md).
 
 The 2026-08-13 CRL and Vanilla CoGHP milestone is recorded in
-[`docs/milestone_2026-08-13_coghp.md`](docs/milestone_2026-08-13_coghp.md).
+[`docs/8-13/milestone_2026-08-13_coghp.md`](docs/8-13/milestone_2026-08-13_coghp.md).
 
 The M8 computation foundation is documented in
-[`docs/m8_computation_foundation.md`](docs/m8_computation_foundation.md) and
-[`docs/computation_ontology.md`](docs/computation_ontology.md).
+[`docs/8-15/m8_computation_foundation.md`](docs/8-15/m8_computation_foundation.md) and
+[`docs/8-15/computation_ontology.md`](docs/8-15/computation_ontology.md).
 
 The file-based Study → Configuration → Run layer is documented in
-[`docs/experiment_management.md`](docs/experiment_management.md), with the
+[`docs/8-15/experiment_management.md`](docs/8-15/experiment_management.md), with the
 planned M9A example under `experiments/M9A_single_state_iteration/`.
 
 The 2026-08-15 milestone is recorded in
-[`docs/milestone_2026-08-15.md`](docs/milestone_2026-08-15.md).
+[`docs/8-15/milestone_2026-08-15.md`](docs/8-15/milestone_2026-08-15.md).
 
 The M9A single-state iterative actor implementation, audit, 26-configuration
 matrix, parameter accounting, and short validation record are documented in
-[`docs/m9_single_state_iterative.md`](docs/m9_single_state_iterative.md).
+[`docs/8-16/m9_single_state_iterative.md`](docs/8-16/m9_single_state_iterative.md).
 
 The M9B two-state hierarchical computation implementation, executable credit
 axis, 16-configuration Study, and validation record are documented in
-[`docs/m9b_two_state.md`](docs/m9b_two_state.md).
+[`docs/8-16/m9b_two_state.md`](docs/8-16/m9b_two_state.md).
 
 The M10A fixed-budget HIQL computation-placement study, 11-configuration matrix,
 zero-buffer SingleState semantics, and Dense-MAC/parameter audit are documented in
-[`docs/m10a_fixed_budget_placement.md`](docs/m10a_fixed_budget_placement.md).
+[`docs/8-18/m10a_fixed_budget_placement.md`](docs/8-18/m10a_fixed_budget_placement.md).
+
+The M10A-R001 checkpoint reevaluation and reusable M10A-A001 analysis pipeline
+are documented in [`docs/8-19/m10a_checkpoint_reevaluation.md`](docs/8-19/m10a_checkpoint_reevaluation.md),
+[`docs/8-19/analysis_pipeline.md`](docs/8-19/analysis_pipeline.md), and
+[`handoff/experiment_registry.yaml`](handoff/experiment_registry.yaml).
 
 The formal frozen-worktree execution procedure, generic GPU launcher,
 provenance fingerprint, lifecycle/retry policy, protocol audit, and M9A/M9B
 freeze checklist are documented in
-[`docs/experiment_execution.md`](docs/experiment_execution.md).
+[`docs/8-16/experiment_execution.md`](docs/8-16/experiment_execution.md).
 
 The 2026-08-16 M9 milestone is recorded in
-[`docs/milestone_2026-08-16.md`](docs/milestone_2026-08-16.md).
+[`docs/8-16/milestone_2026-08-16.md`](docs/8-16/milestone_2026-08-16.md).
 
 Formal Studies are launched only from a clean detached worktree with the
 explicit common protocol, for example:
@@ -115,14 +134,14 @@ scientific results.
 
 See:
 
-- `docs/milestone_2026-08-12_hiql.md`
-- `docs/crl_migration.md`
-- `docs/crl_critic_migration.md`
-- `docs/crl_awr_value_migration.md`
-- `docs/runtime_migration_audit.md`
-- `docs/hiql_runtime_integration.md`
-- `docs/architecture_decisions.md`
-- `docs/computation_migration_plan.md`
+- `docs/8-12/milestone_2026-08-12_hiql.md`
+- `docs/8-15/crl_migration.md`
+- `docs/8-15/crl_critic_migration.md`
+- `docs/8-15/crl_awr_value_migration.md`
+- `docs/8-16/runtime_migration_audit.md`
+- `docs/8-13/hiql_runtime_integration.md`
+- `docs/8-15/architecture_decisions.md`
+- `docs/8-15/computation_migration_plan.md`
 
 ## Quick validation
 
@@ -166,9 +185,9 @@ python -m impls.main --agent=crl --env_name=antmaze-medium-navigate-v0 \
 ```
 
 CRL migration and actor/critic computationization results are documented in
-[`docs/crl_migration.md`](docs/crl_migration.md) and
-[`docs/crl_critic_migration.md`](docs/crl_critic_migration.md). M6 AWR value
-results are in [`docs/crl_awr_value_migration.md`](docs/crl_awr_value_migration.md).
+[`docs/8-15/crl_migration.md`](docs/8-15/crl_migration.md) and
+[`docs/8-15/crl_critic_migration.md`](docs/8-15/crl_critic_migration.md). M6 AWR value
+results are in [`docs/8-15/crl_awr_value_migration.md`](docs/8-15/crl_awr_value_migration.md).
 
 ## Vanilla CoGHP
 
@@ -187,6 +206,6 @@ python -m impls.main --agent=coghp --env_name=antmaze-medium-navigate-v0 \
 
 Vanilla CoGHP intentionally does not use `--computation`; M7 leaves
 `impls/computation/` unchanged. See
-[`docs/coghp_official_migration_audit.md`](docs/coghp_official_migration_audit.md)
-and [`docs/coghp_vanilla_migration.md`](docs/coghp_vanilla_migration.md) for
+[`docs/8-13/coghp_official_migration_audit.md`](docs/8-13/coghp_official_migration_audit.md)
+and [`docs/8-13/coghp_vanilla_migration.md`](docs/8-13/coghp_vanilla_migration.md) for
 the source audit, sharing/parameter accounting, and official/RLC parity.

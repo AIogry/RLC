@@ -1,0 +1,36 @@
+version: 1
+generated_for_repository: RLC
+studies:
+  - study_id: M9A
+    name: SingleState iterative computation
+    status: completed
+    study_spec: experiments/M9A_single_state_iteration/study.yaml
+    config_root: experiments/M9A_single_state_iteration/configs
+    result_artifact: experiments/M9A_single_state_iteration/aggregated.csv
+    documentation: docs/8-16/m9_single_state_iterative.md
+    scientific_status: descriptive study completed; inspect training dynamics before strong claims
+  - study_id: M9B
+    name: TwoState hierarchical computation
+    status: completed_with_open_training_duration_question
+    study_spec: experiments/M9B_two_state/study.yaml
+    config_root: experiments/M9B_two_state/configs
+    result_artifact: experiments/M9B_two_state/aggregated.csv
+    documentation: docs/8-16/m9b_two_state.md
+    scientific_status: current effect is inconclusive; 500k training sufficiency is an active confound
+  - study_id: M10A
+    name: Fixed-budget computation placement in HIQL
+    status: completed_training_and_formal_reevaluation
+    study_spec: experiments/M10A_fixed_budget_placement/study.yaml
+    config_root: experiments/M10A_fixed_budget_placement/configs
+    reevaluation_spec: experiments/M10A_fixed_budget_placement/reevaluations/M10A-R001.yaml
+    analysis_spec: experiments/M10A_fixed_budget_placement/analyses/M10A-A001.yaml
+    source_reevaluation: /data/qijunrong/06-RL/offline-rl/exp/RLC/reevaluations/M10A/M10A-R001
+    analysis_output: /data/qijunrong/06-RL/offline-rl/exp/RLC/analyses/M10A/M10A-A001
+    documentation: docs/8-19/m10a_experiment_results_report_2026-08-19.md
+    analysis_documentation: docs/8-19/analysis_pipeline.md
+    training_steps: 500000
+    training_seeds: [0, 1, 2]
+    primary_metric: evaluation/overall_success
+    reference_config: M10A-C002
+    external_baseline: M10A-C001
+    scientific_status: descriptive allocation response; no strong significance claim from n=3

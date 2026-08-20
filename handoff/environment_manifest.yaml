@@ -1,0 +1,66 @@
+version: 1
+status: partial_until_generated_on_target_machine
+python:
+  requires: '>=3.10'
+  project_definition: pyproject.toml
+
+observed_local_profiles:
+  audited_at: '2026-08-20 Asia/Shanghai'
+  analysis_python:
+    executable: /usr/bin/python3
+    version: 3.10.12
+    observed_packages:
+      pyyaml: 5.4.1
+      matplotlib: 3.5.1
+      pytest: 6.2.5
+    note: Used for repository analysis tests and plotting checks on the handoff workstation.
+  runtime_python:
+    executable: /home/eai/Tools/miniforge3/envs/brain_nav/bin/python
+    version: 3.11.15
+    observed_packages:
+      jax: 0.10.2
+      flax: 0.12.7
+      optax: 0.2.8
+      mujoco: 3.10.0
+      pyyaml: 6.0.3
+      matplotlib: 3.11.0
+    jax_backend: cpu
+    jax_devices: [CpuDevice(id=0)]
+    note: Pytest was not available in this environment; CUDA plugin initialization emitted a no-device warning and JAX fell back to CPU.
+
+storage_audit_snapshot:
+  audited_at: '2026-08-20 Asia/Shanghai'
+  data_path: /data
+  source_device: /dev/nvme0n1p2
+  mount_relationship: The audited /data path is on the same filesystem as /.
+  available_snapshot: 3.4T
+  usage_snapshot: 181G used of 3.7T; 6%
+  note: Capacity is an audit-time observation, not a reservation or guarantee.
+runtime_dependencies:
+  - jax>=0.4.26
+  - flax>=0.8.4
+  - optax
+  - distrax>=0.1.5
+  - ml-collections
+  - pyyaml>=6.0
+  - matplotlib
+development_dependencies:
+  - pytest
+required_runtime_facts:
+  - Python version and executable path
+  - JAX version, backend, and visible devices
+  - Flax/Optax versions
+  - MuJoCo and OGBench import paths
+  - OGBench dataset root and filesystem mount
+  - GPU driver/CUDA versions for GPU studies
+  - locale/timezone and evaluation seed handling
+capture_commands:
+  python: python3 -VV
+  packages: python3 -m pip freeze
+  jax: >-
+    python3 -c "import jax; print(jax.__version__, jax.default_backend(), jax.devices())"
+  conda_history: conda env export --from-history
+policy:
+  do_not_install_or_upgrade_packages_during_formal_reproduction_without_recording_change: true
+  cpu_analysis_must_record_JAX_PLATFORMS: true
+  GPU_analysis_must_record_visible_devices_and_backend: true

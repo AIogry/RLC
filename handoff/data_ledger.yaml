@@ -1,0 +1,43 @@
+version: 1
+policy:
+  source_data_is_immutable: true
+  derived_analysis_is_rebuildable: true
+  do_not_edit_scientific_csv_values: true
+  fingerprints_must_be_recorded: true
+assets:
+  - asset_id: ogbench_dataset
+    role: training_and_evaluation_dataset
+    path: /data/qijunrong/06-RL/offline-rl/data/raw_ogbench
+    status: external_to_git
+    verification: verify mount, readable files, and dataset manifest before use
+  - asset_id: rlc_training_runs
+    role: source checkpoints and training logs
+    path: /data/qijunrong/06-RL/offline-rl/exp/RLC/runs
+    status: external_to_git
+    verification: checkpoint hashes and run metadata must match study manifest
+  - asset_id: m10a_r001
+    role: immutable checkpoint reevaluation source
+    study_id: M10A
+    reevaluation_id: M10A-R001
+    path: /data/qijunrong/06-RL/offline-rl/exp/RLC/reevaluations/M10A/M10A-R001
+    source_campaign_fingerprint: 580fe8b1b4a8346701630bc7b219f48d5b27da0c31d40769b07353547c4b435a
+    protocol_fingerprint: 10a5560f4fb1ef0e31cb846c24c32a8c0779916c4002bc3f138564d8e278ae99
+    run_count: 33
+    training_seeds: [0, 1, 2]
+    checkpoint_step: 500000
+    immutable: true
+  - asset_id: m10a_a001
+    role: derived provenance-aware analysis
+    study_id: M10A
+    analysis_id: M10A-A001
+    path: /data/qijunrong/06-RL/offline-rl/exp/RLC/analyses/M10A/M10A-A001
+    analysis_git_commit: 170067d983ce5445dae74c335457b144cdd1c615
+    analysis_spec_fingerprint: 4105b2ebc8afe45c3a9b38a57c125dcf4f4187914aa0c056910d4a00f97c8c3b
+    canonical_sha256: d1c919a48fda73dbaa8b7f4ade1c3f085d635fbd28faf76a7946107b0708226d
+    expected_views: 9
+    expected_figure_files: 27
+    rebuild_command: >-
+      PYTHONPATH=. python3 tools/analyze_reevaluation.py
+      --spec experiments/M10A_fixed_budget_placement/analyses/M10A-A001.yaml
+      --repo-root . --execute --rebuild
+      --output-root /data/qijunrong/06-RL/offline-rl/exp/RLC/analyses
