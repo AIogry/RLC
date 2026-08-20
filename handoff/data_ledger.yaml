@@ -31,8 +31,8 @@ assets:
     study_id: M10A
     analysis_id: M10A-A001
     path: /data/qijunrong/06-RL/offline-rl/exp/RLC/analyses/M10A/M10A-A001
-    analysis_git_commit: 170067d983ce5445dae74c335457b144cdd1c615
     analysis_spec_fingerprint: 4105b2ebc8afe45c3a9b38a57c125dcf4f4187914aa0c056910d4a00f97c8c3b
+    commit_provenance: Recorded in analysis_metadata.json and validated against current HEAD by tools/handoff_doctor.py
     canonical_sha256: d1c919a48fda73dbaa8b7f4ade1c3f085d635fbd28faf76a7946107b0708226d
     expected_views: 9
     expected_figure_files: 27
