@@ -1,0 +1,87 @@
+study_id: M9B-1M
+name: M9B TwoState 1M convergence extension
+question: Does extending the historical M9B TwoState training horizon from 500k to 1M materially change the conclusion on AntMaze-Large?
+primary_factors:
+  - historical_counterpart
+  - training_horizon
+fixed_design:
+  diagnostic: long-training extension of the existing M9B architecture
+  historical_study: M9B
+  historical_training_steps: 500000
+  training_steps: 1000000
+  environment: antmaze-large-navigate-v0
+  seed: 0
+  topology: two_state
+  primitive: mlp
+  credit: full_bptt
+  state_dim: 512
+  input_injection: l_receives_x
+  state_init: normal_buffer
+  state_init_std: 1.0
+  h_l_parameter_sharing: independent
+  repeated_update_parameter_reuse: shared_within_level
+  outer_residual: false
+deferred_factors:
+  - new_two_state_topologies
+  - new_credit_assignments
+  - placement
+  - tokenization
+  - attention
+  - normalization_changes
+  - adaptive_computation
+algorithms:
+  - crl
+  - hiql
+placements:
+  - actor
+  - high_actor+low_actor
+environments:
+  - antmaze-large-navigate-v0
+seeds:
+  - 0
+primary_metric: evaluation/overall_success
+protocol:
+  train_steps: 1000000
+  batch_size: 1024
+  log_interval: 5000
+  eval_interval: 100000
+  eval_tasks: all
+  eval_task_count: 5
+  eval_episodes: 20
+  eval_temperature: 0.0
+  eval_gaussian: null
+  video_episodes: 0
+  save_interval: 100000
+  save_best_checkpoint: true
+  save_last_checkpoint: true
+  selection_metric: evaluation/overall_success
+  selection_rule: strict_greater_than_keep_earlier_tie
+  numeric_checkpoint_steps: [100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000]
+historical_counterparts:
+  M9B1M-C001: M9B-C001
+  M9B1M-C002: M9B-C003
+  M9B1M-C003: M9B-C013
+  M9B1M-C004: M9B-C015
+external_references:
+  crl_vanilla:
+    study_id: M9A
+    config_id: M9A-C002
+    run_dir: /data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M9A/M9A-C002__crl_vanilla/antmaze-large-navigate-v0/seed_000
+    environment: antmaze-large-navigate-v0
+    seed: 0
+    training_steps: 1000000
+    git_commit: f30b64bf81e1738235eef4f213d3019820ee918a
+    final_success: 0.62
+    best_step: 900000
+    best_success: 0.77
+  hiql_vanilla:
+    study_id: M9A
+    config_id: M9A-C001
+    run_dir: /data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M9A/M9A-C001__hiql_vanilla/antmaze-large-navigate-v0/seed_000
+    environment: antmaze-large-navigate-v0
+    seed: 0
+    training_steps: 1000000
+    git_commit: f30b64bf81e1738235eef4f213d3019820ee918a
+    final_success: 0.87
+    best_step: 1000000
+    best_success: 0.87

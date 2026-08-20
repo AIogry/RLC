@@ -5,6 +5,7 @@ import jax.numpy as jnp
 import numpy as np
 
 from impls.computation.factory import ComputationSpec, make_computation_core
+from impls.computation.accounting import actor_slot_accounting
 from impls.computation.primitives.mlp import MLP
 from impls.computation.topologies.two_state import execution_trace
 
@@ -77,6 +78,20 @@ class TwoStateTopologyTest(unittest.TestCase):
             self.assertEqual(trace.count('L'), h_cycles * l_cycles)
             self.assertEqual(trace.count('H'), h_cycles)
             self.assertEqual(len(trace), h_cycles * (l_cycles + 1))
+
+    def test_accounting_matches_execution_trace(self):
+        for h_cycles, l_cycles in ((2, 1), (2, 6)):
+            _, variables, _ = _init_core(h_cycles, l_cycles)
+            report = actor_slot_accounting(
+                {'actor_net': {'topology': variables['params']['topology']}},
+                {'actor_net': {'topology': variables['buffers']['topology']}},
+                topology='two_state',
+                iterations=(h_cycles, l_cycles),
+            )
+            self.assertEqual(report['h_update_executions'], h_cycles)
+            self.assertEqual(report['l_update_executions'], h_cycles * l_cycles)
+            self.assertEqual(report['total_update_executions'], len(execution_trace(h_cycles, l_cycles)))
+            self.assertEqual(report['update_executions'], len(execution_trace(h_cycles, l_cycles)))
 
     def test_dimensions_buffers_and_decision_local_reset(self):
         core, variables, x = _init_core(h_cycles=2, l_cycles=6)

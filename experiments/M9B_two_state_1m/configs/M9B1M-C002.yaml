@@ -1,0 +1,19 @@
+study_id: M9B-1M
+config_id: M9B1M-C002
+slug: crl_actor_h2l6_full_bptt_1m
+algorithm: crl
+placement: actor
+executable: true
+description: CRL actor TwoState H2L6 full BPTT, extended from historical M9B-C003 to 1M steps.
+historical_counterpart:
+  study_id: M9B
+  config_id: M9B-C003
+factors: {topology: two_state, block: mlp, schedule: H2L6, h_cycles: 2, l_cycles: 6, credit: full_bptt, placement: actor, training_horizon: 1000000}
+agent_overrides:
+  actor_loss: ddpgbc
+  compute:
+    actor: {enabled: true, primitive: mlp, topology: two_state, credit: full_bptt, topology_kwargs: {h_cycles: 2, l_cycles: 6, input_injection: l_receives_x, state_dim: 512, state_init: normal_buffer, state_init_std: 1.0}}
+    critic_state: {enabled: false}
+    critic_goal: {enabled: false}
+    value_state: {enabled: false}
+    value_goal: {enabled: false}

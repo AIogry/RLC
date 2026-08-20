@@ -93,18 +93,24 @@ def actor_slot_accounting(actor_params, buffer_params=None, *, topology=None, it
     h_update_per_execution = count_dense_macs(h_update)
     l_update_per_execution = count_dense_macs(l_update)
     if topology == 'single_state':
+        h_update_executions = 0
+        l_update_executions = iterations
         update_executions = iterations
         total_update_macs = update_per_execution * iterations
     elif topology == 'two_state':
         h_cycles = int(iterations[0]) if isinstance(iterations, (tuple, list)) else 0
         l_cycles = int(iterations[1]) if isinstance(iterations, (tuple, list)) else 0
-        update_executions = h_cycles + l_cycles
+        h_update_executions = h_cycles
+        l_update_executions = h_cycles * l_cycles
+        update_executions = h_update_executions + l_update_executions
         total_update_macs = (
             h_update_per_execution * h_cycles
             + l_update_per_execution * l_cycles
         )
     else:
         h_cycles = l_cycles = 0
+        h_update_executions = 0
+        l_update_executions = 0
         update_executions = 0
         total_update_macs = 0
 
@@ -120,6 +126,12 @@ def actor_slot_accounting(actor_params, buffer_params=None, *, topology=None, it
         'update_module_dense_macs_per_execution': update_per_execution,
         'h_update_dense_macs_per_execution': h_update_per_execution,
         'l_update_dense_macs_per_execution': l_update_per_execution,
+        'h_update_executions': h_update_executions,
+        'l_update_executions': l_update_executions,
+        'total_update_executions': update_executions,
+        # Backward-compatible name: it denotes all H/L executions, not raw
+        # schedule-cycle counts.  For TwoState this agrees with
+        # len(execution_trace(h_cycles, l_cycles)).
         'update_executions': update_executions,
         'total_update_module_dense_macs': total_update_macs,
         'computation_core_dense_macs': core_macs,
