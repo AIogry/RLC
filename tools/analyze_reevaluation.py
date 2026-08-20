@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -74,6 +75,11 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="explicit smoke/test mode; permits a dirty worktree",
     )
+    parser.add_argument(
+        "--rebuild",
+        action="store_true",
+        help="rebuild an existing derived analysis output after provenance checks",
+    )
     return parser.parse_args()
 
 
@@ -87,7 +93,16 @@ def _metadata(
     status: str,
     execution_mode: str,
     output_dir: Path,
+    rendered_views: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    relative_views: list[dict[str, Any]] = []
+    for rendered in rendered_views:
+        item = dict(rendered)
+        item["output_files"] = {
+            extension: str(Path(path).resolve().relative_to(output_dir.resolve()))
+            for extension, path in rendered["output_files"].items()
+        }
+        relative_views.append(item)
     return {
         "analysis_id": spec["analysis_id"],
         "study_id": spec["source"]["study_id"],
@@ -109,6 +124,8 @@ def _metadata(
         "reference": spec["reference"],
         "task_groups": spec["task_groups"],
         "figure_registry": spec["figures"],
+        "figure_views": spec["figure_views"],
+        "rendered_views": relative_views,
         "statistical_definitions": {
             "training_seed_unit": "training_seed",
             "mean": "arithmetic mean across individual training seeds",
@@ -124,12 +141,47 @@ def _metadata(
             "task_delta_vs_reference": "task_delta_vs_reference.csv",
             "paired_comparisons": "paired_comparisons.csv",
             "figures": [
-                f"figures/{figure_id}.{extension}"
-                for figure_id in spec["figures"]
-                for extension in ("pdf", "png", "csv")
+                output_file
+                for rendered in relative_views
+                for output_file in rendered["output_files"].values()
             ],
         },
     }
+
+
+def _prepare_output_dir(output_dir: Path, *, rebuild: bool, spec: dict[str, Any]) -> None:
+    if not output_dir.exists():
+        output_dir.mkdir(parents=True, exist_ok=True)
+        return
+    if not any(output_dir.iterdir()):
+        return
+    if not rebuild:
+        raise AnalysisError(
+            f"analysis output already exists and is non-empty: {output_dir}; "
+            "use --rebuild only for a verified derived-output rebuild"
+        )
+    metadata_path = output_dir / "analysis_metadata.json"
+    if not metadata_path.is_file():
+        raise AnalysisError(
+            f"refusing to rebuild without analysis_metadata.json: {output_dir}"
+        )
+    with metadata_path.open("r", encoding="utf-8") as handle:
+        previous = json.load(handle)
+    expected = {
+        "analysis_id": spec["analysis_id"],
+        "study_id": spec["source"]["study_id"],
+        "reevaluation_id": spec["source"]["reevaluation_id"],
+    }
+    actual = {key: previous.get(key) for key in expected}
+    if actual != expected:
+        raise AnalysisError(
+            f"refusing to rebuild output with mismatched provenance: expected {expected}, got {actual}"
+        )
+    for child in output_dir.iterdir():
+        if child.is_dir():
+            shutil.rmtree(child)
+        else:
+            child.unlink()
 
 
 def run(args: argparse.Namespace) -> int:
@@ -164,9 +216,7 @@ def run(args: argparse.Namespace) -> int:
         / str(spec["source"]["study_id"])
         / str(spec["analysis_id"])
     )
-    if output_dir.exists() and any(output_dir.iterdir()):
-        raise AnalysisError(f"analysis output already exists and is non-empty: {output_dir}")
-    output_dir.mkdir(parents=True, exist_ok=True)
+    _prepare_output_dir(output_dir, rebuild=args.rebuild, spec=spec)
     tables = build_allocation_tables(bundle, spec)
     write_rows_csv(output_dir / "canonical_results.csv", bundle["canonical_rows"])
     write_rows_csv(output_dir / "allocation_summary.csv", tables["allocation_summary"])
@@ -177,11 +227,13 @@ def run(args: argparse.Namespace) -> int:
         output_dir / "task_delta_vs_reference.csv", tables["task_delta_vs_reference"]
     )
     write_rows_csv(output_dir / "paired_comparisons.csv", tables["paired_comparisons"])
-    generate_figures(
+    rendered_views = generate_figures(
         tables,
         output_dir / "figures",
         figure_ids=spec["figures"],
+        figure_views=spec["figure_views"],
         reference_config=str(spec["reference"]["config_id"]),
+        task_groups=spec["task_groups"],
     )
     after_fingerprint, _ = source_fingerprint(bundle["source_root"])
     if after_fingerprint != bundle["source_fingerprint"]:
@@ -196,6 +248,7 @@ def run(args: argparse.Namespace) -> int:
         status="completed",
         execution_mode="smoke" if args.smoke else "formal",
         output_dir=output_dir,
+        rendered_views=rendered_views,
     )
     _write_json(output_dir / "analysis_metadata.json", metadata)
     print(json.dumps(

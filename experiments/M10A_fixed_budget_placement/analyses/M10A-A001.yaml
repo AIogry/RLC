@@ -16,8 +16,49 @@ task_groups:
     label: remaining_tasks
     task_ids: [1, 3, 4, 5]
 figures:
-  - allocation_response_overall
-  - allocation_response_by_task
-  - allocation_response_focal_remaining
-  - allocation_seed_consistency
-  - task_delta_vs_reference
+  allocation_response_overall:
+    views:
+      full:
+        y_range: [0.0, 1.0]
+      zoom:
+        y_range: [0.75, 0.95]
+        subtitle: Zoomed y-axis
+  allocation_response_by_task:
+    views:
+      full:
+        y_range: [0.0, 1.0]
+  allocation_response_focal_remaining:
+    views:
+      full:
+        y_range: [0.0, 1.0]
+      split_zoom:
+        panel_layout: horizontal
+        panels:
+          focal_task:
+            y_range: [0.15, 0.90]
+          remaining_tasks:
+            # The observed minimum is -0.16, so [-0.15, 0.15] would fail
+            # the no-silent-clipping safeguard for task-delta views.
+            y_range: [0.84, 0.98]
+  allocation_seed_consistency:
+    views:
+      full:
+        y_range: [0.0, 1.0]
+      zoom:
+        y_range: [0.75, 0.95]
+        subtitle: Zoomed y-axis
+  task_delta_vs_reference:
+    views:
+      full:
+        # Formal data range is [-0.63, 0.68]; this fixed symmetric context
+        # range leaves explicit margin without data-driven autoscaling.
+        y_range: [-0.75, 0.75]
+      split_zoom:
+        panel_layout: horizontal
+        panels:
+          focal_task:
+            y_range: [-0.70, 0.70]
+          remaining_tasks:
+            # Formal data reaches -0.16; retain the requested zoom intent
+            # with a small fixed margin rather than silently clipping it.
+            y_range: [-0.18, 0.18]
