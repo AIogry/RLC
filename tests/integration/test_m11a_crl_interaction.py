@@ -8,6 +8,7 @@ import numpy as np
 
 from impls.agents.crl import CRLAgent, get_config
 from impls.analysis.crl_interaction import (
+    _identity_component,
     _extraction_rows,
     _temporal_rows,
     load_interaction_spec,
@@ -21,6 +22,8 @@ from impls.utils.flax_utils import restore_agent, save_agent
 ROOT = Path(__file__).resolve().parents[2]
 STUDY_PATH = ROOT / 'experiments' / 'M11A_crl_computation_interaction' / 'study.yaml'
 SPEC_PATH = ROOT / 'experiments' / 'M11A_crl_computation_interaction' / 'diagnostic.yaml'
+M9A_PATH = ROOT / 'experiments' / 'M9A_single_state_iteration' / 'study.yaml'
+M9B_PATH = ROOT / 'experiments' / 'M9B_two_state' / 'study.yaml'
 
 
 def _small_crl_config(actor_topology='feedforward', critic_topology='feedforward'):
@@ -101,6 +104,42 @@ def _batch():
 
 
 class M11AInteractionStudyTest(unittest.TestCase):
+    def test_legacy_m9_crl_actor_configs_keep_primitive_and_checkpoint_behavior(self):
+        cases = (
+            (M9A_PATH, 'M9A-C007', 'single_state', {'iterations': 4}),
+            (M9B_PATH, 'M9B-C001', 'two_state', {'h_cycles': 2, 'l_cycles': 1}),
+        )
+        observations = jnp.zeros((1, 29), dtype=jnp.float32)
+        actions = jnp.zeros((1, 8), dtype=jnp.float32)
+        for study_path, config_id, topology_name, expected_schedule in cases:
+            with self.subTest(config_id=config_id):
+                _, configuration = prepare_run_design(study_path, config_id)
+                config = _make_config(_parse_args(['--agent', 'crl']), configuration=configuration)
+                slot = config['compute']['actor']
+                self.assertNotIn('update_depth', slot['topology_kwargs'])
+                self.assertNotIn('layer_norm', slot['topology_kwargs'])
+                self.assertNotIn('update_activate_final', slot['topology_kwargs'])
+                self.assertEqual(slot['topology'], topology_name)
+                for key, value in expected_schedule.items():
+                    self.assertEqual(slot['topology_kwargs'][key], value)
+                agent = CRLAgent.create(0, observations, actions, config)
+                topology = agent.network.params['modules_actor']['actor_net']['topology']
+                self.assertEqual(set(topology['update_module'] if topology_name == 'single_state' else topology['h_update']), {'Dense_0', 'Dense_1'})
+                if topology_name == 'two_state':
+                    self.assertEqual(set(topology['l_update']), {'Dense_0', 'Dense_1'})
+                self.assertNotIn('LayerNorm_0', topology['input_mapping'])
+                action_before = np.asarray(
+                    agent.sample_actions(observations, observations, seed=jax.random.PRNGKey(91))
+                )
+                self.assertTrue(np.all(np.isfinite(action_before)))
+                with tempfile.TemporaryDirectory(prefix=f'{config_id}_restore_') as temp_dir:
+                    save_agent(agent, temp_dir, 1)
+                    restored = restore_agent(agent, temp_dir, 1)
+                    action_after = np.asarray(
+                        restored.sample_actions(observations, observations, seed=jax.random.PRNGKey(91))
+                    )
+                    np.testing.assert_array_equal(action_before, action_after)
+
     def test_exact_seven_factorial_conditions_and_protocol(self):
         study = load_study(STUDY_PATH)
         configs = sorted((STUDY_PATH.parent / 'configs').glob('M11A-C*.yaml'))
@@ -145,7 +184,10 @@ class M11AInteractionStudyTest(unittest.TestCase):
         critic = updated.network.params['modules_critic']
         for branch in ('phi', 'psi'):
             update = critic[branch]['core']['topology']['update_module']
-            self.assertEqual(set(update), {'Dense_0', 'Dense_1', 'Dense_2'})
+            self.assertEqual(
+                set(update),
+                {'Dense_0', 'Dense_1', 'Dense_2', 'LayerNorm_0', 'LayerNorm_1'},
+            )
             buffers = updated.network.model_state['buffers']['modules_critic'][branch]['core']['topology']
             self.assertEqual(buffers['z_init'].shape, (2, 3))
         self.assertNotEqual(
@@ -156,6 +198,14 @@ class M11AInteractionStudyTest(unittest.TestCase):
         self.assertEqual(report['critic_state']['update_depth'], 3)
         self.assertEqual(report['critic_goal']['update_depth'], 3)
         self.assertEqual(report['critic_state']['total_update_executions'], 4)
+        self.assertTrue(report['critic_state']['layer_norm'])
+        self.assertFalse(report['critic_state']['update_activate_final'])
+        self.assertFalse(report['actor']['layer_norm'])
+        self.assertTrue(report['actor']['update_activate_final'])
+        for branch in ('phi', 'psi'):
+            topology = critic[branch]['core']['topology']
+            self.assertIn('LayerNorm_0', topology['input_mapping'])
+            self.assertIn('LayerNorm_0', topology['update_module'])
         with tempfile.TemporaryDirectory(prefix='m11a_crl_restore_') as temp_dir:
             save_agent(updated, temp_dir, 1)
             restored = restore_agent(updated, temp_dir, 1)
@@ -196,11 +246,80 @@ class M11AInteractionStudyTest(unittest.TestCase):
             extraction_bank,
             np.asarray([[5.0, 3.0, 1.0, 4.0, 2.0]]),
             'critic', 'actor', ['exec', 'A', 'S-C', 'S-A', 'S-CA'], 3, spec,
+            candidate_actions=np.asarray([[
+                [0.0, 0.0],
+                [0.1, 0.0],
+                [0.2, 0.0],
+                [0.3, 0.0],
+                [0.4, 0.0],
+            ]]),
         )
         gap = next(row for row in extraction if row['metric'] == 'E_ext_gap' and row['scope'] == 'overall')
         rank = next(row for row in extraction if row['metric'] == 'E_ext_rank' and row['scope'] == 'overall')
         self.assertAlmostEqual(gap['value'], 0.25, places=5)
         self.assertAlmostEqual(rank['value'], 0.25, places=5)
+
+    def test_duplicate_candidate_metric_uses_action_vectors_not_q_scores(self):
+        bank = {
+            'pair_anchor_indices': np.asarray([0, 0]),
+            'pair_task_ids': np.asarray([1, 1]),
+            'pair_episode_indices': np.asarray([0, 0]),
+        }
+        spec = {'bootstrap_seed': 13, 'bootstrap_replicates': 10, 'epsilon': 1e-6}
+        rows = _extraction_rows(
+            bank,
+            np.asarray([
+                [1.0, 1.0, 2.0],
+                [1.0, 2.0, 3.0],
+            ]),
+            'critic', 'actor', ['exec', 'A', 'S-C'], 1, spec,
+            candidate_actions=np.asarray([
+                [[0.0], [0.0], [1.0]],
+                [[0.0], [1.0], [2.0]],
+            ]),
+        )
+        duplicate = next(
+            row for row in rows
+            if row['metric'] == 'duplicate_candidate_pool' and row['scope'] == 'overall'
+        )
+        self.assertAlmostEqual(duplicate['value'], 0.5, places=6)
+
+    def test_critic_identity_component_requires_params_and_buffers(self):
+        params = {'Dense_0': {'kernel': np.ones((2, 2), dtype=np.float32)}}
+        buffers_a = {'z_init': np.zeros((2,), dtype=np.float32)}
+        buffers_b = {'z_init': np.ones((2,), dtype=np.float32)}
+        params_audit = _identity_component(params, params, tolerance=1e-6)
+        buffers_audit = _identity_component(buffers_a, buffers_b, tolerance=1e-6)
+        self.assertTrue(params_audit['exact_array_equal'])
+        self.assertFalse(buffers_audit['exact_array_equal'])
+        self.assertFalse(
+            params_audit['exact_array_equal'] and buffers_audit['exact_array_equal']
+        )
+        self.assertEqual(buffers_audit['element_count_reference'], 2)
+        self.assertEqual(buffers_audit['element_count_compared'], 2)
+
+    def test_ddpgbc_actor_q_branch_does_not_update_critic_params(self):
+        config = _small_crl_config(actor_topology='single_state', critic_topology='feedforward')
+        batch = _batch()
+        agent = CRLAgent.create(11, batch['observations'][:1], batch['actions'][:1], config)
+
+        def actor_loss(params):
+            return agent.actor_loss(batch, params, rng=jax.random.PRNGKey(17))[0]
+
+        def q_loss(params):
+            return agent.actor_loss(batch, params, rng=jax.random.PRNGKey(17))[1]['q_loss']
+
+        actor_grad = jax.grad(actor_loss)(agent.network.params)
+        q_grad = jax.grad(q_loss)(agent.network.params)
+        for branch in ('phi', 'psi'):
+            actor_critic_leaves = jax.tree_util.tree_leaves(actor_grad['modules_critic'][branch])
+            q_critic_leaves = jax.tree_util.tree_leaves(q_grad['modules_critic'][branch])
+            for actor_leaf, q_leaf in zip(actor_critic_leaves, q_critic_leaves):
+                np.testing.assert_array_equal(actor_leaf, np.zeros_like(actor_leaf))
+                np.testing.assert_array_equal(q_leaf, np.zeros_like(q_leaf))
+
+        actor_q_leaves = jax.tree_util.tree_leaves(q_grad['modules_actor'])
+        self.assertTrue(any(np.any(np.asarray(leaf) != 0) for leaf in actor_q_leaves))
 
 
 if __name__ == '__main__':

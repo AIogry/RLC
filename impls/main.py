@@ -152,6 +152,7 @@ def _computation_runtime_extras(config):
         if not slot.get('enabled', False):
             continue
         kwargs = slot.get('topology_kwargs', {})
+        is_critic_branch = slot_name.startswith(('critic_', 'value_'))
         if slot.get('topology') == 'single_state':
             single_state[slot_name] = {
                 'topology': 'single_state',
@@ -160,6 +161,13 @@ def _computation_runtime_extras(config):
                 'state_dim': int(kwargs.get('state_dim', config['actor_hidden_dims'][-1])),
                 'iterations': int(kwargs.get('iterations', 1)),
                 'update_depth': int(kwargs.get('update_depth', 2)),
+                'layer_norm': bool(kwargs.get(
+                    'layer_norm',
+                    config.get('layer_norm', False) if is_critic_branch else False,
+                )),
+                'update_activate_final': bool(kwargs.get(
+                    'update_activate_final', not is_critic_branch,
+                )),
                 'residual': bool(kwargs.get('residual', False)),
                 'input_injection': kwargs.get('input_injection', 'z_plus_x'),
                 'state_init': kwargs.get('state_init', 'normal_buffer'),
@@ -176,6 +184,13 @@ def _computation_runtime_extras(config):
                 'h_cycles': h_cycles,
                 'l_cycles': l_cycles,
                 'update_depth': int(kwargs.get('update_depth', 2)),
+                'layer_norm': bool(kwargs.get(
+                    'layer_norm',
+                    config.get('layer_norm', False) if is_critic_branch else False,
+                )),
+                'update_activate_final': bool(kwargs.get(
+                    'update_activate_final', not is_critic_branch,
+                )),
                 'h_update_executions': h_cycles,
                 'l_update_executions': h_cycles * l_cycles,
                 'total_update_executions': h_cycles * (l_cycles + 1),
@@ -341,6 +356,15 @@ def _computation_slot_accounting(agent, config):
         if topology in ('single_state', 'two_state'):
             kwargs.setdefault('state_dim', hidden_dim)
             kwargs.setdefault('update_depth', 2)
+            # Primitive semantics are caller-owned, not M11A factors.  CRL
+            # critic/value branches replace vanilla LayerNorm MLPs with a
+            # final latent Dense, while actor slots preserve legacy M9 MLPs.
+            is_critic_branch = slot_name.startswith(('critic_', 'value_'))
+            kwargs.setdefault(
+                'layer_norm',
+                bool(config.get('layer_norm', False)) if is_critic_branch else False,
+            )
+            kwargs.setdefault('update_activate_final', not is_critic_branch)
             if topology == 'single_state':
                 kwargs.setdefault('iterations', 1)
             else:

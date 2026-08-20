@@ -17,6 +17,8 @@ def _spec(
     state_init='normal_buffer',
     state_init_std=1.0,
     update_depth=2,
+    layer_norm=False,
+    update_activate_final=True,
 ):
     return ComputationSpec.from_mapping({
         'primitive': 'mlp',
@@ -30,6 +32,8 @@ def _spec(
             'state_init': state_init,
             'state_init_std': state_init_std,
             'update_depth': update_depth,
+            'layer_norm': layer_norm,
+            'update_activate_final': update_activate_final,
         },
     })
 
@@ -44,9 +48,14 @@ def _init_core(
     state_init='normal_buffer',
     state_init_std=1.0,
     update_depth=2,
+    layer_norm=False,
+    update_activate_final=True,
 ):
     core = make_computation_core(
-        _spec(iterations, residual, state_dim, state_init, state_init_std, update_depth),
+        _spec(
+            iterations, residual, state_dim, state_init, state_init_std,
+            update_depth, layer_norm, update_activate_final,
+        ),
         hidden_dims=(state_dim, state_dim, state_dim),
     )
     x = jnp.arange(2 * input_dim, dtype=jnp.float32).reshape(2, input_dim) / 10.0
@@ -57,7 +66,10 @@ def _init_core(
     return core, variables, x
 
 
-def _manual_unroll(variables, x, iterations, residual, state_dim=8):
+def _manual_unroll(
+    variables, x, iterations, residual, state_dim=8, update_depth=2,
+    layer_norm=False, update_activate_final=True,
+):
     topology = variables['params']['topology']
     x_hidden = MLP(hidden_dims=(state_dim,), activate_final=True).apply(
         {'params': topology['input_mapping']}, x,
@@ -65,7 +77,11 @@ def _manual_unroll(variables, x, iterations, residual, state_dim=8):
     z = jnp.broadcast_to(variables['buffers']['topology']['z_init'], x_hidden.shape)
     update_params = topology['update_module']
     for _ in range(iterations):
-        update = MLP(hidden_dims=(state_dim, state_dim), activate_final=True).apply(
+        update = MLP(
+            hidden_dims=(state_dim,) * update_depth,
+            activate_final=update_activate_final,
+            layer_norm=layer_norm,
+        ).apply(
             {'params': update_params}, z + x_hidden,
         )
         z = z + update if residual else update
@@ -256,6 +272,89 @@ class SingleStateTopologyTest(unittest.TestCase):
         actual = core.apply(variables, x).representation
         expected = vanilla.apply(vanilla_vars, x)
         np.testing.assert_allclose(actual, expected, rtol=0.0, atol=1e-6)
+
+    def test_critic_k1_zero_state_vanilla_primitive_parity(self):
+        input_dim = 5
+        state_dim = 8
+        x = jnp.arange(2 * input_dim, dtype=jnp.float32).reshape(2, input_dim) / 10.0
+        vanilla = MLP(
+            hidden_dims=(state_dim,) * 4,
+            activate_final=False,
+            layer_norm=True,
+        )
+        vanilla_vars = vanilla.init(jax.random.PRNGKey(20), x)
+        core = make_computation_core(
+            _spec(
+                iterations=1,
+                residual=False,
+                state_dim=state_dim,
+                state_init='zero_buffer',
+                update_depth=3,
+                layer_norm=True,
+                update_activate_final=False,
+            ),
+            hidden_dims=(state_dim,) * 4,
+            activate_final=False,
+            layer_norm=True,
+        )
+        variables = unfreeze(core.init(
+            {'params': jax.random.PRNGKey(21), 'buffers': jax.random.PRNGKey(22)}, x,
+        ))
+        vanilla_params = vanilla_vars['params']
+        topology = variables['params']['topology']
+        topology['input_mapping'] = {
+            'Dense_0': vanilla_params['Dense_0'],
+            'LayerNorm_0': vanilla_params['LayerNorm_0'],
+        }
+        topology['update_module'] = {
+            f'Dense_{index}': vanilla_params[f'Dense_{index + 1}']
+            for index in range(3)
+        }
+        topology['update_module'].update({
+            f'LayerNorm_{index}': vanilla_params[f'LayerNorm_{index + 1}']
+            for index in range(2)
+        })
+        variables['buffers']['topology']['z_init'] = jnp.zeros((state_dim,))
+        variables = freeze(variables)
+
+        self.assertEqual(
+            set(topology['input_mapping']), {'Dense_0', 'LayerNorm_0'},
+        )
+        self.assertEqual(
+            set(topology['update_module']),
+            {'Dense_0', 'Dense_1', 'Dense_2', 'LayerNorm_0', 'LayerNorm_1'},
+        )
+
+        def actual_loss(vanilla_params):
+            mapped = unfreeze(variables)
+            mapped['params']['topology']['input_mapping']['Dense_0'] = vanilla_params['Dense_0']
+            mapped['params']['topology']['input_mapping']['LayerNorm_0'] = vanilla_params['LayerNorm_0']
+            mapped['params']['topology']['update_module'] = {
+                **{
+                    f'Dense_{index}': vanilla_params[f'Dense_{index + 1}']
+                    for index in range(3)
+                },
+                **{
+                    f'LayerNorm_{index}': vanilla_params[f'LayerNorm_{index + 1}']
+                    for index in range(2)
+                },
+            }
+            return core.apply(freeze(mapped), x).representation.sum()
+
+        def expected_loss(vanilla_params):
+            return vanilla.apply({'params': vanilla_params}, x).sum()
+
+        actual = core.apply(variables, x).representation
+        expected = vanilla.apply(vanilla_vars, x)
+        np.testing.assert_allclose(actual, expected, rtol=0.0, atol=1e-6)
+        self.assertEqual(count_parameters(variables['params']['topology']), count_parameters(vanilla_params))
+        actual_grad = jax.grad(actual_loss)(vanilla_params)
+        expected_grad = jax.grad(expected_loss)(vanilla_params)
+        for actual_leaf, expected_leaf in zip(
+            jax.tree_util.tree_leaves(actual_grad),
+            jax.tree_util.tree_leaves(expected_grad),
+        ):
+            np.testing.assert_allclose(actual_leaf, expected_leaf, rtol=0.0, atol=2e-6)
 
 
 if __name__ == '__main__':

@@ -44,6 +44,7 @@ class TwoState(nn.Module):
     state_init_std: float = 1.0
     update_depth: int = 2
     layer_norm: bool = False
+    update_activate_final: bool = True
 
     def setup(self):
         if self.state_dim <= 0:
@@ -77,12 +78,12 @@ class TwoState(nn.Module):
         )
         self.h_update = MLP(
             hidden_dims=(self.state_dim,) * int(self.update_depth),
-            activate_final=True,
+            activate_final=self.update_activate_final,
             layer_norm=self.layer_norm,
         )
         self.l_update = MLP(
             hidden_dims=(self.state_dim,) * int(self.update_depth),
-            activate_final=True,
+            activate_final=self.update_activate_final,
             layer_norm=self.layer_norm,
         )
 

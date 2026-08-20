@@ -97,8 +97,14 @@ class CRLAgent(flax.struct.PyTreeNode):
                 q_actions = jnp.clip(dist.mode(), -1, 1)
             else:
                 q_actions = jnp.clip(dist.sample(seed=rng), -1, 1)
+            # DDPG+BC uses the critic as a fixed differentiable evaluator for
+            # the actor update.  Preserve gradients through q_actions while
+            # preventing the actor-loss branch from updating critic params;
+            # the contrastive critic loss remains the sole critic update path.
+            frozen_params = jax.tree_util.tree_map(jax.lax.stop_gradient, grad_params)
             q1, q2 = self.network.select('critic')(
-                batch['observations'], batch['actor_goals'], q_actions
+                batch['observations'], batch['actor_goals'], q_actions,
+                params=frozen_params,
             )
             q = jnp.minimum(q1, q2)
             q_loss = -q.mean() / jax.lax.stop_gradient(jnp.abs(q).mean() + 1e-6)
@@ -142,10 +148,12 @@ class CRLAgent(flax.struct.PyTreeNode):
     @jax.jit
     def update(self, batch):
         new_rng, rng = jax.random.split(self.rng)
-
         def loss_fn(grad_params):
             return self.total_loss(batch, grad_params, rng=rng)
 
+        # Canonical CRL update: differentiate the joint total_loss once and
+        # apply the configured optimizer once.  The DDPG+BC Q branch freezes
+        # critic parameters inside actor_loss while retaining dQ/da.
         new_network, info = self.network.apply_loss_fn(loss_fn=loss_fn)
         return self.replace(network=new_network, rng=new_rng), info
 

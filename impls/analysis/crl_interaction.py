@@ -623,7 +623,26 @@ def _temporal_rows(bank, q_values, critic_config, spec):
     return rows
 
 
-def _extraction_rows(bank, q_values, critic_config, actor_config, candidate_names, actor_index, spec):
+def _extraction_rows(
+    bank,
+    q_values,
+    critic_config,
+    actor_config,
+    candidate_names,
+    actor_index,
+    spec,
+    *,
+    candidate_actions=None,
+):
+    if candidate_actions is None:
+        raise InteractionDiagnosticError(
+            'Duplicate candidate diagnostics require the saved action vectors'
+        )
+    candidate_actions = np.asarray(candidate_actions)
+    if candidate_actions.ndim != 3 or candidate_actions.shape[:2] != q_values.shape:
+        raise InteractionDiagnosticError(
+            'Candidate action matrix must have shape (num_pairs, num_candidates, action_dim)'
+        )
     by_episode = defaultdict(list)
     by_task = defaultdict(list)
     q_max = np.max(q_values, axis=1)
@@ -632,10 +651,10 @@ def _extraction_rows(bank, q_values, critic_config, actor_config, candidate_name
     rank = np.sum(q_values > q_values[:, actor_index, None], axis=1) / (q_values.shape[1] - 1)
     degenerate = (q_max - q_min) < float(spec['epsilon'])
     duplicate = np.zeros(len(q_values), dtype=np.bool_)
-    for index, row in enumerate(q_values):
-        for left in range(row.shape[0]):
-            for right in range(left + 1, row.shape[0]):
-                if np.array_equal(row[left], row[right]):
+    for index, actions in enumerate(candidate_actions):
+        for left in range(actions.shape[0]):
+            for right in range(left + 1, actions.shape[0]):
+                if np.array_equal(actions[left], actions[right]):
                     duplicate[index] = True
         key = (int(bank['pair_task_ids'][index]), int(bank['pair_episode_indices'][index]))
         by_episode[key].append(index)
@@ -765,14 +784,14 @@ def score_diagnostics(spec, diagnostic_root_path):
     for label, q_values in evaluator_scores.items():
         evaluator_rows.extend(_temporal_rows(bank, q_values, evaluator_configs[label], spec))
     extraction_rows = []
-    extraction_rows.extend(_extraction_rows(bank, extraction_scores['cf_single'], 'M11A-C001', 'M11A-C001', candidate_metadata['single_state_order'], 1, spec))
-    extraction_rows.extend(_extraction_rows(bank, extraction_scores['cf_single'], 'M11A-C001', 'M11A-C003', candidate_metadata['single_state_order'], 3, spec))
-    extraction_rows.extend(_extraction_rows(bank, extraction_scores['cs_single'], 'M11A-C002', 'M11A-C002', candidate_metadata['single_state_order'], 2, spec))
-    extraction_rows.extend(_extraction_rows(bank, extraction_scores['cs_single'], 'M11A-C002', 'M11A-C004', candidate_metadata['single_state_order'], 4, spec))
-    extraction_rows.extend(_extraction_rows(bank, extraction_scores['cf_two'], 'M11A-C001', 'M11A-C001', candidate_metadata['two_state_order'], 1, spec))
-    extraction_rows.extend(_extraction_rows(bank, extraction_scores['cf_two'], 'M11A-C001', 'M11A-C006', candidate_metadata['two_state_order'], 3, spec))
-    extraction_rows.extend(_extraction_rows(bank, extraction_scores['ct_two'], 'M11A-C005', 'M11A-C005', candidate_metadata['two_state_order'], 2, spec))
-    extraction_rows.extend(_extraction_rows(bank, extraction_scores['ct_two'], 'M11A-C005', 'M11A-C007', candidate_metadata['two_state_order'], 4, spec))
+    extraction_rows.extend(_extraction_rows(bank, extraction_scores['cf_single'], 'M11A-C001', 'M11A-C001', candidate_metadata['single_state_order'], 1, spec, candidate_actions=single_actions))
+    extraction_rows.extend(_extraction_rows(bank, extraction_scores['cf_single'], 'M11A-C001', 'M11A-C003', candidate_metadata['single_state_order'], 3, spec, candidate_actions=single_actions))
+    extraction_rows.extend(_extraction_rows(bank, extraction_scores['cs_single'], 'M11A-C002', 'M11A-C002', candidate_metadata['single_state_order'], 2, spec, candidate_actions=single_actions))
+    extraction_rows.extend(_extraction_rows(bank, extraction_scores['cs_single'], 'M11A-C002', 'M11A-C004', candidate_metadata['single_state_order'], 4, spec, candidate_actions=single_actions))
+    extraction_rows.extend(_extraction_rows(bank, extraction_scores['cf_two'], 'M11A-C001', 'M11A-C001', candidate_metadata['two_state_order'], 1, spec, candidate_actions=two_actions))
+    extraction_rows.extend(_extraction_rows(bank, extraction_scores['cf_two'], 'M11A-C001', 'M11A-C006', candidate_metadata['two_state_order'], 3, spec, candidate_actions=two_actions))
+    extraction_rows.extend(_extraction_rows(bank, extraction_scores['ct_two'], 'M11A-C005', 'M11A-C005', candidate_metadata['two_state_order'], 2, spec, candidate_actions=two_actions))
+    extraction_rows.extend(_extraction_rows(bank, extraction_scores['ct_two'], 'M11A-C005', 'M11A-C007', candidate_metadata['two_state_order'], 4, spec, candidate_actions=two_actions))
     _write_metric_csv(metrics_dir / 'evaluator_metrics.csv', evaluator_rows)
     _write_metric_csv(metrics_dir / 'extraction_metrics.csv', extraction_rows)
     score_metadata = {
@@ -782,6 +801,7 @@ def score_diagnostics(spec, diagnostic_root_path):
         'evaluator_score_sha256': sha256_file(scores_dir / 'evaluator_scores.npz'),
         'extraction_score_sha256': sha256_file(scores_dir / 'extraction_scores.npz'),
         'critic_semantics': 'q_C(s,a,g)=min(Q1,Q2)',
+        'duplicate_candidate_definition': 'any pair of saved candidate action vectors is exactly np.array_equal',
         'epsilon': spec['epsilon'],
         'bootstrap': {
             'cluster': 'episode',
@@ -816,8 +836,54 @@ def _tree_hash(tree):
     return digest.hexdigest()
 
 
-def _critic_branch(params, branch):
-    return params['network']['params']['modules_critic'][branch] if 'network' in params else params['modules_critic'][branch]
+def _identity_component(first, second, tolerance):
+    """Compare one critic params/buffers collection without hiding mismatches."""
+
+    first_items = dict(_tree_items(first))
+    second_items = dict(_tree_items(second))
+    paths_equal = set(first_items) == set(second_items)
+    common = set(first_items) & set(second_items)
+    shape_dtype_equal = paths_equal and all(
+        first_items[path].shape == second_items[path].shape
+        and first_items[path].dtype == second_items[path].dtype
+        for path in common
+    )
+    compatible = [
+        path for path in common
+        if first_items[path].shape == second_items[path].shape
+    ]
+    max_abs = max(
+        (
+            float(np.max(np.abs(first_items[path] - second_items[path])))
+            for path in compatible
+        ),
+        default=0.0,
+    )
+    exact = paths_equal and shape_dtype_equal and all(
+        np.array_equal(first_items[path], second_items[path]) for path in common
+    )
+    return {
+        'paths_reference': [list(path) for path in sorted(first_items)],
+        'paths_compared': [list(path) for path in sorted(second_items)],
+        'structure_equal': bool(paths_equal),
+        'shape_dtype_equal': bool(shape_dtype_equal),
+        'element_count_reference': int(sum(value.size for value in first_items.values())),
+        'element_count_compared': int(sum(value.size for value in second_items.values())),
+        'exact_array_equal': bool(exact),
+        'max_absolute_difference': max_abs,
+        'allclose': bool(shape_dtype_equal and max_abs <= tolerance),
+        'tolerance': float(tolerance),
+        'reference_hash': _tree_hash(first),
+        'compared_hash': _tree_hash(second),
+        'tree_signature_reference': [
+            [list(path), list(shape), dtype]
+            for path, shape, dtype in _tree_signature(first)
+        ],
+        'tree_signature_compared': [
+            [list(path), list(shape), dtype]
+            for path, shape, dtype in _tree_signature(second)
+        ],
+    }
 
 
 def run_critic_identity_audit(spec, diagnostic_root_path, tolerance=1e-6):
@@ -841,36 +907,39 @@ def run_critic_identity_audit(spec, diagnostic_root_path, tolerance=1e-6):
             reference = config_ids[0]
             for compared in config_ids[1:]:
                 for branch in ('phi', 'psi'):
-                    first = agents[reference].network.params['modules_critic'][branch]
-                    second = agents[compared].network.params['modules_critic'][branch]
-                    first_sig = _tree_signature(first)
-                    second_sig = _tree_signature(second)
-                    first_items = dict(_tree_items(first))
-                    second_items = dict(_tree_items(second))
-                    common = set(first_items) & set(second_items)
-                    max_abs = max(
-                        (float(np.max(np.abs(first_items[path] - second_items[path]))) for path in common),
-                        default=0.0,
+                    first_params = agents[reference].network.params['modules_critic'][branch]
+                    second_params = agents[compared].network.params['modules_critic'][branch]
+                    first_buffers = (
+                        agents[reference].network.model_state.get('buffers', {})
+                        .get('modules_critic', {}).get(branch, {})
                     )
-                    shape_equal = first_sig == second_sig
-                    exact_equal = shape_equal and all(
-                        np.array_equal(first_items[path], second_items[path]) for path in common
-                    ) and set(first_items) == set(second_items)
+                    second_buffers = (
+                        agents[compared].network.model_state.get('buffers', {})
+                        .get('modules_critic', {}).get(branch, {})
+                    )
+                    params_audit = _identity_component(first_params, second_params, tolerance)
+                    buffers_audit = _identity_component(first_buffers, second_buffers, tolerance)
+                    exact_equal = params_audit['exact_array_equal'] and buffers_audit['exact_array_equal']
                     comparisons.append({
                         'group': group,
                         'reference_config': reference,
                         'compared_config': compared,
                         'branch': branch,
-                        'parameter_count_reference': int(sum(value.size for value in first_items.values())),
-                        'parameter_count_compared': int(sum(value.size for value in second_items.values())),
-                        'structure_equal': bool(set(first_items) == set(second_items)),
-                        'shape_dtype_equal': bool(shape_equal),
+                        'parameter_count_reference': params_audit['element_count_reference'],
+                        'parameter_count_compared': params_audit['element_count_compared'],
+                        'structure_equal': params_audit['structure_equal'],
+                        'shape_dtype_equal': params_audit['shape_dtype_equal'],
                         'exact_array_equal': bool(exact_equal),
-                        'max_absolute_difference': max_abs,
-                        'allclose': bool(shape_equal and max_abs <= tolerance),
+                        'max_absolute_difference': max(
+                            params_audit['max_absolute_difference'],
+                            buffers_audit['max_absolute_difference'],
+                        ),
+                        'allclose': bool(params_audit['allclose'] and buffers_audit['allclose']),
                         'tolerance': float(tolerance),
-                        'reference_hash': _tree_hash(first),
-                        'compared_hash': _tree_hash(second),
+                        'reference_hash': params_audit['reference_hash'],
+                        'compared_hash': params_audit['compared_hash'],
+                        'params': params_audit,
+                        'buffers': buffers_audit,
                     })
     finally:
         for env in envs:
@@ -881,7 +950,7 @@ def run_critic_identity_audit(spec, diagnostic_root_path, tolerance=1e-6):
     audit = {
         'diagnostic_id': spec['diagnostic_id'],
         'same_critic_verification_passed': passed,
-        'identity_definition': 'exact parameter-tree structure, dtype, shape, array equality and stable hash within each critic group',
+        'identity_definition': 'exact parameter-tree and relevant recurrent buffer structure, dtype, shape, array equality and stable hash within each critic group',
         'comparisons': comparisons,
         'tolerance': float(tolerance),
         'note': 'A failed identity is reported as evidence; this audit never overwrites or forces parameters to match.',

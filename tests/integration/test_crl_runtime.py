@@ -254,13 +254,13 @@ def _graft_semantic_params(
     return new_root
 
 
-def _assert_info_equal(testcase, old_info, new_info, context, skip=()):
+def _assert_info_equal(testcase, old_info, new_info, context, skip=(), atol=ATOL):
     testcase.assertEqual(set(old_info) - set(skip), set(new_info) - set(skip), msg=context)
     max_error = 0.0
     for key in sorted(set(old_info) - set(skip)):
         error = float(np.max(np.abs(np.asarray(old_info[key]) - np.asarray(new_info[key]))))
         max_error = max(max_error, error)
-        testcase.assertTrue(np.allclose(old_info[key], new_info[key], rtol=0.0, atol=ATOL), msg=f'{context}: {key}')
+        testcase.assertTrue(np.allclose(old_info[key], new_info[key], rtol=0.0, atol=atol), msg=f'{context}: {key}')
     return max_error
 
 
@@ -301,17 +301,46 @@ class CRLReferenceMigrationTest(unittest.TestCase):
 
                 old_loss, old_info = old_agent.total_loss(batch, old_agent.network.params)
                 ref_loss, ref_info = reference_agent.total_loss(batch, reference_agent.network.params)
-                np.testing.assert_array_equal(np.asarray(old_loss), np.asarray(ref_loss))
-                _assert_info_equal(self, old_info, ref_info, f'reference {actor_loss} forward')
+                if actor_loss == 'ddpgbc':
+                    # The canonical DDPG+BC boundary inserts stop_gradient
+                    # on critic params in the actor-Q branch.  Its primal
+                    # value is unchanged; GPU fusion may make exact scalar
+                    # comparison differ by a few ulps from the historical
+                    # reference implementation.
+                    np.testing.assert_allclose(np.asarray(old_loss), np.asarray(ref_loss), rtol=0.0, atol=1e-4)
+                    _assert_info_equal(self, old_info, ref_info, f'reference {actor_loss} forward', atol=5e-4)
+                else:
+                    np.testing.assert_array_equal(np.asarray(old_loss), np.asarray(ref_loss))
+                    _assert_info_equal(self, old_info, ref_info, f'reference {actor_loss} forward')
 
                 old_grads = jax.grad(lambda params: old_agent.total_loss(batch, params)[0])(old_agent.network.params)
                 ref_grads = jax.grad(lambda params: reference_agent.total_loss(batch, params)[0])(reference_agent.network.params)
-                self.assertEqual(_tree_error(old_grads, ref_grads, False, False), 0.0)
+                if actor_loss == 'ddpgbc':
+                    # The old external reference predates the explicit
+                    # boundary and therefore has an actor-Q contribution in
+                    # critic gradients.  Preserve the migration check for
+                    # actor gradients, and test the intended critic boundary
+                    # directly in test_m11a_crl_interaction.
+                    for old_leaf, ref_leaf in zip(
+                        jax.tree_util.tree_leaves(old_grads['modules_actor']),
+                        jax.tree_util.tree_leaves(ref_grads['modules_actor']),
+                    ):
+                        np.testing.assert_allclose(old_leaf, ref_leaf, rtol=0.0, atol=5e-4)
+                else:
+                    self.assertEqual(_tree_error(old_grads, ref_grads, False, False), 0.0)
 
                 old_agent, old_update = old_agent.update(batch)
                 reference_agent, ref_update = reference_agent.update(batch)
-                _assert_info_equal(self, old_update, ref_update, f'reference {actor_loss} update', skip=('grad/norm',))
-                self.assertEqual(_tree_error(old_agent.network.params, reference_agent.network.params, False, False), 0.0)
+                if actor_loss == 'ddpgbc':
+                    _assert_info_equal(self, old_update, ref_update, f'reference {actor_loss} update', skip=('grad/norm',), atol=5e-4)
+                    for old_leaf, ref_leaf in zip(
+                        jax.tree_util.tree_leaves(old_agent.network.params['modules_actor']),
+                        jax.tree_util.tree_leaves(reference_agent.network.params['modules_actor']),
+                    ):
+                        np.testing.assert_allclose(old_leaf, ref_leaf, rtol=0.0, atol=5e-4)
+                else:
+                    _assert_info_equal(self, old_update, ref_update, f'reference {actor_loss} update', skip=('grad/norm',))
+                    self.assertEqual(_tree_error(old_agent.network.params, reference_agent.network.params, False, False), 0.0)
                 np.testing.assert_array_equal(np.asarray(old_agent.rng), np.asarray(reference_agent.rng))
 
 

@@ -191,11 +191,15 @@ def computation_slot_accounting(
     total_update_executions = 0
     state_init = None
     state_init_std = None
+    layer_norm = None
+    update_activate_final = None
     if is_recurrent:
         state_dim = int(topology_kwargs.get('state_dim'))
         update_depth = int(topology_kwargs.get('update_depth', 2))
         state_init = topology_kwargs.get('state_init', 'normal_buffer')
         state_init_std = float(topology_kwargs.get('state_init_std', 1.0))
+        layer_norm = bool(topology_kwargs.get('layer_norm', False))
+        update_activate_final = bool(topology_kwargs.get('update_activate_final', True))
         if topology == 'single_state':
             iterations = int(topology_kwargs.get('iterations', 1))
             residual = bool(topology_kwargs.get('residual', False))
@@ -226,6 +230,8 @@ def computation_slot_accounting(
         'l_update_executions': h_cycles * l_cycles if h_cycles is not None else 0,
         'state_init': state_init,
         'state_init_std': state_init_std,
+        'layer_norm': layer_norm,
+        'update_activate_final': update_activate_final,
         'trainable_params': count_parameters(slot_params),
         'core_trainable_params': count_parameters(core),
         'buffer_elements': count_non_trainable(buffer_params),

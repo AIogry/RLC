@@ -19,7 +19,9 @@ fixed_design:
   state_learned: false
   primitive: mlp
   activation: gelu
-  normalization: none_in_recurrent_core
+  primitive_semantics:
+    actor_recurrent_core: {activation: gelu, layer_norm: false, update_activate_final: true}
+    critic_recurrent_core: {activation: gelu, layer_norm: true, update_activate_final: false}
   state_init: normal_buffer
   state_init_std: 1.0
   width: 512

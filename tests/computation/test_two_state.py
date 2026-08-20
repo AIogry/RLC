@@ -14,7 +14,10 @@ STATE_DIM = 8
 INPUT_DIM = 5
 
 
-def _spec(h_cycles=2, l_cycles=1, credit='full_bptt', update_depth=2):
+def _spec(
+    h_cycles=2, l_cycles=1, credit='full_bptt', update_depth=2,
+    layer_norm=False, update_activate_final=True,
+):
     return ComputationSpec.from_mapping({
         'primitive': 'mlp',
         'topology': 'two_state',
@@ -27,14 +30,24 @@ def _spec(h_cycles=2, l_cycles=1, credit='full_bptt', update_depth=2):
             'state_init': 'normal_buffer',
             'state_init_std': 1.0,
             'update_depth': update_depth,
+            'layer_norm': layer_norm,
+            'update_activate_final': update_activate_final,
         },
     })
 
 
-def _init_core(h_cycles=2, l_cycles=1, credit='full_bptt', seed=0, buffer_seed=1, update_depth=2):
+def _init_core(
+    h_cycles=2, l_cycles=1, credit='full_bptt', seed=0, buffer_seed=1,
+    update_depth=2, layer_norm=False, update_activate_final=True,
+):
     core = make_computation_core(
-        _spec(h_cycles, l_cycles, credit, update_depth),
+        _spec(
+            h_cycles, l_cycles, credit, update_depth,
+            layer_norm, update_activate_final,
+        ),
         hidden_dims=(STATE_DIM, STATE_DIM, STATE_DIM),
+        activate_final=update_activate_final,
+        layer_norm=layer_norm,
     )
     x = jnp.arange(2 * INPUT_DIM, dtype=jnp.float32).reshape(2, INPUT_DIM) / 10.0
     variables = core.init(
@@ -44,10 +57,19 @@ def _init_core(h_cycles=2, l_cycles=1, credit='full_bptt', seed=0, buffer_seed=1
     return core, variables, x
 
 
-def _manual_unroll(variables, x, h_cycles, l_cycles, one_step=False):
+def _manual_unroll(
+    variables, x, h_cycles, l_cycles, one_step=False, update_depth=2,
+    layer_norm=False, update_activate_final=True,
+):
     topology = variables['params']['topology']
-    input_mapping = MLP(hidden_dims=(STATE_DIM,), activate_final=True)
-    update = MLP(hidden_dims=(STATE_DIM, STATE_DIM), activate_final=True)
+    input_mapping = MLP(
+        hidden_dims=(STATE_DIM,), activate_final=True, layer_norm=layer_norm,
+    )
+    update = MLP(
+        hidden_dims=(STATE_DIM,) * update_depth,
+        activate_final=update_activate_final,
+        layer_norm=layer_norm,
+    )
     x_hidden = input_mapping.apply({'params': topology['input_mapping']}, x)
     z_h = jnp.broadcast_to(variables['buffers']['topology']['z_h_init'], x_hidden.shape)
     z_l = jnp.broadcast_to(variables['buffers']['topology']['z_l_init'], x_hidden.shape)
@@ -227,6 +249,48 @@ class TwoStateTopologyTest(unittest.TestCase):
         full_grad = jax.grad(lambda params: loss(core_full, params))(full_variables['params'])
         one_grad = jax.grad(lambda params: loss(core_one, params))(full_variables['params'])
         self.assertGreater(_max_tree_difference(full_grad, one_grad), 1e-6)
+
+    def test_critic_primitive_semantics_layer_norm_and_no_final_activation(self):
+        core, variables, x = _init_core(
+            h_cycles=2,
+            l_cycles=1,
+            update_depth=3,
+            layer_norm=True,
+            update_activate_final=False,
+        )
+        topology = variables['params']['topology']
+        self.assertEqual(set(topology['input_mapping']), {'Dense_0', 'LayerNorm_0'})
+        self.assertEqual(
+            set(topology['h_update']),
+            {'Dense_0', 'Dense_1', 'Dense_2', 'LayerNorm_0', 'LayerNorm_1'},
+        )
+        self.assertEqual(
+            set(topology['l_update']),
+            {'Dense_0', 'Dense_1', 'Dense_2', 'LayerNorm_0', 'LayerNorm_1'},
+        )
+        actual = core.apply(variables, x)
+        expected_h, expected_l = _manual_unroll(
+            variables,
+            x,
+            h_cycles=2,
+            l_cycles=1,
+            update_depth=3,
+            layer_norm=True,
+            update_activate_final=False,
+        )
+        np.testing.assert_allclose(actual.representation, expected_h, rtol=0.0, atol=1e-6)
+        np.testing.assert_allclose(actual.state['z_l'], expected_l, rtol=0.0, atol=1e-6)
+        self.assertTrue(np.all(np.isfinite(np.asarray(actual.representation))))
+
+        def loss(params):
+            output = core.apply({'params': params, 'buffers': variables['buffers']}, x)
+            return output.representation.sum()
+
+        gradients = jax.grad(loss)(variables['params'])
+        self.assertTrue(all(
+            np.all(np.isfinite(np.asarray(leaf)))
+            for leaf in jax.tree_util.tree_leaves(gradients)
+        ))
 
 
 if __name__ == '__main__':

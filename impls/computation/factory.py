@@ -55,7 +55,7 @@ def make_computation_core(
     spec: ComputationSpec,
     *,
     hidden_dims: Sequence[int],
-    activate_final: bool = False,
+    activate_final: Optional[bool] = None,
     layer_norm: bool = False,
 ):
     """Build a computation core from a static slot specification.
@@ -74,12 +74,19 @@ def make_computation_core(
     if any(isinstance(dim, bool) or not isinstance(dim, Integral) or dim <= 0 for dim in hidden_dims):
         raise ValueError(f'Computation hidden dims must be positive integers, got {hidden_dims!r}')
     hidden_dims = tuple(int(dim) for dim in hidden_dims)
+    # Historical direct recurrent-core callers used the actor/update MLP
+    # recipe, whose update module ended with an activation.  Keep that
+    # fallback while requiring network callers to pass the primitive semantics
+    # explicitly (GCActor=True, CRL bilinear critic=False).  FeedForward keeps
+    # its original no-final-activation default below.
+    recurrent_activate_final = True if activate_final is None else bool(activate_final)
+    feedforward_activate_final = False if activate_final is None else bool(activate_final)
     if spec.topology == 'feedforward':
         if spec.credit != DirectCredit.name:
             raise ValueError(f'FeedForward requires credit={DirectCredit.name!r}, got {spec.credit!r}')
         primitive = MLP(
             hidden_dims=hidden_dims,
-            activate_final=activate_final,
+            activate_final=feedforward_activate_final,
             layer_norm=layer_norm,
         )
         return ComputationCore(topology=FeedForward(primitive=primitive))
@@ -105,9 +112,12 @@ def make_computation_core(
         # explicitly request a deeper recurrent update while keeping the
         # caller's branch depth (for example, (512, 512, 512, 512)) intact.
         kwargs.setdefault('update_depth', 2)
-        # M9's actor adapter/update use the existing MLP semantics and do not
-        # add normalization or a new primitive recipe.
-        kwargs['layer_norm'] = False
+        # The caller owns primitive semantics. Actor callers pass
+        # activate_final=True/layer_norm=False; CRL bilinear critic callers
+        # pass activate_final=False/layer_norm=True, matching the replaced
+        # vanilla branch.
+        kwargs['layer_norm'] = bool(layer_norm)
+        kwargs['update_activate_final'] = recurrent_activate_final
         return ComputationCore(topology=SingleState(**kwargs))
 
     if spec.topology == 'two_state':
@@ -131,9 +141,10 @@ def make_computation_core(
         kwargs.setdefault('state_init_std', 1.0)
         kwargs.setdefault('update_depth', 2)
         kwargs['credit'] = spec.credit
-        # M9B deliberately keeps the existing GELU MLP semantics without
-        # introducing normalization as a hidden scientific factor.
-        kwargs['layer_norm'] = False
+        # Preserve caller primitive semantics while letting the topology own
+        # only the H/L execution schedule.
+        kwargs['layer_norm'] = bool(layer_norm)
+        kwargs['update_activate_final'] = recurrent_activate_final
         return ComputationCore(topology=TwoState(**kwargs))
 
     raise ValueError(f'Unsupported computation topology: {spec.topology}')
