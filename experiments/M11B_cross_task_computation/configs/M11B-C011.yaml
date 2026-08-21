@@ -1,0 +1,12 @@
+study_id: M11B
+config_id: M11B-C011
+slug: crl_baseline_humanoidmaze_large_navigate
+environment: humanoidmaze-large-navigate-v0
+algorithm: crl
+condition: baseline
+semantic_condition: "CRL-A: FF actor × FF critic"
+semantic_label: "humanoidmaze-large-navigate-v0 | CRL-A: FF actor × FF critic"
+placement: baseline
+executable: true
+description: M11B CRL baseline condition on humanoidmaze-large-navigate-v0.
+factors: {algorithm_decomposition: actor_x_critic, computation_condition: crl_baseline, placement: baseline}

@@ -1,0 +1,12 @@
+study_id: M11B
+config_id: M11B-C030
+slug: crl_actor_critic_ss_antmaze_large_stitch
+environment: antmaze-large-stitch-v0
+algorithm: crl
+condition: actor_critic_ss
+semantic_condition: "CRL-PC: SS actor × SS critic"
+semantic_label: "antmaze-large-stitch-v0 | CRL-PC: SS actor × SS critic"
+placement: actor_critic_ss
+executable: true
+description: M11B CRL actor_critic_ss condition on antmaze-large-stitch-v0.
+factors: {algorithm_decomposition: actor_x_critic, computation_condition: crl_actor_critic_ss, placement: actor_critic_ss}

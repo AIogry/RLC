@@ -1,0 +1,128 @@
+study_id: M11B
+name: Cross-Task and Cross-Algorithm Computation Demand
+question: >-
+  How do the location and marginal value of decision-local computation vary
+  across task-scale-associated, embodiment/control-complexity-associated, and
+  stitching-associated demands in CRL and HIQL?
+primary_factors:
+  - algorithm_decomposition
+  - computation_placement
+  - task_reference
+fixed_design:
+  computation:
+    primitive: mlp
+    topology: single_state
+    iterations: 4
+    residual: false
+    input_injection: z_plus_x
+    state_dim: 512
+    state_init: normal_buffer
+    state_init_std: 1.0
+    decision_scope: decision_local
+    parameter_sharing: shared_update_weights
+  training_seed: 0
+  train_steps: 1000000
+  batch_size: 1024
+  evaluation:
+    tasks: all
+    episodes_per_task: 20
+    temperature: 0.0
+    gaussian: null
+    video: false
+  primary_endpoint: last@1M
+  secondary_endpoints:
+    - normalized_eval_auc
+    - best_success
+    - best_step
+    - last3_mean
+deferred_factors:
+  - topology
+  - iterations
+  - residual
+  - width
+  - primitive
+  - cross_environment_step_memory
+  - multi_seed_replication
+algorithms:
+  - crl
+  - hiql
+placements:
+  - baseline
+  - actor_ss
+  - critic_ss
+  - actor_critic_ss
+  - high_ss
+  - low_ss
+  - high_low_ss
+environments:
+  - antmaze-large-navigate-v0
+  - antmaze-giant-navigate-v0
+  - humanoidmaze-large-navigate-v0
+  - humanoidmaze-giant-navigate-v0
+  - antmaze-large-stitch-v0
+seeds:
+  - 0
+primary_metric: evaluation/overall_success
+canonical_hyperparameter_source: /home/eai/Research/offline-rl/docs/ALGORITHM_HYPERPARAMETERS.md
+protocol:
+  train_steps: 1000000
+  batch_size: 1024
+  log_interval: 5000
+  eval_interval: 100000
+  eval_tasks: all
+  eval_episodes: 20
+  eval_temperature: 0.0
+  eval_gaussian: null
+  video_episodes: 0
+  save_interval: 100000
+  save_best_checkpoint: true
+  save_last_checkpoint: true
+  selection_metric: evaluation/overall_success
+  selection_rule: strict_greater_than_keep_earlier_tie
+  primary_endpoint: last@1M
+  auc:
+    checkpoints: [100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000]
+    interval: [100000, 1000000]
+    rule: trapezoidal_area_divided_by_900000
+  formal_training_started: false
+environment_references:
+  antmaze-large-navigate-v0:
+    requested_id: antmaze-large-navigate-v0
+    underlying_ogbench_env: antmaze-large-v0
+    role: campaign_reference_anchor
+  antmaze-giant-navigate-v0:
+    requested_id: antmaze-giant-navigate-v0
+    underlying_ogbench_env: antmaze-giant-v0
+    role: task_scale_associated_reference
+  humanoidmaze-large-navigate-v0:
+    requested_id: humanoidmaze-large-navigate-v0
+    underlying_ogbench_env: humanoidmaze-large-v0
+    role: embodiment_control_complexity_reference
+  humanoidmaze-giant-navigate-v0:
+    requested_id: humanoidmaze-giant-navigate-v0
+    underlying_ogbench_env: humanoidmaze-giant-v0
+    role: difficult_embodiment_plus_scale_reference
+  antmaze-large-stitch-v0:
+    requested_id: antmaze-large-stitch-v0
+    underlying_ogbench_env: antmaze-large-v0
+    role: stitching_compositionality_reference
+hypotheses:
+  H1: Actor/policy-side computation may retain positive marginal value beyond AntMaze-Large.
+  H2: Computation effect magnitude may shift with task scale; monotonicity is not preregistered.
+  H3: Useful computation placement may shift with embodiment/control-complexity-associated demand.
+  H4: If generic critic computation responds to stitching burden, DeltaC_Stitch may increase relative to Navigate.
+  H5: CRL actor-critic and HIQL high-low decompositions may show different allocation patterns.
+cross_task_boundary: >-
+  Cross-environment comparisons are descriptive task-scale-associated,
+  embodiment/control-complexity-associated, or stitching-associated changes;
+  only same-environment compute-slot factorial contrasts are controlled interventions.
+future_replication:
+  seeds: [0, 1, 2, 3, 4]
+  triggers:
+    - absolute_primary_delta_at_least_0.10
+    - effect_sign_reversal_across_important_tasks
+    - stitch_critic_effect_differs_substantially_from_navigate
+    - crl_placement_pattern_shifts
+    - hiql_placement_pattern_shifts
+    - humanoid_giant_qualitatively_new_effect
+    - central_claim_would_rely_on_seed_0_only

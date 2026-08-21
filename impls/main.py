@@ -130,7 +130,16 @@ def _make_config(args, configuration=None):
     elif args.agent == 'coghp' and args.computation:
         raise ValueError('Vanilla CoGHP does not use --computation; use its official Mixer core.')
     if configuration is not None:
-        overrides = configuration.data.get('agent_overrides', {})
+        if configuration.data.get('study_id') == 'M11B':
+            from .experiment.m11b import m11b_agent_overrides
+
+            overrides = m11b_agent_overrides(
+                configuration.data['algorithm'],
+                configuration.data['environment'],
+                configuration.data['condition'],
+            )
+        else:
+            overrides = configuration.data.get('agent_overrides', {})
         config = _merge_config(config, overrides)
         hidden_dims = tuple(config['actor_hidden_dims'])
         if hidden_dims != (512, 512, 512):
@@ -574,6 +583,22 @@ def run(args):
         ogbench_module = os.path.abspath(__import__('ogbench').__file__)
     except (ImportError, AttributeError):
         ogbench_module = None
+    resolved_runtime_config = {
+        'launcher': vars(args),
+        'agent': config,
+        'dataset_root': dataset_dir,
+        'environment': args.env_name,
+        'training_seed': args.seed,
+    }
+    runtime_extras = _computation_runtime_extras(config)
+    if configuration is not None and configuration.data.get('study_id') == 'M11B':
+        runtime_extras.update({
+            'semantic_condition': configuration.data['semantic_condition'],
+            'semantic_label': configuration.data.get('semantic_label', configuration.data['semantic_condition']),
+            'm11b_condition': configuration.data['condition'],
+            'm11b_canonical_source': '/home/eai/Research/offline-rl/docs/ALGORITHM_HYPERPARAMETERS.md',
+            'm11b_environment_reference': configuration.data['environment'],
+        })
     artifact_root = args.save_dir or args.run_root
     run_context = create_run_context(
         study=study,
@@ -586,10 +611,10 @@ def run(args):
         dataset_dir=dataset_dir,
         computation=args.computation,
         compute_slots=compute_snapshot,
-        resolved_config={'launcher': vars(args), 'agent': config},
+        resolved_config=resolved_runtime_config,
         repo_root=Path(__file__).resolve().parents[1],
         ogbench_module=ogbench_module,
-        runtime_extras=_computation_runtime_extras(config),
+        runtime_extras=runtime_extras,
     )
     run_dir = str(run_context.run_dir)
     checkpoints_dir = os.path.join(run_dir, 'checkpoints')

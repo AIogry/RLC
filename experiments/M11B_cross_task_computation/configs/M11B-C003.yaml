@@ -1,0 +1,11 @@
+study_id: M11B
+config_id: M11B-C003
+slug: crl_baseline_antmaze_giant_navigate
+environment: antmaze-giant-navigate-v0
+algorithm: crl
+condition: baseline
+semantic_condition: "CRL-A: FF actor × FF critic"
+semantic_label: "antmaze-giant-navigate-v0 | CRL-A: FF actor × FF critic"
+placement: baseline
+executable: true
+factors: {algorithm_decomposition: actor_x_critic, computation_condition: crl_baseline, placement: baseline}

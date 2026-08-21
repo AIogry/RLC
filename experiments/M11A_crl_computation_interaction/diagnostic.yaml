@@ -2,8 +2,21 @@ diagnostic_id: M11A-D001
 source_study_id: M11A
 source_run_root: /data/qijunrong/06-RL/offline-rl/exp/RLC/runs
 environment: antmaze-large-navigate-v0
+source_git_commit: 22d7a9071727f25813a5ee341756da46ac05c41e
 config_ids: [M11A-C001, M11A-C002, M11A-C003, M11A-C004, M11A-C005, M11A-C006, M11A-C007]
 baseline_config_id: M11A-C001
+conditions:
+  baseline: M11A-C001
+  single_state:
+    ff_actor_ff_critic: M11A-C001
+    ff_actor_rec_critic: M11A-C002
+    rec_actor_ff_critic: M11A-C003
+    rec_actor_rec_critic: M11A-C004
+  two_state:
+    ff_actor_ff_critic: M11A-C001
+    ff_actor_rec_critic: M11A-C005
+    rec_actor_ff_critic: M11A-C006
+    rec_actor_rec_critic: M11A-C007
 checkpoint: {selector: last}
 protocol:
   task_selection: all

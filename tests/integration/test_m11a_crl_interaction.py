@@ -8,10 +8,17 @@ import numpy as np
 
 from impls.agents.crl import CRLAgent, get_config
 from impls.analysis.crl_interaction import (
+    _bootstrap_ratio,
+    _candidate_source_map,
+    _critic_q,
     _identity_component,
+    _extraction_sample_fields,
     _extraction_rows,
+    _load_bank,
+    _mode_actions,
     _temporal_rows,
     load_interaction_spec,
+    validate_source_set,
 )
 from impls.computation.accounting import count_parameters
 from impls.experiment import load_study, prepare_run_design
@@ -283,6 +290,121 @@ class M11AInteractionStudyTest(unittest.TestCase):
             if row['metric'] == 'duplicate_candidate_pool' and row['scope'] == 'overall'
         )
         self.assertAlmostEqual(duplicate['value'], 0.5, places=6)
+
+    def test_temporal_tie_semantics_and_episode_cluster(self):
+        bank = {
+            'pair_anchor_indices': np.asarray([0, 0, 0]),
+            'pair_task_ids': np.asarray([1, 1, 1]),
+            'pair_episode_indices': np.asarray([0, 0, 0]),
+            'pair_h': np.asarray([25, 50, 75]),
+            'anchor_task_ids': np.asarray([1]),
+        }
+        rows = _temporal_rows(
+            bank, np.asarray([1.0, 1.0, 0.0]), 'critic',
+            {'bootstrap_seed': 7, 'bootstrap_replicates': 20},
+        )
+        overall = next(row for row in rows if row['scope'] == 'overall')
+        self.assertAlmostEqual(overall['value'], 1 / 3)
+        self.assertEqual(overall['ties'], 1)
+        self.assertEqual(overall['n_episodes'], 1)
+
+    def test_extraction_raw_fields_keep_degenerate_and_duplicate_flags(self):
+        q_values = np.asarray([[2.0, 2.0, 2.0], [3.0, 1.0, 2.0]])
+        actions = np.asarray([
+            [[0.0], [0.0], [1.0]],
+            [[0.0], [1.0], [2.0]],
+        ])
+        fields = _extraction_sample_fields(
+            q_values, ['exec', 'actor', 'other'], actions, actor_index=1, epsilon=1e-6,
+        )
+        self.assertEqual(fields['q_max'].shape, (2,))
+        self.assertTrue(fields['degenerate_pool'][0])
+        self.assertFalse(fields['degenerate_pool'][1])
+        self.assertTrue(fields['exact_duplicate_action_pool'][0])
+        self.assertFalse(fields['exact_duplicate_action_pool'][1])
+        np.testing.assert_array_equal(fields['actor_rank'], np.asarray([0, 2]))
+        self.assertEqual(fields['best_candidate_identity'][1], 'exec')
+
+    def test_conservative_critic_score_uses_ensemble_min(self):
+        class Network:
+            def select(self, name):
+                self.assert_name = name
+                return lambda observations, goals, actions: jnp.asarray(
+                    [[3.0, 1.0], [2.0, 4.0]], dtype=jnp.float32
+                )
+
+        class Agent:
+            network = Network()
+
+        scores = _critic_q(
+            Agent(), np.zeros((2, 3), dtype=np.float32),
+            np.zeros((2, 3), dtype=np.float32), np.zeros((2, 1), dtype=np.float32),
+        )
+        np.testing.assert_array_equal(scores, np.asarray([2.0, 1.0]))
+
+    def test_mode_actions_are_deterministic_and_clipped(self):
+        class Distribution:
+            def __init__(self, values):
+                self.values = values
+
+            def mode(self):
+                return self.values
+
+        class Network:
+            def select(self, name):
+                return lambda observations, goals, temperature: Distribution(
+                    jnp.full((len(observations), 2), 2.0)
+                )
+
+        class Agent:
+            network = Network()
+
+        observations = np.zeros((3, 4), dtype=np.float32)
+        goals = np.zeros((3, 4), dtype=np.float32)
+        first = _mode_actions(Agent(), observations, goals, chunk_size=2)
+        second = _mode_actions(Agent(), observations, goals, chunk_size=2)
+        np.testing.assert_array_equal(first, second)
+        np.testing.assert_array_equal(first, np.ones((3, 2), dtype=np.float32))
+
+    def test_declarative_candidate_order_and_source_mapping(self):
+        spec = load_interaction_spec(SPEC_PATH)
+        mapping = _candidate_source_map(spec, 'single_state')
+        self.assertEqual(list(mapping), [
+            'a_exec', 'a_M11A-C001', 'a_M11A-C002', 'a_M11A-C003', 'a_M11A-C004',
+        ])
+        self.assertIsNone(mapping['a_exec'])
+        self.assertEqual(mapping['a_M11A-C004'], 'M11A-C004')
+
+    def test_episode_bootstrap_is_clustered_and_deterministic(self):
+        clusters = {('task1', 0): (1.0, 1.0), ('task1', 1): (0.0, 1.0)}
+        first = _bootstrap_ratio(clusters, seed=123, replicates=100)
+        second = _bootstrap_ratio(clusters, seed=123, replicates=100)
+        self.assertEqual(first, second)
+        self.assertGreaterEqual(first[0], 0.0)
+        self.assertLessEqual(first[1], 1.0)
+
+    def test_source_commit_and_checkpoint_mismatch_fail_loudly(self):
+        spec = load_interaction_spec(SPEC_PATH)
+        bad_commit = dict(spec)
+        bad_commit['source_git_commit'] = '0' * 40
+        with self.assertRaises(ValueError):
+            validate_source_set(bad_commit)
+        bad_checkpoint = dict(spec)
+        bad_checkpoint['checkpoint'] = {'selector': 'best'}
+        with self.assertRaises(ValueError):
+            validate_source_set(bad_checkpoint)
+
+    def test_bank_hash_mismatch_fails_loudly(self):
+        spec = load_interaction_spec(SPEC_PATH)
+        with tempfile.TemporaryDirectory(prefix='m11a_bad_bank_') as temp_dir:
+            bank_dir = Path(temp_dir) / spec['diagnostic_id'] / 'bank'
+            bank_dir.mkdir(parents=True)
+            np.savez_compressed(bank_dir / 'diagnostic_bank.npz', pair_ids=np.asarray([0]))
+            (bank_dir / 'bank_metadata.json').write_text(
+                '{"diagnostic_id": "M11A-D001", "bank_sha256": "bad"}\n'
+            )
+            with self.assertRaises(ValueError):
+                _load_bank(temp_dir, spec)
 
     def test_critic_identity_component_requires_params_and_buffers(self):
         params = {'Dense_0': {'kernel': np.ones((2, 2), dtype=np.float32)}}

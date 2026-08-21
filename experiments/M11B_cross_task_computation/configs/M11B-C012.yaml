@@ -1,0 +1,12 @@
+study_id: M11B
+config_id: M11B-C012
+slug: crl_critic_ss_humanoidmaze_large_navigate
+environment: humanoidmaze-large-navigate-v0
+algorithm: crl
+condition: critic_ss
+semantic_condition: "CRL-C: FF actor × SS critic"
+semantic_label: "humanoidmaze-large-navigate-v0 | CRL-C: FF actor × SS critic"
+placement: critic_ss
+executable: true
+description: M11B CRL critic_ss condition on humanoidmaze-large-navigate-v0.
+factors: {algorithm_decomposition: actor_x_critic, computation_condition: crl_critic_ss, placement: critic_ss}

@@ -1,0 +1,12 @@
+study_id: M11B
+config_id: M11B-C002
+slug: hiql_anchor_ff_ff
+environment: antmaze-large-navigate-v0
+algorithm: hiql
+condition: baseline
+semantic_condition: "HIQL-A: FF high × FF low"
+semantic_label: "antmaze-large-navigate-v0 | HIQL-A: FF high × FF low"
+placement: baseline
+executable: true
+description: Fresh AntMaze-Large HIQL feedforward calibration baseline; not a historical factorial replacement.
+factors: {algorithm_decomposition: high_actor_x_low_actor, computation_condition: hiql_baseline, placement: baseline}

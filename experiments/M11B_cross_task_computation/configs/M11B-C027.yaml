@@ -1,0 +1,12 @@
+study_id: M11B
+config_id: M11B-C027
+slug: crl_baseline_antmaze_large_stitch
+environment: antmaze-large-stitch-v0
+algorithm: crl
+condition: baseline
+semantic_condition: "CRL-A: FF actor × FF critic"
+semantic_label: "antmaze-large-stitch-v0 | CRL-A: FF actor × FF critic"
+placement: baseline
+executable: true
+description: M11B CRL baseline condition on antmaze-large-stitch-v0.
+factors: {algorithm_decomposition: actor_x_critic, computation_condition: crl_baseline, placement: baseline}

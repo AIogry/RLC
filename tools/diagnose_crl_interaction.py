@@ -24,7 +24,9 @@ from impls.analysis.crl_interaction import (
     load_interaction_spec,
     run_critic_identity_audit,
     score_diagnostics,
+    _source_validation_payload,
     smoke_m11a_configs,
+    validate_source_set,
 )
 
 
@@ -45,10 +47,25 @@ def _args(argv=None):
 def main(argv=None):
     args = _args(argv)
     try:
+        spec = load_interaction_spec(args.spec)
         if args.stage == 'doctor':
-            result = smoke_m11a_configs(args.study)
+            sources = validate_source_set(spec)
+            result = {
+                'status': 'passed',
+                'source_validation': _source_validation_payload(spec, sources),
+                'planned_artifact_root': str(Path(args.diagnostic_root).resolve() / spec['diagnostic_id']),
+                'planned_artifact_paths': {
+                    'bank': 'bank/diagnostic_bank.npz + bank_metadata.json',
+                    'candidates': 'candidates/single_state_candidates.npz + two_state_candidates.npz + candidate_metadata.json',
+                    'audits': 'audits/source_validation.json + critic_identity.json',
+                    'scores': 'scores/evaluator_scores.npz + extraction_scores.npz + score_metadata.json',
+                    'metrics': 'metrics/evaluator_metrics.csv + extraction_metrics.csv + mechanism_deltas.csv + interaction_metrics.csv',
+                    'reports': 'reports/diagnostic_summary.json + diagnostic_summary.md',
+                },
+                'pair_count': 'runtime-dependent; reported by bank stage after environment rollout',
+                'config_smoke': smoke_m11a_configs(args.study),
+            }
         else:
-            spec = load_interaction_spec(args.spec)
             if args.stage == 'bank':
                 result = generate_diagnostic_bank(spec, args.diagnostic_root)
             elif args.stage == 'candidates':

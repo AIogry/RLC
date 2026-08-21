@@ -240,6 +240,13 @@ def load_configuration(study, config_ref):
         raise ExperimentError('Configuration must not contain seed; seed belongs to a Run')
     if not isinstance(data['factors'], dict):
         raise ExperimentError('Configuration factors must be a mapping')
+    if 'environment' in data:
+        _validate_component(data['environment'], 'environment')
+        if data['environment'] not in study.data['environments']:
+            raise ExperimentError(
+                f'Configuration environment {data["environment"]!r} is not declared by '
+                f'Study {study.study_id}: {study.data["environments"]!r}'
+            )
     return Configuration(path=config_path, data=data)
 
 
@@ -645,7 +652,12 @@ def write_manifest(study_path, run_root='runs', output_path=None, repo_root=None
     repo_root = Path(repo_root or study.path.parents[2]).resolve()
     rows = {}
     for configuration in configurations:
-        for environment in study.data['environments']:
+        environments = (
+            [configuration.data['environment']]
+            if 'environment' in configuration.data
+            else study.data['environments']
+        )
+        for environment in environments:
             for seed in study.data['seeds']:
                 run_path = make_run_path(
                     run_root,

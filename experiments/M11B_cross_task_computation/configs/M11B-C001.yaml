@@ -1,0 +1,12 @@
+study_id: M11B
+config_id: M11B-C001
+slug: crl_anchor_ff_ff
+environment: antmaze-large-navigate-v0
+algorithm: crl
+condition: baseline
+semantic_condition: "CRL-A: FF actor × FF critic"
+semantic_label: "antmaze-large-navigate-v0 | CRL-A: FF actor × FF critic"
+placement: baseline
+executable: true
+description: Fresh AntMaze-Large CRL feedforward calibration baseline; not an M11A source run.
+factors: {algorithm_decomposition: actor_x_critic, computation_condition: crl_baseline, placement: baseline}

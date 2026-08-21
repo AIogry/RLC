@@ -34,7 +34,7 @@ def _parse_gpus(value):
     return gpus
 
 
-def _validate_dataset(study_path, dataset_root):
+def _validate_dataset(study_path, dataset_root, *, allow_missing=False):
     """Fail fast unless every Study environment has train and validation data."""
 
     study = load_study(study_path)
@@ -49,6 +49,12 @@ def _validate_dataset(study_path, dataset_root):
     missing = [path for path in required if not path.is_file()]
     if missing:
         missing_text = '\n'.join(f'  {path}' for path in missing)
+        if allow_missing:
+            print(
+                f'Dataset preflight warning (dry-run only); missing files:\n{missing_text}',
+                file=sys.stderr,
+            )
+            return required
         raise SystemExit(f'Dataset preflight failed; missing files:\n{missing_text}')
     return required
 
@@ -83,7 +89,12 @@ def _jobs(study_path, run_root, include_configs=None, exclude_configs=None):
 
     jobs = []
     for configuration in configurations:
-        for environment in study.data['environments']:
+        environments = (
+            [configuration.data['environment']]
+            if 'environment' in configuration.data
+            else study.data['environments']
+        )
+        for environment in environments:
             for seed in study.data['seeds']:
                 run_dir = make_run_path(
                     run_root,
@@ -189,6 +200,11 @@ def main(argv=None):
         action='store_true',
         help='Print only the Study status summary; never launch jobs.',
     )
+    parser.add_argument(
+        '--allow-missing-dataset',
+        action='store_true',
+        help='Allow missing dataset files for non-executing validation only.',
+    )
     args, extra_args = parser.parse_known_args(argv)
 
     if args.configs is not None and args.exclude_configs is not None:
@@ -196,7 +212,13 @@ def main(argv=None):
     include_configs = _parse_config_ids(args.configs, '--configs')
     exclude_configs = _parse_config_ids(args.exclude_configs, '--exclude-configs')
     if args.dataset_root is not None:
-        _validate_dataset(args.study, args.dataset_root)
+        if args.allow_missing_dataset and args.execute and not args.dry_run:
+            raise SystemExit('--allow-missing-dataset is only valid for dry-run/summary validation')
+        _validate_dataset(
+            args.study,
+            args.dataset_root,
+            allow_missing=args.allow_missing_dataset and not args.execute,
+        )
     jobs = _jobs(
         args.study,
         args.run_root,
@@ -230,9 +252,11 @@ def main(argv=None):
     )
     if not args.summary_only:
         for job in pending:
+            semantic = job['configuration'].data.get('semantic_condition', job['configuration'].slug)
             print(
                 f'[PLANNED] {job["configuration"].config_id} '
-                f'{job["configuration"].slug} {job["environment"]} '
+                f'{semantic} algorithm={job["configuration"].data.get("algorithm")} '
+                f'{job["environment"]} '
                 f'seed={job["seed"]} GPU=<pending> run_dir={job["run_dir"]}'
             )
     if args.summary_only or args.dry_run or not args.execute:

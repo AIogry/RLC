@@ -1,0 +1,12 @@
+study_id: M11B
+config_id: M11B-C026
+slug: hiql_high_low_ss_humanoidmaze_giant_navigate
+environment: humanoidmaze-giant-navigate-v0
+algorithm: hiql
+condition: high_low_ss
+semantic_condition: "HIQL-HL: SS high × SS low"
+semantic_label: "humanoidmaze-giant-navigate-v0 | HIQL-HL: SS high × SS low"
+placement: high_low_ss
+executable: true
+description: M11B HIQL high_low_ss condition on humanoidmaze-giant-navigate-v0.
+factors: {algorithm_decomposition: high_actor_x_low_actor, computation_condition: hiql_high_low_ss, placement: high_low_ss}

@@ -1,0 +1,11 @@
+study_id: M11B
+config_id: M11B-C004
+slug: crl_critic_ss_antmaze_giant_navigate
+environment: antmaze-giant-navigate-v0
+algorithm: crl
+condition: critic_ss
+semantic_condition: "CRL-C: FF actor × SS critic"
+semantic_label: "antmaze-giant-navigate-v0 | CRL-C: FF actor × SS critic"
+placement: critic_ss
+executable: true
+factors: {algorithm_decomposition: actor_x_critic, computation_condition: crl_critic_ss, placement: critic_ss}

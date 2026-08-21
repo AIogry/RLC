@@ -1,0 +1,12 @@
+study_id: M11B
+config_id: M11B-C023
+slug: hiql_baseline_humanoidmaze_giant_navigate
+environment: humanoidmaze-giant-navigate-v0
+algorithm: hiql
+condition: baseline
+semantic_condition: "HIQL-A: FF high × FF low"
+semantic_label: "humanoidmaze-giant-navigate-v0 | HIQL-A: FF high × FF low"
+placement: baseline
+executable: true
+description: M11B HIQL baseline condition on humanoidmaze-giant-navigate-v0.
+factors: {algorithm_decomposition: high_actor_x_low_actor, computation_condition: hiql_baseline, placement: baseline}

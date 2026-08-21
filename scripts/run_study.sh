@@ -102,16 +102,20 @@ fi
 [[ -n "$EVAL_TEMPERATURE" ]] || die '--eval-temperature is required'
 [[ -n "$MODE" ]] || die 'exactly one of --dry-run or --execute is required'
 
-CALLER_TOPLEVEL="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-[[ "$CALLER_TOPLEVEL" == "$REPO_ROOT" ]] || die 'current directory is not the RLC Git worktree'
 cd "$REPO_ROOT"
-GIT_TOPLEVEL="$(git rev-parse --show-toplevel 2>/dev/null)" || die 'not inside a Git worktree'
-[[ "$GIT_TOPLEVEL" == "$REPO_ROOT" ]] || die "launcher root is not the Git worktree: $GIT_TOPLEVEL"
-GIT_STATUS="$(git status --porcelain --untracked-files=all)"
-if [[ -n "$GIT_STATUS" ]]; then
-    echo 'Formal execution refused: Git worktree is dirty.' >&2
-    echo "$GIT_STATUS" >&2
-    exit 2
+if [[ "$MODE" == --execute ]]; then
+    CALLER_TOPLEVEL="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    [[ "$CALLER_TOPLEVEL" == "$REPO_ROOT" ]] || die 'current directory is not the RLC Git worktree'
+    GIT_TOPLEVEL="$(git rev-parse --show-toplevel 2>/dev/null)" || die 'not inside a Git worktree'
+    [[ "$GIT_TOPLEVEL" == "$REPO_ROOT" ]] || die "launcher root is not the Git worktree: $GIT_TOPLEVEL"
+    GIT_STATUS="$(git status --porcelain --untracked-files=all)"
+    if [[ -n "$GIT_STATUS" ]]; then
+        echo 'Formal execution refused: Git worktree is dirty.' >&2
+        echo "$GIT_STATUS" >&2
+        exit 2
+    fi
+else
+    echo "Git preflight: skipped for --dry-run (set RLC_SOURCE_COMMIT after manual review)"
 fi
 
 STUDY_PATH="$STUDY"
@@ -125,8 +129,12 @@ case "$RUN_ROOT" in
     /*) ;;
     *) RUN_ROOT="$REPO_ROOT/$RUN_ROOT" ;;
 esac
-mkdir -p "$RUN_ROOT" || die "cannot create run root: $RUN_ROOT"
-[[ -d "$RUN_ROOT" && -w "$RUN_ROOT" ]] || die "run root is not writable: $RUN_ROOT"
+if [[ "$MODE" == --execute ]]; then
+    mkdir -p "$RUN_ROOT" || die "cannot create run root: $RUN_ROOT"
+    [[ -d "$RUN_ROOT" && -w "$RUN_ROOT" ]] || die "run root is not writable: $RUN_ROOT"
+else
+    echo "Run-root preflight: skipped for --dry-run (no run directory will be created)"
+fi
 [[ -d "$DATASET_ROOT" && -r "$DATASET_ROOT" ]] || die "dataset root is not readable: $DATASET_ROOT"
 
 GPU_CSV="$(printf '%s' "$GPUS" | tr -d '[:space:]')"
@@ -160,6 +168,9 @@ SUMMARY_ARGS=(
     --dataset-root "$DATASET_ROOT"
     --summary-only
 )
+if [[ "$MODE" == --dry-run && "$STUDY" == *M11B* ]]; then
+    SUMMARY_ARGS+=(--allow-missing-dataset)
+fi
 if [[ -n "$CONFIGS" ]]; then
     SUMMARY_ARGS+=(--configs "$CONFIGS")
 fi
@@ -174,7 +185,11 @@ field() {
 }
 
 echo 'Formal RLC Study execution'
-echo "Git commit: $(git rev-parse HEAD)"
+if [[ "$MODE" == --execute ]]; then
+    echo "Git commit: $(git rev-parse HEAD)"
+else
+    echo "Git commit: ${RLC_SOURCE_COMMIT:-<manual-user-supplied>}"
+fi
 echo "Study: $STUDY_PATH"
 echo "Run root: $RUN_ROOT"
 echo "Dataset root: $DATASET_ROOT"
@@ -214,6 +229,9 @@ fi
 if [[ -n "$VIDEO_EPISODES" ]]; then
     positive_int "$VIDEO_EPISODES" || die '--video-episodes must be a positive integer'
     SWEEP_ARGS+=("--video_episodes=$VIDEO_EPISODES")
+fi
+if [[ "$MODE" == --dry-run && "$STUDY" == *M11B* ]]; then
+    SWEEP_ARGS+=(--allow-missing-dataset)
 fi
 if [[ "$MODE" == --dry-run ]]; then
     SWEEP_ARGS+=(--dry-run)

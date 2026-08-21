@@ -1,0 +1,11 @@
+study_id: M11B
+config_id: M11B-C009
+slug: hiql_low_ss_antmaze_giant_navigate
+environment: antmaze-giant-navigate-v0
+algorithm: hiql
+condition: low_ss
+semantic_condition: "HIQL-L: FF high × SS low"
+semantic_label: "antmaze-giant-navigate-v0 | HIQL-L: FF high × SS low"
+placement: low_ss
+executable: true
+factors: {algorithm_decomposition: high_actor_x_low_actor, computation_condition: hiql_low_ss, placement: low_ss}
