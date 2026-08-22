@@ -25,6 +25,7 @@ SAVE_INTERVAL=""
 EVAL_TEMPERATURE=""
 EVAL_GAUSSIAN=""
 VIDEO_EPISODES=""
+RUN_ATTEMPT="0"
 MODE=""
 
 usage() {
@@ -32,6 +33,7 @@ usage() {
 Usage:
   bash scripts/run_study.sh --study experiments/<study>/study.yaml \
     [--configs ID1,ID2,... | --exclude-configs ID1,ID2,...] \
+    [--run-attempt N] \
     --gpus 0,1 --run-root /data/.../RLC/runs \
     --dataset-root /data/.../ogbench \
     --train-steps N --batch-size N --log-interval N --eval-interval N \
@@ -57,6 +59,10 @@ positive_int() {
     [[ "${1:-}" =~ ^[1-9][0-9]*$ ]]
 }
 
+nonnegative_int() {
+    [[ "${1:-}" =~ ^[0-9]+$ ]]
+}
+
 while (($# > 0)); do
     case "$1" in
         --study) need_value "$@"; STUDY="$2"; shift 2 ;;
@@ -64,6 +70,7 @@ while (($# > 0)); do
         --exclude-configs) need_value "$@"; EXCLUDE_CONFIGS="$2"; shift 2 ;;
         --gpus) need_value "$@"; GPUS="$2"; shift 2 ;;
         --run-root) need_value "$@"; RUN_ROOT="$2"; shift 2 ;;
+        --run-attempt) need_value "$@"; RUN_ATTEMPT="$2"; shift 2 ;;
         --dataset-root) need_value "$@"; DATASET_ROOT="$2"; shift 2 ;;
         --train-steps) need_value "$@"; TRAIN_STEPS="$2"; shift 2 ;;
         --batch-size) need_value "$@"; BATCH_SIZE="$2"; shift 2 ;;
@@ -90,6 +97,7 @@ done
 [[ -n "$GPUS" ]] || die '--gpus must be non-empty'
 [[ -n "$RUN_ROOT" ]] || die '--run-root is required for formal execution'
 [[ -n "$DATASET_ROOT" ]] || die '--dataset-root is required (or set OGBENCH_DATASET_DIR)'
+nonnegative_int "$RUN_ATTEMPT" || die '--run-attempt must be a non-negative integer'
 positive_int "$TRAIN_STEPS" || die '--train-steps must be a positive integer'
 positive_int "$BATCH_SIZE" || die '--batch-size must be a positive integer'
 positive_int "$LOG_INTERVAL" || die '--log-interval must be a positive integer'
@@ -165,6 +173,7 @@ SUMMARY_ARGS=(
     --study "$STUDY_PATH"
     --gpus "$GPU_CSV"
     --run-root "$RUN_ROOT"
+    --run-attempt "$RUN_ATTEMPT"
     --dataset-root "$DATASET_ROOT"
     --summary-only
 )
@@ -192,6 +201,7 @@ else
 fi
 echo "Study: $STUDY_PATH"
 echo "Run root: $RUN_ROOT"
+echo "Run attempt: $RUN_ATTEMPT"
 echo "Dataset root: $DATASET_ROOT"
 echo "GPUs: $GPU_CSV"
 echo "Config filter: ${CONFIGS:-${EXCLUDE_CONFIGS:+exclude:$EXCLUDE_CONFIGS}}"
@@ -207,6 +217,7 @@ SWEEP_ARGS=(
     --study "$STUDY_PATH"
     --gpus "$GPU_CSV"
     --run-root "$RUN_ROOT"
+    --run-attempt "$RUN_ATTEMPT"
     --dataset-root "$DATASET_ROOT"
     "--train_steps=$TRAIN_STEPS"
     "--batch_size=$BATCH_SIZE"

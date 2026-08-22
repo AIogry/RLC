@@ -42,7 +42,14 @@ from impls.experiment.m11b import (
     resolved_fingerprint_payload,
     spec_by_id,
 )
-from impls.main import _make_config, _parse_args, _resolved_compute_snapshot
+from impls.main import (
+    _accounting_consistency_audit,
+    _actor_parameter_accounting,
+    _computation_slot_accounting,
+    _make_config,
+    _parse_args,
+    _resolved_compute_snapshot,
+)
 from impls.utils.checkpointing import sha256_file
 from impls.utils.flax_utils import restore_agent, save_agent
 
@@ -301,6 +308,96 @@ def runtime_smoke(study, dataset_root: Path, resolved, *, max_probes=None):
     return probes
 
 
+def runtime_accounting_smoke(study, dataset_root: Path, resolved):
+    """Exercise HIQL high-only, low-only, and joint accounting on real shapes."""
+
+    dataset_environment = next(
+        (
+            environment for environment in NEW_ENVIRONMENTS
+            if (dataset_root / f'{environment}.npz').is_file()
+        ),
+        None,
+    )
+    if dataset_environment is None:
+        raise AssertionError('No M11B new-environment dataset is available for accounting smoke')
+    with np.load(
+        dataset_root / f'{dataset_environment}.npz',
+        mmap_mode='r',
+        allow_pickle=False,
+    ) as data:
+        observations = np.asarray(data['observations'][:2], dtype=np.float32)
+        actions = np.asarray(data['actions'][:2], dtype=np.float32)
+    if actions.ndim == 1:
+        actions = actions[:, None]
+
+    by_key = {
+        (row['algorithm'], row['environment'], row['condition']): (row, config)
+        for row, config in resolved
+    }
+    probes = []
+    for condition in ('high_ss', 'low_ss', 'high_low_ss'):
+        row, config = by_key[('hiql', dataset_environment, condition)]
+        agent = agents['hiql'].create(
+            0, jnp.asarray(observations), jnp.asarray(actions), config,
+        )
+        legacy = _actor_parameter_accounting(agent, config)
+        generic = _computation_slot_accounting(agent, config)
+        consistency = _accounting_consistency_audit(legacy, generic, config)
+        enabled_slots = [
+            slot_name for slot_name in ('high_actor', 'low_actor')
+            if config['compute'][slot_name]['enabled']
+        ]
+        if condition == 'high_ss' and enabled_slots != ['high_actor']:
+            raise AssertionError(f'{row["config_id"]}: unexpected high-only slots {enabled_slots}')
+        if condition == 'low_ss' and enabled_slots != ['low_actor']:
+            raise AssertionError(f'{row["config_id"]}: unexpected low-only slots {enabled_slots}')
+        if condition == 'high_low_ss' and enabled_slots != ['high_actor', 'low_actor']:
+            raise AssertionError(f'{row["config_id"]}: unexpected joint slots {enabled_slots}')
+        for slot_name in enabled_slots:
+            spec = config['compute'][slot_name]
+            kwargs = spec['topology_kwargs']
+            if (
+                spec['topology'] != 'single_state'
+                or kwargs.get('iterations') != 4
+                or kwargs.get('state_dim') != 512
+                or kwargs.get('residual') is not False
+                or kwargs.get('input_injection') != 'z_plus_x'
+            ):
+                raise AssertionError(f'{row["config_id"]}: SingleState spec mismatch for {slot_name}')
+        probes.append({
+            'config_id': row['config_id'],
+            'environment': dataset_environment,
+            'condition': condition,
+            'enabled_slots': enabled_slots,
+            'resolved_single_state': {
+                slot_name: {
+                    'topology': config['compute'][slot_name]['topology'],
+                    'iterations': config['compute'][slot_name]['topology_kwargs']['iterations'],
+                    'state_dim': config['compute'][slot_name]['topology_kwargs']['state_dim'],
+                    'residual': config['compute'][slot_name]['topology_kwargs']['residual'],
+                    'input_injection': config['compute'][slot_name]['topology_kwargs']['input_injection'],
+                }
+                for slot_name in enabled_slots
+            },
+            'legacy_accounting': {
+                slot_name: {
+                    field: legacy[slot_name].get(field)
+                    for field in ('topology', 'trainable_params', 'buffer_elements', 'state_dim', 'iterations')
+                }
+                for slot_name in enabled_slots
+            },
+            'generic_accounting': {
+                slot_name: {
+                    field: generic[slot_name].get(field)
+                    for field in ('topology', 'trainable_params', 'buffer_elements', 'state_dim', 'iterations')
+                }
+                for slot_name in enabled_slots
+            },
+            'consistency': consistency,
+        })
+    return probes
+
+
 def checkpoint_smoke(resolved):
     checks = []
     for algorithm, condition in (('crl', 'actor_critic_ss'), ('hiql', 'high_low_ss')):
@@ -355,6 +452,7 @@ def doctor(study_path: Path, dataset_root: Path, *, source_commit: str | None = 
     environment_rows = validate_environment_references(study, dataset_root)
     runtime_errors = []
     runtime_probes = []
+    runtime_accounting_probes = []
     checkpoint_checks = []
     synthetic = {}
     try:
@@ -366,6 +464,12 @@ def doctor(study_path: Path, dataset_root: Path, *, source_commit: str | None = 
             runtime_probes = runtime_smoke(study, dataset_root, resolved, max_probes=max_runtime_probes)
         except Exception as error:
             runtime_errors.append(f'real runtime smoke: {type(error).__name__}: {error}')
+        try:
+            runtime_accounting_probes = runtime_accounting_smoke(study, dataset_root, resolved)
+        except Exception as error:
+            runtime_errors.append(
+                f'runtime accounting smoke: {type(error).__name__}: {error}'
+            )
         try:
             checkpoint_checks = checkpoint_smoke(resolved)
         except Exception as error:
@@ -383,6 +487,7 @@ def doctor(study_path: Path, dataset_root: Path, *, source_commit: str | None = 
         'resolution_pass': not resolution_errors,
         'environment_references': environment_rows,
         'runtime_probes': runtime_probes,
+        'runtime_accounting_probes': runtime_accounting_probes,
         'checkpoint_checks': checkpoint_checks,
         'synthetic_checks': synthetic,
         'errors': errors,

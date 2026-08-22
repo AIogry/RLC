@@ -61,6 +61,7 @@ _MANIFEST_FIELDS = (
     'environment',
     'seed',
     'git_commit',
+    'run_attempt',
     'status',
     'run_dir',
     'final_success',
@@ -256,8 +257,12 @@ def prepare_run_design(study_path, config_ref):
     return study, configuration
 
 
-def make_run_path(run_root, study_id, config_id, slug, environment, seed):
-    """Return the stable canonical path for one Run without creating it."""
+def make_run_path(run_root, study_id, config_id, slug, environment, seed, run_attempt=0):
+    """Return a stable path for one Run without creating it.
+
+    Attempt zero is the historical canonical path.  A positive attempt is an
+    explicit, generic rerun instance and never reuses the canonical path.
+    """
 
     for value, label in (
         (study_id, 'study_id'),
@@ -268,12 +273,19 @@ def make_run_path(run_root, study_id, config_id, slug, environment, seed):
         _validate_component(value, label)
     if not isinstance(seed, (int, np.integer)) or int(seed) < 0:
         raise ExperimentError(f'seed must be a non-negative integer: {seed!r}')
+    if not isinstance(run_attempt, (int, np.integer)) or int(run_attempt) < 0:
+        raise ExperimentError(
+            f'run_attempt must be a non-negative integer: {run_attempt!r}'
+        )
+    seed_component = f'seed_{int(seed):03d}'
+    if int(run_attempt):
+        seed_component += f'__attempt_{int(run_attempt):03d}'
     return (
         Path(run_root)
         / study_id
         / f'{config_id}__{slug}'
         / environment
-        / f'seed_{int(seed):03d}'
+        / seed_component
     )
 
 
@@ -335,6 +347,7 @@ def _metadata_for_run(
     compute_slots,
     repo_root,
     ogbench_module=None,
+    run_attempt=0,
 ):
     git_info = git_metadata(repo_root)
     metadata = {
@@ -344,6 +357,7 @@ def _metadata_for_run(
         'dataset_dir': os.path.abspath(dataset_dir) if dataset_dir is not None else None,
         'ogbench_module': ogbench_module,
         'seed': int(seed),
+        'run_attempt': int(run_attempt),
         'computation': bool(computation),
         'compute_slots': jsonable(compute_slots or {}),
         # M9 experiment identity/provenance.
@@ -390,6 +404,7 @@ def create_run_context(
     repo_root=None,
     ogbench_module=None,
     runtime_extras=None,
+    run_attempt=0,
 ):
     """Create a run directory and its initial metadata, failing if it exists."""
 
@@ -409,6 +424,7 @@ def create_run_context(
             configuration.slug,
             environment,
             seed,
+            run_attempt=run_attempt,
         )
     run_dir = run_dir.resolve()
     run_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -615,6 +631,7 @@ def _manifest_row(study, configuration, *, environment='', seed='', metadata=Non
         'buffer_elements': metadata.get('buffer_elements', account_value('buffer_elements', aggregate=True)),
         'environment': metadata.get('environment', environment),
         'seed': metadata.get('seed', seed),
+        'run_attempt': metadata.get('run_attempt', 0),
         'git_commit': metadata.get('git_commit', ''),
         'status': metadata.get('status', 'planned'),
         'run_dir': run_dir,
@@ -720,6 +737,11 @@ def aggregate_manifest(manifest_path, output_path=None, metric='final_success'):
         rows = list(csv.DictReader(file))
     groups = {}
     for row in rows:
+        # Failed/aborted attempts may contain partial evaluation artifacts;
+        # they are provenance, never primary scientific results.  Synthetic
+        # manifests without a status remain backward-compatible.
+        if row.get('status') and row.get('status') != 'completed':
+            continue
         value = _float_or_none(row.get(metric))
         if value is None:
             continue

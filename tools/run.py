@@ -19,6 +19,7 @@ def main(argv=None):
     parser.add_argument('--environment', required=True)
     parser.add_argument('--seed', type=int, required=True)
     parser.add_argument('--run-root', default='runs')
+    parser.add_argument('--run-attempt', type=int, default=0)
     parser.add_argument('--dry-run', action='store_true')
     args, forwarded = parser.parse_known_args(argv)
     study, configuration = prepare_run_design(args.study, args.config)
@@ -34,6 +35,7 @@ def main(argv=None):
         configuration.slug,
         args.environment,
         args.seed,
+        run_attempt=args.run_attempt,
     )
     command = [
         sys.executable,
@@ -49,6 +51,8 @@ def main(argv=None):
         str(args.seed),
         '--run_root',
         args.run_root,
+        '--run_attempt',
+        str(args.run_attempt),
     ]
     if not any(item == '--agent' or item.startswith('--agent=') for item in forwarded):
         command.extend(['--agent', study.data['algorithms'][0] if configuration.data.get('algorithm') is None else configuration.data['algorithm']])

@@ -55,6 +55,10 @@ def _parse_args(argv=None):
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--save_dir', default=None, help='Legacy/debug artifact root.')
     parser.add_argument('--run_root', default='runs', help='Canonical experiment artifact root.')
+    parser.add_argument(
+        '--run_attempt', type=int, default=0,
+        help='Explicit non-negative rerun instance; zero keeps the canonical path.',
+    )
     parser.add_argument('--study', default=None, help='Path to a Study study.yaml.')
     parser.add_argument('--config', default=None, help='Path or ID of a Study configuration YAML.')
     parser.add_argument('--restore_path', default=None)
@@ -335,6 +339,8 @@ def _computation_slot_accounting(agent, config):
     compute = config.get('compute', {})
     slot_paths = {
         'actor': (('modules_actor',), ('actor_net', 'topology')),
+        'high_actor': (('modules_high_actor',), ('actor_net', 'topology')),
+        'low_actor': (('modules_low_actor',), ('actor_net', 'topology')),
         'critic_state': (('modules_critic', 'phi'), ('core', 'topology')),
         'critic_goal': (('modules_critic', 'psi'), ('core', 'topology')),
         'value_state': (('modules_value', 'phi'), ('core', 'topology')),
@@ -392,6 +398,61 @@ def _computation_slot_accounting(agent, config):
             core_path=core_path,
         )
     return report
+
+
+_ACCOUNTING_CONSISTENCY_FIELDS = (
+    'topology',
+    'trainable_params',
+    'buffer_elements',
+    'state_dim',
+    'iterations',
+)
+
+
+def _accounting_consistency_audit(legacy, generic, config):
+    """Require legacy and generic accounting to agree on shared invariants.
+
+    The legacy HIQL report remains the compatibility surface used by existing
+    manifests, while the generic report is the slot-complete accounting path.
+    This audit compares the two reports after agent initialization so a future
+    topology/module-path drift fails before the first optimizer update.
+    """
+
+    mismatches = []
+    checked_slots = []
+    for slot_name, spec in config.get('compute', {}).items():
+        if not spec.get('enabled', False):
+            continue
+        checked_slots.append(slot_name)
+        if slot_name not in legacy:
+            mismatches.append(f'{slot_name}: missing from actor_parameter_accounting')
+            continue
+        if slot_name not in generic:
+            mismatches.append(f'{slot_name}: missing from computation_slot_accounting')
+            continue
+        legacy_slot = legacy[slot_name]
+        generic_slot = generic[slot_name]
+        for field in _ACCOUNTING_CONSISTENCY_FIELDS:
+            left = legacy_slot.get(field)
+            right = generic_slot.get(field)
+            # The old report encoded non-recurrent/two-state iterations as 0;
+            # the generic schema uses None when no SingleState iteration count
+            # exists.  Both mean that the field is not applicable.
+            if field == 'iterations' and legacy_slot.get('topology') != 'single_state':
+                left = 0 if left is None else left
+                right = 0 if right is None else right
+            if left != right:
+                mismatches.append(
+                    f'{slot_name}.{field}: legacy={left!r} generic={right!r}'
+                )
+    if mismatches:
+        raise ValueError('Accounting consistency audit failed: ' + '; '.join(mismatches))
+    return {
+        'status': 'pass',
+        'checked_slots': checked_slots,
+        'fields': list(_ACCOUNTING_CONSISTENCY_FIELDS),
+        'mismatches': [],
+    }
 
 
 def _as_float_metrics(metrics):
@@ -589,6 +650,7 @@ def run(args):
         'dataset_root': dataset_dir,
         'environment': args.env_name,
         'training_seed': args.seed,
+        'run_attempt': args.run_attempt,
     }
     runtime_extras = _computation_runtime_extras(config)
     if configuration is not None and configuration.data.get('study_id') == 'M11B':
@@ -615,6 +677,7 @@ def run(args):
         repo_root=Path(__file__).resolve().parents[1],
         ogbench_module=ogbench_module,
         runtime_extras=runtime_extras,
+        run_attempt=args.run_attempt,
     )
     run_dir = str(run_context.run_dir)
     checkpoints_dir = os.path.join(run_dir, 'checkpoints')
@@ -667,9 +730,14 @@ def run(args):
         run_context.metadata['actor_parameter_accounting'] = accounting
         slot_accounting = _computation_slot_accounting(agent, config)
         run_context.metadata['computation_slot_accounting'] = slot_accounting
+        accounting_consistency = _accounting_consistency_audit(
+            accounting, slot_accounting, config,
+        )
+        run_context.metadata['accounting_consistency'] = accounting_consistency
         update_runtime_metadata(run_dir, {
             'actor_parameter_accounting': accounting,
             'computation_slot_accounting': slot_accounting,
+            'accounting_consistency': accounting_consistency,
         })
         if args.restore_path is not None:
             if args.restore_epoch is None:

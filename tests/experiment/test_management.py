@@ -176,6 +176,29 @@ class ExperimentManagementTest(unittest.TestCase):
         self.assertAlmostEqual(float(row['mean']), 0.5)
         self.assertAlmostEqual(float(row['std']), 0.25)
 
+    def test_aggregation_excludes_noncompleted_attempts(self):
+        root = Path(tempfile.mkdtemp())
+        manifest = root / 'manifest.csv'
+        with manifest.open('w', newline='') as file:
+            writer = csv.DictWriter(
+                file,
+                fieldnames=['config_id', 'slug', 'environment', 'final_success', 'status'],
+            )
+            writer.writeheader()
+            writer.writerow({
+                'config_id': 'TEST-C001', 'slug': 'control',
+                'environment': 'toy-v0', 'final_success': 0.1, 'status': 'failed',
+            })
+            writer.writerow({
+                'config_id': 'TEST-C001', 'slug': 'control',
+                'environment': 'toy-v0', 'final_success': 0.8, 'status': 'completed',
+            })
+        output = aggregate_manifest(manifest)
+        with output.open(newline='') as file:
+            row = next(csv.DictReader(file))
+        self.assertEqual(row['count'], '1')
+        self.assertAlmostEqual(float(row['mean']), 0.8)
+
     def test_missing_success_column_is_transparent(self):
         root = Path(tempfile.mkdtemp())
         eval_path = root / 'eval.csv'

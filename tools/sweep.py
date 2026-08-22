@@ -59,7 +59,7 @@ def _validate_dataset(study_path, dataset_root, *, allow_missing=False):
     return required
 
 
-def _jobs(study_path, run_root, include_configs=None, exclude_configs=None):
+def _jobs(study_path, run_root, include_configs=None, exclude_configs=None, run_attempt=0):
     study = load_study(study_path)
     config_dir = Path(study.path).parent / 'configs'
     configurations = [
@@ -103,6 +103,7 @@ def _jobs(study_path, run_root, include_configs=None, exclude_configs=None):
                     configuration.slug,
                     environment,
                     seed,
+                    run_attempt=run_attempt,
                 )
                 status = 'planned'
                 metadata_path = run_dir / 'runtime_metadata.json'
@@ -119,6 +120,7 @@ def _jobs(study_path, run_root, include_configs=None, exclude_configs=None):
                     'configuration': configuration,
                     'environment': environment,
                     'seed': int(seed),
+                    'run_attempt': int(run_attempt),
                     'run_dir': run_dir,
                     'status': status,
                 })
@@ -140,6 +142,8 @@ def _command(job, run_root, extra_args):
         job['environment'],
         '--seed',
         str(job['seed']),
+        '--run_attempt',
+        str(job['run_attempt']),
         '--run_root',
         str(run_root),
         *extra_args,
@@ -189,6 +193,10 @@ def main(argv=None):
     parser.add_argument('--study', required=True)
     parser.add_argument('--gpus', default='0,1', help='Comma-separated CUDA device IDs.')
     parser.add_argument('--run-root', default='runs')
+    parser.add_argument(
+        '--run-attempt', type=int, default=0,
+        help='Explicit non-negative rerun instance; zero keeps canonical paths.',
+    )
     parser.add_argument('--dataset-root', default=None)
     parser.add_argument('--configs', default=None, help='Comma-separated config_id allowlist.')
     parser.add_argument('--exclude-configs', default=None, help='Comma-separated config_id blocklist.')
@@ -211,6 +219,8 @@ def main(argv=None):
         raise SystemExit('--configs and --exclude-configs are mutually exclusive')
     include_configs = _parse_config_ids(args.configs, '--configs')
     exclude_configs = _parse_config_ids(args.exclude_configs, '--exclude-configs')
+    if args.run_attempt < 0:
+        raise SystemExit('--run-attempt must be non-negative')
     if args.dataset_root is not None:
         if args.allow_missing_dataset and args.execute and not args.dry_run:
             raise SystemExit('--allow-missing-dataset is only valid for dry-run/summary validation')
@@ -224,6 +234,7 @@ def main(argv=None):
         args.run_root,
         include_configs=include_configs,
         exclude_configs=exclude_configs,
+        run_attempt=args.run_attempt,
     )
     # Only untouched planned runs are eligible for automatic dispatch.  A
     # failed run is deliberately retained for diagnosis/restart rather than

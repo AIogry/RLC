@@ -1,0 +1,96 @@
+{
+  "study_id": "M11B",
+  "target_configs": [
+    "M11B-C010",
+    "M11B-C018",
+    "M11B-C026",
+    "M11B-C034"
+  ],
+  "scientific_semantics_unchanged": true,
+  "scientific_behavior_change": false,
+  "formal_training_started": false,
+  "old_failed_runs_preserved": true,
+  "new_run_attempt": 1,
+  "old_new_scientific_config_parity": {
+    "M11B-C010": true,
+    "M11B-C018": true,
+    "M11B-C026": true,
+    "M11B-C034": true
+  },
+  "changed_files": [
+    {
+      "path": "impls/main.py",
+      "classification": [
+        "runtime_accounting_support",
+        "runtime_metadata_only",
+        "launcher_lifecycle_only"
+      ],
+      "scientific_behavior_change": false
+    },
+    {
+      "path": "impls/experiment/management.py",
+      "classification": ["launcher_lifecycle_only", "result_aggregation_guard"],
+      "scientific_behavior_change": false
+    },
+    {
+      "path": "tools/sweep.py",
+      "classification": ["launcher_lifecycle_only"],
+      "scientific_behavior_change": false
+    },
+    {
+      "path": "tools/run.py",
+      "classification": ["launcher_lifecycle_only"],
+      "scientific_behavior_change": false
+    },
+    {
+      "path": "scripts/run_study.sh",
+      "classification": ["launcher_lifecycle_only"],
+      "scientific_behavior_change": false
+    },
+    {
+      "path": "tools/m11b_doctor.py",
+      "classification": ["test_only", "runtime_metadata_only"],
+      "scientific_behavior_change": false
+    },
+    {
+      "path": "tests/integration/test_hiql_accounting_compatibility.py",
+      "classification": ["test_only"],
+      "scientific_behavior_change": false
+    },
+    {
+      "path": "tests/experiment/test_run_attempt.py",
+      "classification": ["test_only"],
+      "scientific_behavior_change": false
+    },
+    {
+      "path": "tests/experiment/test_management.py",
+      "classification": ["test_only"],
+      "scientific_behavior_change": false
+    }
+  ],
+  "unchanged_scientific_surfaces": [
+    "CRL math",
+    "HIQL math",
+    "SingleState implementation",
+    "initialization",
+    "optimizer",
+    "loss",
+    "gradient flow",
+    "dataset sampling",
+    "evaluation",
+    "canonical hyperparameters"
+  ],
+  "validation": {
+    "hiql_accounting_unit": "PASS",
+    "formal_entrypoint_high_only": "PASS",
+    "formal_entrypoint_low_only": "PASS",
+    "formal_entrypoint_high_low": "PASS",
+    "m9a_regression": "PASS",
+    "m10a_regression": "PASS",
+    "m11a_regression": "PASS",
+    "m11b_doctor": "PASS",
+    "dry_run_planned": 4,
+    "dry_run_completed": 0,
+    "dry_run_remaining": 4
+  }
+}
