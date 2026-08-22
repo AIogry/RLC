@@ -1,0 +1,23 @@
+study_id: M12A
+config_id: M12A-C001
+slug: critic_pretrain_ff_crl
+algorithm: crl
+environment: antmaze-large-navigate-v0
+stage: critic_pretrain
+placement: critic_pretrain
+executable: true
+description: Canonical feed-forward CRL critic-only pretraining source.
+factors:
+  training_mode: critic_only
+  critic_topology: feedforward
+  actor_training: disabled
+agent_overrides:
+  actor_loss: ddpgbc
+  training_mode: critic_only
+  runtime_variant: canonical
+  compute:
+    actor: {enabled: false, primitive: mlp, topology: feedforward, credit: direct}
+    critic_state: {enabled: false, primitive: mlp, topology: feedforward, credit: direct}
+    critic_goal: {enabled: false, primitive: mlp, topology: feedforward, credit: direct}
+    value_state: {enabled: false, primitive: mlp, topology: feedforward, credit: direct}
+    value_goal: {enabled: false, primitive: mlp, topology: feedforward, credit: direct}

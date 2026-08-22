@@ -125,6 +125,30 @@ class CRLAgent(flax.struct.PyTreeNode):
         raise ValueError(f'Unsupported actor loss: {self.config["actor_loss"]}')
 
     @jax.jit
+    def critic_only_loss(self, batch, grad_params):
+        """Return the canonical critic component without an actor objective."""
+
+        return self.contrastive_loss(batch, grad_params, module_name='critic')
+
+    @jax.jit
+    def critic_only_update(self, batch):
+        """Update only the canonical critic objective.
+
+        The CRL actor parameters remain part of the ordinary TrainState for
+        checkpoint compatibility, but the loss has no actor dependency.  With
+        Adam's default no-weight-decay transform, their zero gradients produce
+        an exactly unchanged actor parameter tree.
+        """
+
+        new_rng, rng = jax.random.split(self.rng)
+
+        def loss_fn(grad_params):
+            return self.critic_only_loss(batch, grad_params)
+
+        new_network, info = self.network.apply_loss_fn(loss_fn=loss_fn)
+        return self.replace(network=new_network, rng=new_rng), info
+
+    @jax.jit
     def total_loss(self, batch, grad_params, rng=None):
         info = {}
         rng = self.rng if rng is None else rng

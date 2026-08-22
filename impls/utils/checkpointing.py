@@ -8,6 +8,8 @@ import pickle
 from collections.abc import Mapping
 from pathlib import Path
 
+import numpy as np
+from flax.traverse_util import flatten_dict
 
 def _jsonable(value):
     if isinstance(value, Mapping):
@@ -45,6 +47,44 @@ def sha256_file(path, chunk_size=1024 * 1024):
         while chunk := file.read(chunk_size):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def tree_fingerprint(tree):
+    """Return a deterministic fingerprint for a parameter/state subtree."""
+
+    digest = hashlib.sha256()
+    flat = flatten_dict(tree) if isinstance(tree, Mapping) else {(): tree}
+    for path, value in sorted(flat.items(), key=lambda item: tuple(map(str, item[0]))):
+        array = np.asarray(value)
+        digest.update(repr(tuple(map(str, path))).encode('utf-8'))
+        digest.update(str(array.dtype).encode('utf-8'))
+        digest.update(repr(tuple(array.shape)).encode('utf-8'))
+        digest.update(np.ascontiguousarray(array).tobytes())
+    return digest.hexdigest()
+
+
+def parameter_module_key(params, module_name):
+    """Resolve a logical module name against ModuleDict parameter naming."""
+
+    for candidate in (module_name, f'modules_{module_name}'):
+        if isinstance(params, Mapping) and candidate in params:
+            return candidate
+    raise ValueError(f'Parameter tree does not contain module {module_name!r}')
+
+
+def checkpoint_module_fingerprint(checkpoint_path, module_name):
+    """Fingerprint one module in a serialized full-agent checkpoint."""
+
+    with Path(checkpoint_path).open('rb') as file:
+        payload = pickle.load(file)
+    try:
+        params = payload['agent']['network']['params']
+        module = params[parameter_module_key(params, module_name)]
+    except (KeyError, TypeError) as error:
+        raise ValueError(
+            f'Checkpoint does not contain network.params[{module_name!r}]'
+        ) from error
+    return tree_fingerprint(module)
 
 
 def normalize_checkpoint_selector(selector):

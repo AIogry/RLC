@@ -21,6 +21,11 @@ from typing import Any, Mapping
 import numpy as np
 import yaml
 
+from ..utils.checkpointing import (
+    checkpoint_module_fingerprint,
+    resolve_checkpoint,
+)
+
 
 _STUDY_FIELDS = (
     'study_id',
@@ -257,6 +262,196 @@ def prepare_run_design(study_path, config_ref):
     return study, configuration
 
 
+def resolve_run_dependency(
+    study,
+    configuration,
+    dependency_name,
+    *,
+    seed,
+    run_root,
+):
+    """Resolve a declarative source Run dependency without study-specific logic."""
+
+    if not isinstance(study, Study):
+        study = load_study(study)
+    if not isinstance(configuration, Configuration):
+        configuration = load_configuration(study, configuration)
+    dependencies = configuration.data.get('dependencies', {})
+    dependency = dependencies.get(dependency_name) if isinstance(dependencies, Mapping) else None
+    if not isinstance(dependency, Mapping):
+        raise ExperimentError(
+            f'{configuration.config_id} has no dependency {dependency_name!r}'
+        )
+    source_config_id = dependency.get('source_config_id')
+    if not isinstance(source_config_id, str) or not source_config_id:
+        raise ExperimentError(
+            f'{configuration.config_id}: dependency {dependency_name!r} requires source_config_id'
+        )
+    source_configuration = load_configuration(study, source_config_id)
+    seed_policy = dependency.get('seed_policy', 'same_seed')
+    if seed_policy == 'same_seed':
+        source_seed = int(seed)
+    elif seed_policy == 'explicit_seed':
+        if 'source_seed' not in dependency:
+            raise ExperimentError(
+                f'{configuration.config_id}: explicit_seed dependency requires source_seed'
+            )
+        source_seed = int(dependency['source_seed'])
+    else:
+        raise ExperimentError(f'Unsupported dependency seed_policy: {seed_policy!r}')
+    source_environment = source_configuration.data.get(
+        'environment', configuration.data.get('environment')
+    )
+    source_attempt = int(dependency.get('source_run_attempt', 0))
+    source_run_dir = make_run_path(
+        run_root,
+        study.study_id,
+        source_configuration.config_id,
+        source_configuration.slug,
+        source_environment,
+        source_seed,
+        run_attempt=source_attempt,
+    )
+    return {
+        'dependency_name': dependency_name,
+        'module': dependency.get('module'),
+        'source_config_id': source_configuration.config_id,
+        'source_slug': source_configuration.slug,
+        'source_environment': source_environment,
+        'source_seed': source_seed,
+        'source_run_attempt': source_attempt,
+        'source_run_dir': str(source_run_dir.resolve()),
+        'checkpoint_role': dependency.get('checkpoint_role'),
+        'checkpoint_step': dependency.get('checkpoint_step'),
+        'seed_policy': seed_policy,
+    }
+
+
+def validate_source_run_dependency(
+    study,
+    configuration,
+    dependency_name,
+    *,
+    seed,
+    run_root,
+    resolved_agent=None,
+):
+    """Validate a source Run and its semantic checkpoint before Run creation."""
+
+    dependency = resolve_run_dependency(
+        study,
+        configuration,
+        dependency_name,
+        seed=seed,
+        run_root=run_root,
+    )
+    if dependency['checkpoint_role'] != 'last':
+        raise ExperimentError(
+            f'{dependency_name}: only checkpoint_role=last is permitted, '
+            f'got {dependency["checkpoint_role"]!r}'
+        )
+    try:
+        checkpoint_step = int(dependency['checkpoint_step'])
+    except (TypeError, ValueError) as error:
+        raise ExperimentError(
+            f'{dependency_name}: checkpoint_step must be 1000000, '
+            f'got {dependency.get("checkpoint_step")!r}'
+        ) from error
+    if checkpoint_step != 1_000_000:
+        raise ExperimentError(
+            f'{dependency_name}: checkpoint_step must be 1000000, '
+            f'got {dependency["checkpoint_step"]!r}'
+        )
+    target_environment = configuration.data.get('environment')
+    if target_environment != dependency['source_environment']:
+        raise ExperimentError(
+            f'{dependency_name}: source environment {dependency["source_environment"]!r} '
+            f'does not match target {target_environment!r}'
+        )
+    source_configuration = load_configuration(study, dependency['source_config_id'])
+    target_algorithm = configuration.data.get('algorithm')
+    source_algorithm = source_configuration.data.get('algorithm')
+    if target_algorithm != source_algorithm:
+        raise ExperimentError(
+            f'{dependency_name}: source algorithm {source_algorithm!r} '
+            f'does not match target {target_algorithm!r}'
+        )
+    source_run_dir = Path(dependency['source_run_dir'])
+    metadata_path = source_run_dir / 'runtime_metadata.json'
+    if not metadata_path.is_file():
+        raise ExperimentError(f'Missing source runtime metadata: {metadata_path}')
+    with metadata_path.open() as file:
+        source_metadata = json.load(file)
+    if source_metadata.get('status') != 'completed':
+        raise ExperimentError(
+            f'Source run is not completed: {source_metadata.get("status")!r}'
+        )
+    expected_metadata = {
+        'config_id': dependency['source_config_id'],
+        'environment': dependency['source_environment'],
+        'algorithm': source_algorithm,
+        'seed': dependency['source_seed'],
+        'run_attempt': dependency['source_run_attempt'],
+    }
+    for key, expected in expected_metadata.items():
+        observed = source_metadata.get(key)
+        if observed != expected:
+            raise ExperimentError(
+                f'Source metadata mismatch for {key}: expected={expected!r}, observed={observed!r}'
+            )
+    checkpoint = resolve_checkpoint(source_run_dir, 'last')
+    if checkpoint['checkpoint_role'] != 'last' or checkpoint['checkpoint_step'] != 1_000_000:
+        raise ExperimentError(
+            'Source checkpoint is not the required last@1M checkpoint: '
+            f'{checkpoint["checkpoint_role"]}@{checkpoint["checkpoint_step"]}'
+        )
+    module_name = dependency.get('module')
+    if not isinstance(module_name, str) or not module_name:
+        raise ExperimentError(f'{dependency_name}: module must be a non-empty string')
+    resolved_path = source_run_dir / 'resolved_config.json'
+    if not resolved_path.is_file():
+        raise ExperimentError(f'Missing source resolved config: {resolved_path}')
+    with resolved_path.open() as file:
+        source_resolved = json.load(file)
+    source_agent = source_resolved.get('algorithm_config', {}).get('agent', {})
+    target_agent = jsonable(resolved_agent or {})
+    if resolved_agent is not None:
+        if source_agent.get('agent_name') != target_agent.get('agent_name'):
+            raise ExperimentError('Source and target base agent identities are incompatible')
+        ignored = {'compute', 'training_mode', 'runtime_variant', 'dependencies'}
+        for key in set(source_agent) | set(target_agent):
+            if key in ignored:
+                continue
+            if source_agent.get(key) != target_agent.get(key):
+                raise ExperimentError(f'Source/target agent mismatch for {key!r}')
+    source_compute = source_agent.get('compute', {})
+    target_compute = target_agent.get('compute', {})
+    module_slots = {
+        key for key in set(source_compute) | set(target_compute)
+        if key == module_name or key.startswith(f'{module_name}_')
+    }
+    for slot_name in module_slots:
+        if resolved_agent is not None and source_compute.get(slot_name) != target_compute.get(slot_name):
+            raise ExperimentError(f'Source/target computation mismatch for {slot_name!r}')
+        source_slot = source_compute.get(slot_name, {})
+        if source_slot.get('enabled', False) or source_slot.get('topology') != 'feedforward':
+            raise ExperimentError(
+                f'Source module {module_name!r} is not feedforward: {slot_name}'
+            )
+    module_fingerprint = checkpoint_module_fingerprint(
+        checkpoint['checkpoint_path'], module_name,
+    )
+    return {
+        **dependency,
+        'checkpoint_path': checkpoint['checkpoint_path'],
+        'checkpoint_sha256': checkpoint['checkpoint_sha256'],
+        'checkpoint_metadata': checkpoint['checkpoint_metadata'],
+        'module': module_name,
+        'module_fingerprint': module_fingerprint,
+        'source_status': source_metadata.get('status'),
+    }
+
+
 def make_run_path(run_root, study_id, config_id, slug, environment, seed, run_attempt=0):
     """Return a stable path for one Run without creating it.
 
@@ -443,6 +638,7 @@ def create_run_context(
         compute_slots=compute_slots,
         repo_root=repo_root,
         ogbench_module=ogbench_module,
+        run_attempt=run_attempt,
     )
     if runtime_extras:
         metadata.update(jsonable(runtime_extras))

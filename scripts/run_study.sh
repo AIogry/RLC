@@ -26,6 +26,8 @@ EVAL_TEMPERATURE=""
 EVAL_GAUSSIAN=""
 VIDEO_EPISODES=""
 RUN_ATTEMPT="0"
+SAVE_BEST_CHECKPOINT=""
+SAVE_LAST_CHECKPOINT=""
 MODE=""
 
 usage() {
@@ -39,6 +41,8 @@ Usage:
     --train-steps N --batch-size N --log-interval N --eval-interval N \
     --eval-tasks N|all --eval-episodes N --save-interval N \
     --eval-temperature FLOAT [--eval-gaussian FLOAT] [--video-episodes N] \
+    [--save-best-checkpoint|--no-save-best-checkpoint] \
+    [--save-last-checkpoint|--no-save-last-checkpoint] \
     (--dry-run | --execute)
 
 The formal launcher refuses a dirty Git worktree, validates all common
@@ -82,6 +86,8 @@ while (($# > 0)); do
         --eval-temperature) need_value "$@"; EVAL_TEMPERATURE="$2"; shift 2 ;;
         --eval-gaussian) need_value "$@"; EVAL_GAUSSIAN="$2"; shift 2 ;;
         --video-episodes) need_value "$@"; VIDEO_EPISODES="$2"; shift 2 ;;
+        --save-best-checkpoint|--no-save-best-checkpoint) SAVE_BEST_CHECKPOINT="$1"; shift ;;
+        --save-last-checkpoint|--no-save-last-checkpoint) SAVE_LAST_CHECKPOINT="$1"; shift ;;
         --dry-run|--execute)
             [[ -z "$MODE" ]] || die '--dry-run and --execute are mutually exclusive'
             MODE="$1"
@@ -240,6 +246,12 @@ fi
 if [[ -n "$VIDEO_EPISODES" ]]; then
     positive_int "$VIDEO_EPISODES" || die '--video-episodes must be a positive integer'
     SWEEP_ARGS+=("--video_episodes=$VIDEO_EPISODES")
+fi
+if [[ -n "$SAVE_BEST_CHECKPOINT" ]]; then
+    SWEEP_ARGS+=("$SAVE_BEST_CHECKPOINT")
+fi
+if [[ -n "$SAVE_LAST_CHECKPOINT" ]]; then
+    SWEEP_ARGS+=("$SAVE_LAST_CHECKPOINT")
 fi
 if [[ "$MODE" == --dry-run && "$STUDY" == *M11B* ]]; then
     SWEEP_ARGS+=(--allow-missing-dataset)

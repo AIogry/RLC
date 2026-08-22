@@ -1,0 +1,70 @@
+study_id: M12A
+name: Frozen-Critic Policy Extraction
+question: >-
+  Under the same fixed learned CRL critic, does a SingleState K4 actor retain
+  an advantage over the canonical feed-forward actor?
+mechanism_role: actor-side computation isolation under a fixed evaluator
+primary_environment: antmaze-large-navigate-v0
+primary_factors:
+  - frozen_critic_seed
+  - actor_computation
+fixed_design:
+  algorithm: crl
+  environment: antmaze-large-navigate-v0
+  actor_loss: ddpgbc
+  critic_architecture: canonical_feedforward_crl_critic
+  critic_training_steps: 1000000
+  frozen_critic_selection:
+    rule: fixed_step
+    step: 1000000
+    role: last
+    best_selection: disabled
+  paired_design:
+    actor_seed_policy: same_integer_seed
+    critic_seed_policy: same_integer_seed
+    data_seed_policy: derived_from_seed
+    evaluation_seed_policy: derived_from_seed
+  primary_endpoint: final@1M
+deferred_factors:
+  - antmaze_giant_confirmatory_extension
+  - humanoid
+  - stitch
+  - awr
+  - frozen_value
+algorithms: [crl]
+placements: [critic_pretrain, actor_ff, actor_single_state_k4]
+environments: [antmaze-large-navigate-v0]
+seeds: [0, 1, 2]
+primary_metric: evaluation/overall_success
+protocol:
+  paired_runs: 3 critics x 2 actors = 6 stage-2 runs
+  formal_runs_total: 9
+  stage1:
+    train_steps: 1000000
+    batch_size: 1024
+    log_interval: 5000
+    save_interval: 100000
+    evaluation_enabled: false
+    eval_tasks: none
+    save_best_checkpoint: false
+    save_last_checkpoint: true
+    frozen_critic_selection: last@1M
+  stage2:
+    train_steps: 1000000
+    batch_size: 1024
+    log_interval: 5000
+    eval_interval: 100000
+    eval_tasks: all
+    eval_episodes: 20
+    eval_temperature: 0.0
+    eval_gaussian: null
+    video_episodes: 0
+    save_interval: 100000
+    save_best_checkpoint: true
+    save_last_checkpoint: true
+    primary_endpoint: final@1M
+    secondary_endpoints: [normalized_eval_auc, best_success, best_step, last3_mean]
+  formal_training_started: false
+confirmatory_extension:
+  environment: antmaze-giant-navigate-v0
+  status: prespecified_not_active

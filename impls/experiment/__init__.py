@@ -2,6 +2,7 @@
 
 from .management import (
     Configuration,
+    ExperimentError,
     RunContext,
     Study,
     aggregate_manifest,
@@ -12,8 +13,10 @@ from .management import (
     load_study,
     make_run_path,
     prepare_run_design,
+    resolve_run_dependency,
     summarize_eval_csv,
     update_runtime_metadata,
+    validate_source_run_dependency,
     write_manifest,
 )
 from .reevaluation import (
@@ -31,6 +34,7 @@ from .reevaluation import (
 
 __all__ = [
     'Configuration',
+    'ExperimentError',
     'RunContext',
     'Study',
     'aggregate_manifest',
@@ -41,8 +45,10 @@ __all__ = [
     'load_study',
     'make_run_path',
     'prepare_run_design',
+    'resolve_run_dependency',
     'summarize_eval_csv',
     'update_runtime_metadata',
+    'validate_source_run_dependency',
     'write_manifest',
     'EPISODE_FIELDS',
     'TASK_SUMMARY_FIELDS',

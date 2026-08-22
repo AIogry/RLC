@@ -12,8 +12,10 @@ import flax.linen as nn
 import jax
 import jax.numpy as jnp
 import optax
+from flax.core import freeze, unfreeze
 
 from .checkpointing import (
+    parameter_module_key,
     resolve_checkpoint,
     sha256_file,
     should_update_best,
@@ -167,6 +169,32 @@ def restore_agent_from_checkpoint(agent, checkpoint_path):
     restored = flax.serialization.from_state_dict(agent, agent_state)
     print(f'Restored from {checkpoint_path}')
     return restored
+
+
+def restore_module_from_checkpoint(agent, checkpoint_path, module_name):
+    """Restore one parameter module while keeping the target agent optimizer fresh."""
+
+    with open(checkpoint_path, 'rb') as file:
+        loaded = pickle.load(file)
+    try:
+        source_params = loaded['agent']['network']['params']
+        source_key = parameter_module_key(source_params, module_name)
+        source_module = source_params[source_key]
+    except (KeyError, TypeError) as error:
+        raise ValueError(
+            f'Checkpoint does not contain network.params[{module_name!r}]'
+        ) from error
+    target_params = unfreeze(agent.network.params)
+    target_key = parameter_module_key(target_params, module_name)
+    source_leaves = jax.tree_util.tree_leaves(source_module)
+    target_leaves = jax.tree_util.tree_leaves(target_params[target_key])
+    if [getattr(leaf, 'shape', None) for leaf in source_leaves] != [
+        getattr(leaf, 'shape', None) for leaf in target_leaves
+    ]:
+        raise ValueError(f'Incompatible parameter shapes for module {module_name!r}')
+    target_params[target_key] = source_module
+    network = agent.network.replace(params=freeze(target_params))
+    return agent.replace(network=network)
 
 
 def restore_agent(agent, restore_path, restore_epoch):

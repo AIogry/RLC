@@ -13,7 +13,13 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from impls.experiment import load_study, make_run_path, prepare_run_design
+from impls.experiment import (
+    ExperimentError,
+    load_study,
+    make_run_path,
+    prepare_run_design,
+    validate_source_run_dependency,
+)
 
 
 def _parse_config_ids(value, option):
@@ -96,6 +102,16 @@ def _jobs(study_path, run_root, include_configs=None, exclude_configs=None, run_
         )
         for environment in environments:
             for seed in study.data['seeds']:
+                dependency_specs = configuration.data.get('dependencies', {})
+                if isinstance(dependency_specs, dict):
+                    for dependency_name in dependency_specs:
+                        validate_source_run_dependency(
+                            study,
+                            configuration,
+                            dependency_name,
+                            seed=seed,
+                            run_root=run_root,
+                        )
                 run_dir = make_run_path(
                     run_root,
                     study.study_id,
@@ -229,13 +245,17 @@ def main(argv=None):
             args.dataset_root,
             allow_missing=args.allow_missing_dataset and not args.execute,
         )
-    jobs = _jobs(
-        args.study,
-        args.run_root,
-        include_configs=include_configs,
-        exclude_configs=exclude_configs,
-        run_attempt=args.run_attempt,
-    )
+    try:
+        jobs = _jobs(
+            args.study,
+            args.run_root,
+            include_configs=include_configs,
+            exclude_configs=exclude_configs,
+            run_attempt=args.run_attempt,
+        )
+    except ExperimentError as error:
+        print(f'preflight: NO-GO: {error}', file=sys.stderr)
+        return 2
     # Only untouched planned runs are eligible for automatic dispatch.  A
     # failed run is deliberately retained for diagnosis/restart rather than
     # silently being relaunched by a later sweep invocation; an invalid or

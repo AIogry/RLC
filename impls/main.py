@@ -11,7 +11,7 @@ import jax
 import numpy as np
 from flax.traverse_util import flatten_dict
 
-from .agents import agent_configs, agents
+from .agents import agent_configs, agents, resolve_agent_class
 from .computation.accounting import (
     computation_slot_accounting,
     count_non_trainable,
@@ -24,6 +24,7 @@ from .utils.evaluation import evaluate, extract_episode_success
 from .utils.checkpointing import should_update_best
 from .utils.flax_utils import (
     resolve_checkpoint,
+    restore_module_from_checkpoint,
     restore_agent,
     restore_agent_from_checkpoint,
     save_agent,
@@ -36,17 +37,24 @@ from .experiment import (
     create_run_context,
     finalize_run,
     prepare_run_design,
+    validate_source_run_dependency,
     update_runtime_metadata,
+)
+from .utils.checkpointing import (
+    checkpoint_module_fingerprint,
+    parameter_module_key,
+    tree_fingerprint,
 )
 
 
 def _parse_args(argv=None):
     def _eval_tasks(value):
-        if str(value).lower() in {'all', 'none'}:
-            return None
+        normalized = str(value).lower()
+        if normalized in {'all', 'none'}:
+            return normalized
         parsed = int(value)
         if parsed <= 0:
-            raise argparse.ArgumentTypeError('eval_tasks must be positive or all')
+            raise argparse.ArgumentTypeError('eval_tasks must be positive, all, or none')
         return parsed
 
     parser = argparse.ArgumentParser(description=__doc__)
@@ -494,16 +502,23 @@ def _loss_metric(update_info):
     keys = (
         'critic/contrastive_loss', 'value/contrastive_loss', 'actor/actor_loss',
         'value/value_loss', 'high_actor/actor_loss', 'low_actor/actor_loss',
+        'actor/q_loss', 'contrastive_loss', 'actor_loss', 'q_loss',
     )
     return sum(update_info[key] for key in keys if key in update_info)
 
 
 def _evaluate_tasks(agent, env, config, args, eval_seed):
+    if args.eval_tasks == 'none':
+        return {}
     task_infos = getattr(env.unwrapped, 'task_infos', None)
     if task_infos is None:
         task_ids = [None]
     else:
-        task_count = len(task_infos) if args.eval_tasks is None else min(args.eval_tasks, len(task_infos))
+        task_count = (
+            len(task_infos)
+            if args.eval_tasks in (None, 'all')
+            else min(args.eval_tasks, len(task_infos))
+        )
         task_ids = list(range(1, task_count + 1))
 
     metrics = {}
@@ -581,9 +596,55 @@ def _validate_checkpoint_file(agent, checkpoint_path, observations, goals, actio
     )
 
 
+def _update_for_training_mode(agent, batch, config):
+    """Dispatch a generic training mode without study-specific branches."""
+
+    training_mode = config.get('training_mode', 'joint')
+    if training_mode == 'critic_only':
+        return agent.critic_only_update(batch)
+    if training_mode in {'joint', 'policy_extraction'}:
+        return agent.update(batch)
+    raise ValueError(f'Unsupported training_mode: {training_mode!r}')
+
+
+def _frozen_dependency_records(dependencies):
+    return {
+        name: {
+            key: value
+            for key, value in dependency.items()
+            if key not in {'checkpoint_metadata'}
+        }
+        for name, dependency in dependencies.items()
+    }
+
+
+def _assert_frozen_dependencies(agent, dependencies, *, checkpoint_path=None):
+    """Fail loudly if a structurally frozen dependency changes."""
+
+    for name, dependency in dependencies.items():
+        module_name = dependency['module']
+        module_key = parameter_module_key(agent.network.params, module_name)
+        actual = tree_fingerprint(agent.network.params[module_key])
+        expected = dependency['module_fingerprint']
+        if actual != expected:
+            raise ValueError(
+                f'Frozen dependency {name!r} changed in memory: '
+                f'expected={expected}, actual={actual}'
+            )
+        if checkpoint_path is not None:
+            checkpoint_actual = checkpoint_module_fingerprint(
+                checkpoint_path, module_name,
+            )
+            if checkpoint_actual != expected:
+                raise ValueError(
+                    f'Frozen dependency {name!r} changed in checkpoint: '
+                    f'expected={expected}, actual={checkpoint_actual}'
+                )
+
+
 def _checkpoint_metadata(run_context, args, compute_snapshot, dataset_dir, *, role, step,
                          best_step, metric_value, selected_from_training_evaluation):
-    return {
+    metadata = {
         'environment': args.env_name,
         'dataset_dir': str(dataset_dir),
         'computation': bool(args.computation),
@@ -608,6 +669,9 @@ def _checkpoint_metadata(run_context, args, compute_snapshot, dataset_dir, *, ro
         'checkpoint_role': role,
         'checkpoint_step': int(step),
     }
+    if run_context.metadata.get('frozen_dependencies'):
+        metadata['frozen_dependencies'] = run_context.metadata['frozen_dependencies']
+    return metadata
 
 
 def run(args):
@@ -639,6 +703,20 @@ def run(args):
             f'{configuration.config_id} is a planned/non-executable configuration; '
             'no scientific run was started.'
         )
+    artifact_root = args.save_dir or args.run_root
+    dependency_records = {}
+    if configuration is not None:
+        dependency_specs = configuration.data.get('dependencies', {})
+        if isinstance(dependency_specs, Mapping):
+            for dependency_name in dependency_specs:
+                dependency_records[dependency_name] = validate_source_run_dependency(
+                    study,
+                    configuration,
+                    dependency_name,
+                    seed=args.seed,
+                    run_root=artifact_root,
+                    resolved_agent=config,
+                )
     compute_snapshot = _resolved_compute_snapshot(config)
     try:
         ogbench_module = os.path.abspath(__import__('ogbench').__file__)
@@ -651,8 +729,26 @@ def run(args):
         'environment': args.env_name,
         'training_seed': args.seed,
         'run_attempt': args.run_attempt,
+        'training_mode': config.get('training_mode', 'joint'),
+        'runtime_variant': config.get('runtime_variant', 'canonical'),
+        'dependencies': dependency_records,
     }
     runtime_extras = _computation_runtime_extras(config)
+    runtime_extras.update({
+        'training_mode': config.get('training_mode', 'joint'),
+        'runtime_variant': config.get('runtime_variant', 'canonical'),
+        'seed_streams': {
+            'actor_seed': int(args.seed),
+            'dataset_seed': derive_seed(args.seed, 1),
+            'train_data_rng_seed': derive_seed(args.seed, 11),
+            'evaluation_seed': derive_seed(args.seed, 4),
+            'sampling_protocol': 'explicit_derived_seed_v1',
+        },
+    })
+    if dependency_records:
+        runtime_extras['frozen_dependencies'] = _frozen_dependency_records(
+            dependency_records,
+        )
     if configuration is not None and configuration.data.get('study_id') == 'M11B':
         runtime_extras.update({
             'semantic_condition': configuration.data['semantic_condition'],
@@ -661,7 +757,6 @@ def run(args):
             'm11b_canonical_source': '/home/eai/Research/offline-rl/docs/ALGORITHM_HYPERPARAMETERS.md',
             'm11b_environment_reference': configuration.data['environment'],
         })
-    artifact_root = args.save_dir or args.run_root
     run_context = create_run_context(
         study=study,
         configuration=configuration,
@@ -724,8 +819,27 @@ def run(args):
         example_batch = train_dataset.sample(1)
         if config['discrete']:
             example_batch['actions'] = np.full_like(example_batch['actions'], env.action_space.n - 1)
-        agent_class = agents[config['agent_name']]
+        agent_class = resolve_agent_class(
+            config['agent_name'], config.get('runtime_variant', 'canonical'),
+        )
         agent = agent_class.create(args.seed, example_batch['observations'], example_batch['actions'], config)
+        if dependency_records:
+            for dependency in dependency_records.values():
+                agent = restore_module_from_checkpoint(
+                    agent, dependency['checkpoint_path'], dependency['module'],
+                )
+            _assert_frozen_dependencies(agent, dependency_records)
+            for dependency in dependency_records.values():
+                dependency['target_module_fingerprint_before'] = tree_fingerprint(
+                    agent.network.params[
+                        parameter_module_key(agent.network.params, dependency['module'])
+                    ],
+                )
+            # Keep the in-memory RunContext and every subsequent semantic
+            # checkpoint aligned with the post-restore invariant baseline.
+            run_context.metadata['frozen_dependencies'] = _frozen_dependency_records(
+                dependency_records,
+            )
         accounting = _actor_parameter_accounting(agent, config)
         run_context.metadata['actor_parameter_accounting'] = accounting
         slot_accounting = _computation_slot_accounting(agent, config)
@@ -738,6 +852,7 @@ def run(args):
             'actor_parameter_accounting': accounting,
             'computation_slot_accounting': slot_accounting,
             'accounting_consistency': accounting_consistency,
+            'frozen_dependencies': _frozen_dependency_records(dependency_records),
         })
         if args.restore_path is not None:
             if args.restore_epoch is None:
@@ -749,15 +864,22 @@ def run(args):
         first_time = last_time = time.time()
         for step in range(1, args.train_steps + 1):
             batch = train_dataset.sample(config['batch_size'])
-            agent, update_info = agent.update(batch)
+            agent, update_info = _update_for_training_mode(agent, batch, config)
             if not all(np.all(np.isfinite(np.asarray(value))) for value in update_info.values()):
                 raise FloatingPointError(f'Non-finite update at step {step}: {update_info}')
+            if dependency_records and (
+                step % args.save_interval == 0 or step == args.train_steps
+            ):
+                _assert_frozen_dependencies(agent, dependency_records)
 
             if step % args.log_interval == 0 or step == args.train_steps:
                 metrics = {f'training/{key}': value for key, value in update_info.items()}
                 if val_dataset is not None:
                     val_batch = val_dataset.sample(config['batch_size'], evaluation=True)
-                    _, val_info = agent.total_loss(val_batch, grad_params=None)
+                    if config.get('training_mode', 'joint') == 'critic_only':
+                        _, val_info = agent.critic_only_loss(val_batch, grad_params=None)
+                    else:
+                        _, val_info = agent.total_loss(val_batch, grad_params=None)
                     metrics.update({f'validation/{key}': value for key, value in val_info.items()})
                 now = time.time()
                 metrics['time/interval_seconds'] = (now - last_time) / max(args.log_interval, 1)
@@ -766,7 +888,9 @@ def run(args):
                 train_logger.log(metrics, step)
                 print(f'step={step} loss={float(_loss_metric(update_info)):.6f}')
 
-            if step % args.eval_interval == 0 or step == args.train_steps:
+            if args.eval_tasks != 'none' and (
+                step % args.eval_interval == 0 or step == args.train_steps
+            ):
                 eval_metrics = _evaluate_tasks(
                     agent,
                     env,
@@ -800,6 +924,14 @@ def run(args):
                                     selected_from_training_evaluation=True,
                                 ),
                             )
+                            if dependency_records:
+                                _assert_frozen_dependencies(
+                                    agent,
+                                    dependency_records,
+                                    checkpoint_path=best_record['path']
+                                    if os.path.isabs(best_record['path'])
+                                    else os.path.join(run_dir, best_record['path']),
+                                )
                             write_checkpoint_index(
                                 run_dir,
                                 best=best_record,
@@ -835,8 +967,15 @@ def run(args):
                         'checkpoint_role': 'numeric',
                         'checkpoint_step': step,
                         'train_steps': args.train_steps,
+                        'training_mode': config.get('training_mode', 'joint'),
+                        'runtime_variant': config.get('runtime_variant', 'canonical'),
+                        'frozen_dependencies': _frozen_dependency_records(dependency_records),
                     },
                 )
+                if dependency_records:
+                    _assert_frozen_dependencies(
+                        agent, dependency_records, checkpoint_path=checkpoint_path,
+                    )
                 del checkpoint_path
                 goal_key = 'high_actor_goals' if 'high_actor_goals' in example_batch else 'actor_goals'
                 _validate_checkpoint(
@@ -865,6 +1004,11 @@ def run(args):
                     selected_from_training_evaluation=False,
                 ),
             )
+            if dependency_records:
+                last_checkpoint_path = os.path.join(run_dir, last_record['path'])
+                _assert_frozen_dependencies(
+                    agent, dependency_records, checkpoint_path=last_checkpoint_path,
+                )
             write_checkpoint_index(
                 run_dir,
                 best=best_record,
