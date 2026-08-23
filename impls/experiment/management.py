@@ -262,6 +262,26 @@ def prepare_run_design(study_path, config_ref):
     return study, configuration
 
 
+def _dependency_source_study(study, dependency):
+    """Resolve an optional cross-study dependency declaration generically."""
+
+    source_path = dependency.get('source_study_path')
+    if source_path is None:
+        source_study = study
+    else:
+        source_path = Path(source_path)
+        if not source_path.is_absolute():
+            source_path = study.path.parent / source_path
+        source_study = load_study(source_path)
+    expected_id = dependency.get('source_study_id')
+    if expected_id is not None and source_study.study_id != expected_id:
+        raise ExperimentError(
+            f'Dependency source_study_id mismatch: expected={expected_id!r}, '
+            f'observed={source_study.study_id!r}'
+        )
+    return source_study
+
+
 def resolve_run_dependency(
     study,
     configuration,
@@ -282,12 +302,13 @@ def resolve_run_dependency(
         raise ExperimentError(
             f'{configuration.config_id} has no dependency {dependency_name!r}'
         )
+    source_study = _dependency_source_study(study, dependency)
     source_config_id = dependency.get('source_config_id')
     if not isinstance(source_config_id, str) or not source_config_id:
         raise ExperimentError(
             f'{configuration.config_id}: dependency {dependency_name!r} requires source_config_id'
         )
-    source_configuration = load_configuration(study, source_config_id)
+    source_configuration = load_configuration(source_study, source_config_id)
     seed_policy = dependency.get('seed_policy', 'same_seed')
     if seed_policy == 'same_seed':
         source_seed = int(seed)
@@ -305,7 +326,7 @@ def resolve_run_dependency(
     source_attempt = int(dependency.get('source_run_attempt', 0))
     source_run_dir = make_run_path(
         run_root,
-        study.study_id,
+        source_study.study_id,
         source_configuration.config_id,
         source_configuration.slug,
         source_environment,
@@ -314,6 +335,12 @@ def resolve_run_dependency(
     )
     return {
         'dependency_name': dependency_name,
+        'source_study_id': source_study.study_id,
+        'source_study_path': str(source_study.path),
+        'cross_study': bool(
+            dependency.get('source_study_id') is not None
+            or dependency.get('source_study_path') is not None
+        ),
         'module': dependency.get('module'),
         'source_config_id': source_configuration.config_id,
         'source_slug': source_configuration.slug,
@@ -324,6 +351,7 @@ def resolve_run_dependency(
         'checkpoint_role': dependency.get('checkpoint_role'),
         'checkpoint_step': dependency.get('checkpoint_step'),
         'seed_policy': seed_policy,
+        'ignored_agent_fields': tuple(dependency.get('ignored_agent_fields', ()) or ()),
     }
 
 
@@ -368,7 +396,9 @@ def validate_source_run_dependency(
             f'{dependency_name}: source environment {dependency["source_environment"]!r} '
             f'does not match target {target_environment!r}'
         )
-    source_configuration = load_configuration(study, dependency['source_config_id'])
+    source_dependency = configuration.data['dependencies'][dependency_name]
+    source_study = _dependency_source_study(study, source_dependency)
+    source_configuration = load_configuration(source_study, dependency['source_config_id'])
     target_algorithm = configuration.data.get('algorithm')
     source_algorithm = source_configuration.data.get('algorithm')
     if target_algorithm != source_algorithm:
@@ -393,6 +423,8 @@ def validate_source_run_dependency(
         'seed': dependency['source_seed'],
         'run_attempt': dependency['source_run_attempt'],
     }
+    if dependency.get('cross_study', False):
+        expected_metadata['study_id'] = dependency['source_study_id']
     for key, expected in expected_metadata.items():
         observed = source_metadata.get(key)
         if observed != expected:
@@ -418,7 +450,10 @@ def validate_source_run_dependency(
     if resolved_agent is not None:
         if source_agent.get('agent_name') != target_agent.get('agent_name'):
             raise ExperimentError('Source and target base agent identities are incompatible')
-        ignored = {'compute', 'training_mode', 'runtime_variant', 'dependencies'}
+        ignored = {
+            'compute', 'training_mode', 'runtime_variant', 'dependencies',
+            *dependency.get('ignored_agent_fields', ()),
+        }
         for key in set(source_agent) | set(target_agent):
             if key in ignored:
                 continue

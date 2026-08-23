@@ -1,0 +1,95 @@
+study_id: M12B
+name: Actor Computation Structure Isolation
+question: >-
+  Under the same seed-matched frozen CRL critic, which structural property of
+  actor computation explains the SingleState-K4 gain observed in M12A?
+mechanism_role: actor-side computation structure isolation
+primary_environment: antmaze-large-navigate-v0
+primary_factors:
+  - actor_computation_structure
+  - state_initialization
+  - parameter_sharing
+  - feedforward_block
+deferred_factors:
+  - additional_rl_algorithms
+  - additional_tasks
+  - other_recurrent_families
+  - m12a_d002_diagnostics
+algorithms: [crl]
+placements: [actor_computation_structure]
+environments: [antmaze-large-navigate-v0]
+seeds: [0, 1, 2]
+primary_metric: evaluation/overall_success
+fixed_design:
+  algorithm: crl
+  environment: antmaze-large-navigate-v0
+  runtime_variant: policy_extractor
+  actor_loss: ddpgbc
+  batch_size: 1024
+  train_steps: 1000000
+  eval_interval: 100000
+  eval_tasks: all
+  eval_episodes: 20
+  eval_temperature: 0.0
+  eval_gaussian: null
+  video_episodes: 0
+  save_interval: 100000
+  save_best_checkpoint: true
+  save_last_checkpoint: true
+  width: 512
+  frozen_critic:
+    source_study_id: M12A
+    source_study_path: ../M12A_frozen_critic_policy_extraction/study.yaml
+    source_config_id: M12A-C001
+    seed_policy: same_seed
+    source_run_attempt: 0
+    checkpoint_role: last
+    checkpoint_step: 1000000
+    module: critic
+external_anchors:
+  B001:
+    source_study_id: M12A
+    source_study_path: ../M12A_frozen_critic_policy_extraction/study.yaml
+    source_config_id: M12A-C002
+    source_run_attempt: 1
+    condition_id: B001
+    structure: canonical_ff
+  B004:
+    source_study_id: M12A
+    source_study_path: ../M12A_frozen_critic_policy_extraction/study.yaml
+    source_config_id: M12A-C003
+    source_run_attempt: 1
+    condition_id: B004
+    structure: single_state_k4
+    state_init: normal_buffer
+    parameter_sharing: shared
+protocol:
+  stage2:
+    train_steps: 1000000
+    batch_size: 1024
+    log_interval: 5000
+    eval_interval: 100000
+    eval_tasks: all
+    eval_episodes: 20
+    eval_temperature: 0.0
+    eval_gaussian: null
+    video_episodes: 0
+    save_interval: 100000
+    save_best_checkpoint: true
+    save_last_checkpoint: true
+    primary_endpoint: final@1M
+    secondary_endpoints: [normalized_eval_auc, best_success, best_step, last3_mean]
+  formal_training_started: false
+conceptual_conditions:
+  B001: {source: external_anchor, source_config_id: M12A-C002, topology: feedforward, block: plain, structure: canonical_ff, state_init: null, parameter_sharing: null, input_reinjection: false, residual: false, sequential_depth: 3}
+  B002: {source: new, source_config_id: M12B-C001, topology: single_state, block: plain, structure: single_state_k1, state_init: normal_buffer, parameter_sharing: shared, input_reinjection: true, residual: false, sequential_depth: 3}
+  B003: {source: new, source_config_id: M12B-C002, topology: single_state, block: plain, structure: single_state_k1, state_init: zero_buffer, parameter_sharing: shared, input_reinjection: true, residual: false, sequential_depth: 3}
+  B004: {source: external_anchor, source_config_id: M12A-C003, topology: single_state, block: plain, structure: single_state_k4, state_init: normal_buffer, parameter_sharing: shared, input_reinjection: true, residual: false, sequential_depth: 9}
+  B005: {source: new, source_config_id: M12B-C003, topology: single_state, block: plain, structure: single_state_k4, state_init: zero_buffer, parameter_sharing: shared, input_reinjection: true, residual: false, sequential_depth: 9}
+  B006: {source: new, source_config_id: M12B-C004, topology: single_state, block: plain, structure: single_state_k4, state_init: normal_buffer, parameter_sharing: untied, input_reinjection: true, residual: false, sequential_depth: 9}
+  B007: {source: new, source_config_id: M12B-C005, topology: single_state, block: plain, structure: single_state_k4, state_init: zero_buffer, parameter_sharing: untied, input_reinjection: true, residual: false, sequential_depth: 9}
+  B008: {source: new, source_config_id: M12B-C006, topology: feedforward, block: plain, structure: deep_ff_9, state_init: null, parameter_sharing: null, input_reinjection: false, residual: false, sequential_depth: 9}
+  B009: {source: new, source_config_id: M12B-C007, topology: feedforward, block: residual, structure: residual_ff_4x2, state_init: null, parameter_sharing: null, input_reinjection: false, residual: true, sequential_depth: 9}
+new_conditions: [B002, B003, B005, B006, B007, B008, B009]
+new_formal_runs: 21
+formal_table_rows: 27

@@ -49,6 +49,37 @@ def count_dense_macs(tree) -> int:
     return int(total)
 
 
+def count_dense_layers(tree) -> int:
+    """Count physical Dense transformations in a parameter subtree."""
+
+    if not hasattr(tree, 'items'):
+        return 0
+    total = 0
+    for name, value in tree.items():
+        if name == 'kernel':
+            shape = getattr(value, 'shape', None)
+            if shape is not None and len(shape) == 2:
+                total += 1
+        elif hasattr(value, 'items'):
+            total += count_dense_layers(value)
+    return int(total)
+
+
+def _module_subtrees(tree, prefix):
+    """Collect setup-time tuple modules named ``<prefix>_<index>``."""
+
+    if not hasattr(tree, 'items'):
+        return {}
+    direct = tree.get(prefix)
+    if hasattr(direct, 'items'):
+        return direct
+    return {
+        key: value
+        for key, value in tree.items()
+        if str(key).startswith(f'{prefix}_')
+    }
+
+
 def _mapping_get(tree, key, default=None):
     return tree.get(key, default) if hasattr(tree, 'get') else default
 
@@ -68,7 +99,103 @@ def _actor_readout_params(actor_params):
     return readout
 
 
-def actor_slot_accounting(actor_params, buffer_params=None, *, topology=None, iterations=0):
+def topology_dense_accounting(
+    core,
+    topology,
+    topology_kwargs=None,
+    *,
+    parameter_sharing='shared',
+    block='plain',
+):
+    """Account physical and executed Dense transformations from tree shape."""
+
+    topology_kwargs = topology_kwargs if hasattr(topology_kwargs, 'get') else {}
+    core = core if hasattr(core, 'items') else {}
+    if topology == 'feedforward':
+        body = _mapping_get(core, 'primitive', core)
+        if block == 'residual':
+            input_mapping = _mapping_get(body, 'input_mapping', {})
+            residual_blocks = _module_subtrees(body, 'residual_blocks')
+            unique = count_dense_layers(input_mapping) + sum(
+                count_dense_layers(value) for value in residual_blocks.values()
+            )
+            macs = count_dense_macs(input_mapping) + sum(
+                count_dense_macs(value) for value in residual_blocks.values()
+            )
+            return {
+                'sequential_depth': int(unique),
+                'unique_dense_layers': int(unique),
+                'executed_dense_layers': int(unique),
+                'actor_body_dense_macs': int(macs),
+            }
+        unique = count_dense_layers(body)
+        return {
+            'sequential_depth': int(unique),
+            'unique_dense_layers': int(unique),
+            'executed_dense_layers': int(unique),
+            'actor_body_dense_macs': int(count_dense_macs(body)),
+        }
+
+    input_mapping = _mapping_get(core, 'input_mapping', {})
+    input_layers = count_dense_layers(input_mapping)
+    input_macs = count_dense_macs(input_mapping)
+    if topology == 'single_state':
+        iterations = int(topology_kwargs.get('iterations', 1))
+        if parameter_sharing == 'shared':
+            update = _mapping_get(core, 'update_module', {})
+            unique = input_layers + count_dense_layers(update)
+            executed = input_layers + iterations * count_dense_layers(update)
+            macs = input_macs + iterations * count_dense_macs(update)
+        elif parameter_sharing == 'untied':
+            updates = _module_subtrees(core, 'update_modules')
+            unique = input_layers + sum(count_dense_layers(value) for value in updates.values())
+            executed = unique
+            macs = input_macs + sum(count_dense_macs(value) for value in updates.values())
+        else:
+            raise ValueError(f'Unsupported SingleState parameter sharing: {parameter_sharing!r}')
+        return {
+            'sequential_depth': int(executed),
+            'unique_dense_layers': int(unique),
+            'executed_dense_layers': int(executed),
+            'actor_body_dense_macs': int(macs),
+        }
+    if topology == 'two_state':
+        h_cycles = int(topology_kwargs.get('h_cycles', 2))
+        l_cycles = int(topology_kwargs.get('l_cycles', 1))
+        h_update = _mapping_get(core, 'h_update', {})
+        l_update = _mapping_get(core, 'l_update', {})
+        h_layers = count_dense_layers(h_update)
+        l_layers = count_dense_layers(l_update)
+        executed = input_layers + h_cycles * h_layers + h_cycles * l_cycles * l_layers
+        return {
+            'sequential_depth': int(executed),
+            'unique_dense_layers': int(input_layers + h_layers + l_layers),
+            'executed_dense_layers': int(executed),
+            'actor_body_dense_macs': int(
+                input_macs
+                + h_cycles * count_dense_macs(h_update)
+                + h_cycles * l_cycles * count_dense_macs(l_update)
+            ),
+        }
+    unique = count_dense_layers(core)
+    return {
+        'sequential_depth': int(unique),
+        'unique_dense_layers': int(unique),
+        'executed_dense_layers': int(unique),
+        'actor_body_dense_macs': int(count_dense_macs(core)),
+    }
+
+
+def actor_slot_accounting(
+    actor_params,
+    buffer_params=None,
+    *,
+    topology=None,
+    iterations=0,
+    topology_kwargs=None,
+    parameter_sharing='shared',
+    block='plain',
+):
     """Audit one actor slot using its actual parameter and buffer shapes.
 
     ``iterations`` is supplied by the resolved configuration rather than
@@ -81,10 +208,15 @@ def actor_slot_accounting(actor_params, buffer_params=None, *, topology=None, it
     actor_params = actor_params if hasattr(actor_params, 'items') else {}
     buffer_params = buffer_params if hasattr(buffer_params, 'items') else {}
     core = _actor_core_params(actor_params)
-    input_mapping = _mapping_get(core, 'input_mapping', {})
-    update_module = _mapping_get(core, 'update_module', {})
-    h_update = _mapping_get(core, 'h_update', {})
-    l_update = _mapping_get(core, 'l_update', {})
+    body_core = (
+        _mapping_get(core, 'primitive', core)
+        if topology == 'feedforward'
+        else core
+    )
+    input_mapping = _mapping_get(body_core, 'input_mapping', {})
+    update_module = _mapping_get(body_core, 'update_module', {})
+    h_update = _mapping_get(body_core, 'h_update', {})
+    l_update = _mapping_get(body_core, 'l_update', {})
     if topology == 'single_state':
         iterations = int(iterations)
 
@@ -92,11 +224,17 @@ def actor_slot_accounting(actor_params, buffer_params=None, *, topology=None, it
     update_per_execution = count_dense_macs(update_module)
     h_update_per_execution = count_dense_macs(h_update)
     l_update_per_execution = count_dense_macs(l_update)
-    if topology == 'single_state':
+    if topology == 'single_state' and parameter_sharing == 'shared':
         h_update_executions = 0
         l_update_executions = iterations
         update_executions = iterations
         total_update_macs = update_per_execution * iterations
+    elif topology == 'single_state' and parameter_sharing == 'untied':
+        update_modules = _module_subtrees(body_core, 'update_modules')
+        h_update_executions = 0
+        l_update_executions = 0
+        update_executions = len(update_modules)
+        total_update_macs = sum(count_dense_macs(value) for value in update_modules.values())
     elif topology == 'two_state':
         h_cycles = int(iterations[0]) if isinstance(iterations, (tuple, list)) else 0
         l_cycles = int(iterations[1]) if isinstance(iterations, (tuple, list)) else 0
@@ -114,14 +252,29 @@ def actor_slot_accounting(actor_params, buffer_params=None, *, topology=None, it
         update_executions = 0
         total_update_macs = 0
 
-    core_macs = input_macs + total_update_macs
+    topology_metrics = topology_dense_accounting(
+        body_core,
+        topology,
+        topology_kwargs or ({'iterations': iterations} if topology == 'single_state' else {}),
+        parameter_sharing=parameter_sharing,
+        block=block,
+    )
+    core_macs = (
+        topology_metrics['actor_body_dense_macs']
+        if topology == 'feedforward'
+        else input_macs + total_update_macs
+    )
     readout_macs = count_dense_macs(_actor_readout_params(actor_params))
-    if topology in ('single_state', 'two_state'):
+    if topology in ('single_state', 'two_state') or (
+        topology == 'feedforward' and block == 'residual'
+    ):
         full_actor_forward_macs = core_macs + readout_macs
     else:
         full_actor_forward_macs = count_dense_macs(actor_params)
     return {
         'topology': topology,
+        'parameter_sharing': parameter_sharing if topology == 'single_state' else None,
+        'block': block if topology == 'feedforward' else None,
         'input_mapping_dense_macs': input_macs,
         'update_module_dense_macs_per_execution': update_per_execution,
         'h_update_dense_macs_per_execution': h_update_per_execution,
@@ -140,8 +293,9 @@ def actor_slot_accounting(actor_params, buffer_params=None, *, topology=None, it
         'parameter_tree_dense_macs': count_dense_macs(actor_params),
         # Backward-compatible short name; it denotes one forward execution.
         'full_actor_dense_macs': full_actor_forward_macs,
+        **topology_metrics,
         'trainable_params': count_parameters(actor_params),
-        'core_trainable_params': count_parameters(core),
+        'core_trainable_params': count_parameters(body_core),
         'buffer_elements': count_non_trainable(buffer_params),
     }
 
@@ -180,6 +334,11 @@ def computation_slot_accounting(
     buffer_params = buffer_params if hasattr(buffer_params, 'items') else {}
     core = _path_get(slot_params, core_path) if core_path else slot_params
     buffer_core = _path_get(buffer_params, core_path) if core_path else buffer_params
+    body_core = (
+        _mapping_get(core, 'primitive', core)
+        if topology == 'feedforward'
+        else core
+    )
     is_recurrent = topology in ('single_state', 'two_state')
 
     state_dim = None
@@ -193,6 +352,8 @@ def computation_slot_accounting(
     state_init_std = None
     layer_norm = None
     update_activate_final = None
+    parameter_sharing = topology_kwargs.get('parameter_sharing', 'shared')
+    block = topology_kwargs.get('block', 'plain')
     if is_recurrent:
         state_dim = int(topology_kwargs.get('state_dim'))
         update_depth = int(topology_kwargs.get('update_depth', 2))
@@ -210,15 +371,24 @@ def computation_slot_accounting(
             residual = False
             total_update_executions = h_cycles * (l_cycles + 1)
 
-    input_mapping = _mapping_get(core, 'input_mapping', {})
-    update_module = _mapping_get(core, 'update_module', {})
-    h_update = _mapping_get(core, 'h_update', {})
-    l_update = _mapping_get(core, 'l_update', {})
+    input_mapping = _mapping_get(body_core, 'input_mapping', {})
+    update_module = _mapping_get(body_core, 'update_module', {})
+    h_update = _mapping_get(body_core, 'h_update', {})
+    l_update = _mapping_get(body_core, 'l_update', {})
+    topology_metrics = topology_dense_accounting(
+        core,
+        topology,
+        topology_kwargs,
+        parameter_sharing=parameter_sharing,
+        block=block,
+    )
     return {
         'slot_name': str(slot_name),
         'topology': topology,
         'primitive': primitive,
         'credit': credit,
+        'parameter_sharing': parameter_sharing if topology == 'single_state' else None,
+        'block': block if topology == 'feedforward' else None,
         'state_dim': state_dim,
         'update_depth': update_depth,
         'iterations': iterations,
@@ -240,6 +410,7 @@ def computation_slot_accounting(
         'update_module_params': count_parameters(update_module),
         'h_update_params': count_parameters(h_update),
         'l_update_params': count_parameters(l_update),
+        **topology_metrics,
     }
 
 

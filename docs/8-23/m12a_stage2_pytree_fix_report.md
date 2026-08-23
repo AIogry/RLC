@@ -1,5 +1,7 @@
 # M12A Stage-2 PyTree Fix Report
 
+> 历史状态说明：本文记录 PyTree 修复完成、正式 Stage 2 attempt-1 启动前的验证状态。Stage 2 attempt-1 后续已完成，实际结果与初步分析见 [`m12a_stage2_results_and_initial_analysis_2026-08-23.md`](m12a_stage2_results_and_initial_analysis_2026-08-23.md)。
+
 ## 结论
 
 M12A Stage 2 的失败原因已修复并验证。根因是 frozen critic restore 后，把 target agent 的参数树从普通 `dict` 改成了 `FrozenDict`，导致 `optax.multi_transform` 在第一次 update 时无法匹配参数、gradient、mask 和 optimizer state 的 PyTree 结构。

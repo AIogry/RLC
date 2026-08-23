@@ -13,6 +13,7 @@ from flax.traverse_util import flatten_dict
 
 from .agents import agent_configs, agents, resolve_agent_class
 from .computation.accounting import (
+    actor_slot_accounting,
     computation_slot_accounting,
     count_non_trainable,
     count_parameters,
@@ -154,7 +155,10 @@ def _make_config(args, configuration=None):
             overrides = configuration.data.get('agent_overrides', {})
         config = _merge_config(config, overrides)
         hidden_dims = tuple(config['actor_hidden_dims'])
-        if hidden_dims != (512, 512, 512):
+        if (
+            hidden_dims != (512, 512, 512)
+            and not configuration.data.get('allow_noncanonical_actor_hidden_dims', False)
+        ):
             raise ValueError(
                 'M9 canonical actor hidden dims must remain (512, 512, 512), '
                 f'got {hidden_dims!r}'
@@ -193,6 +197,16 @@ def _computation_runtime_extras(config):
                 'input_injection': kwargs.get('input_injection', 'z_plus_x'),
                 'state_init': kwargs.get('state_init', 'normal_buffer'),
                 'state_init_std': float(kwargs.get('state_init_std', 1.0)),
+                'parameter_sharing': slot.get(
+                    'parameter_sharing', kwargs.get('parameter_sharing', 'shared')
+                ),
+            }
+        elif slot.get('topology') == 'feedforward':
+            extras.setdefault('feedforward', {})[slot_name] = {
+                'topology': 'feedforward',
+                'primitive': slot.get('primitive', 'mlp'),
+                'block': slot.get('block', 'plain'),
+                'block_kwargs': _jsonable(slot.get('block_kwargs', {})),
             }
         elif slot.get('topology') == 'two_state':
             h_cycles = int(kwargs.get('h_cycles', 2))
@@ -282,6 +296,10 @@ def _actor_parameter_accounting(agent, config):
             )
         topology = spec.get('topology') if enabled else None
         topology_kwargs = topology_kwargs if enabled else {}
+        parameter_sharing = spec.get(
+            'parameter_sharing', topology_kwargs.get('parameter_sharing', 'shared')
+        )
+        block = spec.get('block', 'plain') if enabled else 'plain'
         state_dim = (
             int(topology_kwargs.get('state_dim', hidden_dim))
             if topology in ('single_state', 'two_state') else None
@@ -316,7 +334,18 @@ def _actor_parameter_accounting(agent, config):
             'total_update_executions': total_update_executions,
             'state_init': topology_kwargs.get('state_init') if topology in ('single_state', 'two_state') else None,
             'state_init_std': float(topology_kwargs.get('state_init_std', 1.0)) if topology in ('single_state', 'two_state') else None,
+            'parameter_sharing': parameter_sharing if topology == 'single_state' else None,
+            'block': block if topology == 'feedforward' else None,
         }
+        report[slot_name].update(actor_slot_accounting(
+            module,
+            buffer_module,
+            topology=topology,
+            iterations=iterations,
+            topology_kwargs=topology_kwargs,
+            parameter_sharing=parameter_sharing,
+            block=block,
+        ))
     if config['agent_name'] == 'hiql':
         policy_audit = hiql_policy_accounting(
             params,
@@ -371,6 +400,10 @@ def _computation_slot_accounting(agent, config):
         module_path, core_path = slot_paths[slot_name]
         topology = spec.get('topology')
         kwargs = dict(spec.get('topology_kwargs', {}))
+        kwargs.setdefault(
+            'parameter_sharing', spec.get('parameter_sharing', 'shared')
+        )
+        kwargs.setdefault('block', spec.get('block', 'plain'))
         hidden_dim = int(
             config['value_hidden_dims'][-1]
             if slot_name.startswith(('critic_', 'value_'))

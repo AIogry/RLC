@@ -10,7 +10,7 @@ from ..primitives.mlp import MLP
 
 
 class SingleState(nn.Module):
-    """Run one shared MLP update module for a decision-local state.
+    """Run a decision-local state with shared or untied update parameters.
 
     The topology is intentionally generic: it receives only a tensor and does
     not know whether the tensor came from an observation, goal, or actor.
@@ -27,6 +27,7 @@ class SingleState(nn.Module):
     update_depth: int = 2
     layer_norm: bool = False
     update_activate_final: bool = True
+    parameter_sharing: str = 'shared'
 
     def setup(self):
         if self.state_dim <= 0:
@@ -49,20 +50,35 @@ class SingleState(nn.Module):
             raise ValueError(f'Unsupported SingleState state init: {self.state_init!r}')
         if self.state_init == 'normal_buffer' and self.state_init_std <= 0:
             raise ValueError(f'state_init_std must be positive, got {self.state_init_std}')
+        if self.parameter_sharing not in ('shared', 'untied'):
+            raise ValueError(
+                f'Unsupported SingleState parameter sharing: {self.parameter_sharing!r}'
+            )
 
-        # D_in -> state_dim.  The update module is one physical module reused
-        # for every cycle.  ``update_depth`` controls only this module's depth;
-        # it does not change the recurrent equation or the input mapping.
+        # D_in -> state_dim.  The default/shared path intentionally retains
+        # the historical parameter subtree name ``update_module`` so old
+        # M12A checkpoints remain restorable.  Untied is the same state graph
+        # with a different parameter-tying schedule, not a new topology.
         self.input_mapping = MLP(
             hidden_dims=(self.state_dim,),
             activate_final=True,
             layer_norm=self.layer_norm,
         )
-        self.update_module = MLP(
-            hidden_dims=(self.state_dim,) * int(self.update_depth),
-            activate_final=self.update_activate_final,
-            layer_norm=self.layer_norm,
-        )
+        if self.parameter_sharing == 'shared':
+            self.update_module = MLP(
+                hidden_dims=(self.state_dim,) * int(self.update_depth),
+                activate_final=self.update_activate_final,
+                layer_norm=self.layer_norm,
+            )
+        else:
+            self.update_modules = tuple(
+                MLP(
+                    hidden_dims=(self.state_dim,) * int(self.update_depth),
+                    activate_final=self.update_activate_final,
+                    layer_norm=self.layer_norm,
+                )
+                for _ in range(int(self.iterations))
+            )
         if self.state_init == 'zero_buffer':
             self.z_init = self.variable(
                 'buffers',
@@ -90,8 +106,12 @@ class SingleState(nn.Module):
             )
         z_init = self.z_init.value
         z = jnp.broadcast_to(z_init, x_hidden.shape)
-        for _ in range(self.iterations):
-            update = self.update_module(z + x_hidden)
+        if self.parameter_sharing == 'shared':
+            update_modules = (self.update_module,) * self.iterations
+        else:
+            update_modules = self.update_modules
+        for update_module in update_modules:
+            update = update_module(z + x_hidden)
             if update.shape[-1] != self.state_dim:
                 raise ValueError(
                     f'SingleState update produced {update.shape[-1]} features, '

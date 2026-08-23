@@ -7,6 +7,7 @@ from typing import Mapping, Optional, Sequence
 from .credit.direct import DirectCredit
 from .credit.full_bptt import FullBPTTCredit
 from .credit.one_step import OneStepCredit
+from .blocks.residual_mlp import ResidualMLPStack
 from .interfaces import ComputationCore
 from .primitives.mlp import MLP
 from .topologies.feedforward import FeedForward
@@ -22,6 +23,9 @@ class ComputationSpec:
     topology: str = 'feedforward'
     credit: str = 'direct'
     topology_kwargs: Mapping = field(default_factory=dict)
+    block: str = 'plain'
+    parameter_sharing: str = 'shared'
+    block_kwargs: Mapping = field(default_factory=dict)
 
     @classmethod
     def from_mapping(cls, value: Optional[Mapping] = None):
@@ -29,9 +33,15 @@ class ComputationSpec:
             return cls()
         return cls(
             primitive=value.get('primitive', 'mlp'),
+            block=value.get('block', 'plain'),
             topology=value.get('topology', 'feedforward'),
+            parameter_sharing=value.get(
+                'parameter_sharing',
+                value.get('topology_kwargs', {}).get('parameter_sharing', 'shared'),
+            ),
             credit=value.get('credit', 'direct'),
             topology_kwargs=dict(value.get('topology_kwargs', {})),
+            block_kwargs=dict(value.get('block_kwargs', {})),
         )
 
 
@@ -84,11 +94,31 @@ def make_computation_core(
     if spec.topology == 'feedforward':
         if spec.credit != DirectCredit.name:
             raise ValueError(f'FeedForward requires credit={DirectCredit.name!r}, got {spec.credit!r}')
-        primitive = MLP(
-            hidden_dims=hidden_dims,
-            activate_final=feedforward_activate_final,
-            layer_norm=layer_norm,
-        )
+        if spec.block == 'plain':
+            primitive = MLP(
+                hidden_dims=hidden_dims,
+                activate_final=feedforward_activate_final,
+                layer_norm=layer_norm,
+            )
+        elif spec.block == 'residual':
+            kwargs = dict(spec.block_kwargs)
+            state_dim = int(kwargs.get('state_dim', hidden_dims[-1]))
+            if state_dim != hidden_dims[-1]:
+                raise ValueError(
+                    f'ResidualMLPStack state_dim={state_dim} must match the final branch width '
+                    f'{hidden_dims[-1]}'
+                )
+            primitive = ResidualMLPStack(
+                state_dim=state_dim,
+                blocks=int(kwargs.get('blocks', 4)),
+                block_depth=int(kwargs.get('block_depth', 2)),
+                layer_norm=bool(kwargs.get('layer_norm', layer_norm)),
+                block_activate_final=bool(
+                    kwargs.get('block_activate_final', feedforward_activate_final)
+                ),
+            )
+        else:
+            raise ValueError(f'Unsupported FeedForward block: {spec.block!r}')
         return ComputationCore(topology=FeedForward(primitive=primitive))
 
     if spec.topology == 'single_state':
@@ -112,6 +142,7 @@ def make_computation_core(
         # explicitly request a deeper recurrent update while keeping the
         # caller's branch depth (for example, (512, 512, 512, 512)) intact.
         kwargs.setdefault('update_depth', 2)
+        kwargs.setdefault('parameter_sharing', spec.parameter_sharing)
         # The caller owns primitive semantics. Actor callers pass
         # activate_final=True/layer_norm=False; CRL bilinear critic callers
         # pass activate_final=False/layer_norm=True, matching the replaced

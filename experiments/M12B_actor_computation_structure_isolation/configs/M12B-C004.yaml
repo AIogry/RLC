@@ -1,0 +1,35 @@
+study_id: M12B
+config_id: M12B-C004
+slug: ss_k4_untied_normal
+algorithm: crl
+environment: antmaze-large-navigate-v0
+stage: policy_extraction
+protocol_stage: stage2
+placement: actor_computation_structure
+executable: true
+condition_id: B006
+description: SingleState K4, untied update parameters, normal decision-local buffer.
+factors: {structure: single_state_k4, state_init: normal_buffer, parameter_sharing: untied, iterations: 4}
+dependencies:
+  frozen_critic:
+    source_study_id: M12A
+    source_study_path: ../M12A_frozen_critic_policy_extraction/study.yaml
+    source_config_id: M12A-C001
+    seed_policy: same_seed
+    source_run_attempt: 0
+    checkpoint_role: last
+    checkpoint_step: 1000000
+    module: critic
+agent_overrides:
+  actor_loss: ddpgbc
+  training_mode: policy_extraction
+  runtime_variant: policy_extractor
+  compute:
+    actor:
+      enabled: true
+      primitive: mlp
+      block: plain
+      topology: single_state
+      parameter_sharing: untied
+      credit: direct
+      topology_kwargs: {iterations: 4, residual: false, input_injection: z_plus_x, state_dim: 512, state_init: normal_buffer, state_init_std: 1.0, update_depth: 2, layer_norm: false, update_activate_final: true}

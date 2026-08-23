@@ -1,0 +1,31 @@
+study_id: M12B
+config_id: M12B-C006
+slug: deep_ff_9
+algorithm: crl
+environment: antmaze-large-navigate-v0
+stage: policy_extraction
+protocol_stage: stage2
+placement: actor_computation_structure
+executable: true
+allow_noncanonical_actor_hidden_dims: true
+condition_id: B008
+description: Existing FeedForward topology with nine hidden Dense transformations.
+factors: {structure: deep_ff_9, state_init: null, parameter_sharing: null, hidden_dense_transformations: 9}
+dependencies:
+  frozen_critic:
+    source_study_id: M12A
+    source_study_path: ../M12A_frozen_critic_policy_extraction/study.yaml
+    source_config_id: M12A-C001
+    seed_policy: same_seed
+    source_run_attempt: 0
+    checkpoint_role: last
+    checkpoint_step: 1000000
+    module: critic
+    ignored_agent_fields: [actor_hidden_dims]
+agent_overrides:
+  actor_hidden_dims: [512, 512, 512, 512, 512, 512, 512, 512, 512]
+  actor_loss: ddpgbc
+  training_mode: policy_extraction
+  runtime_variant: policy_extractor
+  compute:
+    actor: {enabled: true, primitive: mlp, block: plain, topology: feedforward, credit: direct}
