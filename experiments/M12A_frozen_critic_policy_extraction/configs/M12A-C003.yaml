@@ -4,6 +4,7 @@ slug: policy_extraction_single_state_k4_actor
 algorithm: crl
 environment: antmaze-large-navigate-v0
 stage: policy_extraction
+protocol_stage: stage2
 placement: actor_single_state_k4
 executable: true
 description: SingleState K4 CRL actor against a same-seed frozen critic.

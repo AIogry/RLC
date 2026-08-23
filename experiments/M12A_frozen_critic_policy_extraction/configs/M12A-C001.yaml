@@ -4,6 +4,7 @@ slug: critic_pretrain_ff_crl
 algorithm: crl
 environment: antmaze-large-navigate-v0
 stage: critic_pretrain
+protocol_stage: stage1
 placement: critic_pretrain
 executable: true
 description: Canonical feed-forward CRL critic-only pretraining source.

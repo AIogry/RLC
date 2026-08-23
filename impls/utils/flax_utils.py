@@ -12,7 +12,8 @@ import flax.linen as nn
 import jax
 import jax.numpy as jnp
 import optax
-from flax.core import freeze, unfreeze
+from flax.core import freeze
+from flax.core.frozen_dict import FrozenDict
 
 from .checkpointing import (
     parameter_module_key,
@@ -171,8 +172,50 @@ def restore_agent_from_checkpoint(agent, checkpoint_path):
     return restored
 
 
+def _mapping_like(template, values):
+    """Rebuild a mapping with the same container class as ``template``."""
+
+    if isinstance(template, FrozenDict):
+        return freeze(values)
+    if isinstance(template, dict):
+        return dict(values)
+    try:
+        return type(template)(values)
+    except TypeError as error:
+        raise TypeError(
+            f'Cannot preserve parameter mapping type {type(template)!r}'
+        ) from error
+
+
+def _coerce_subtree_like(source, template, path=()):
+    """Convert a source subtree to the target's recursive mapping structure."""
+
+    if isinstance(template, Mapping):
+        if not isinstance(source, Mapping):
+            raise ValueError(
+                f'Incompatible parameter subtree at {path!r}: '
+                f'source={type(source)!r}, target={type(template)!r}'
+            )
+        if set(source) != set(template):
+            raise ValueError(
+                f'Incompatible parameter keys at {path!r}: '
+                f'source={sorted(source)!r}, target={sorted(template)!r}'
+            )
+        values = {
+            key: _coerce_subtree_like(source[key], template[key], path + (key,))
+            for key in template
+        }
+        return _mapping_like(template, values)
+    if isinstance(source, Mapping):
+        raise ValueError(
+            f'Incompatible parameter subtree at {path!r}: '
+            f'source={type(source)!r}, target={type(template)!r}'
+        )
+    return source
+
+
 def restore_module_from_checkpoint(agent, checkpoint_path, module_name):
-    """Restore one parameter module while keeping the target agent optimizer fresh."""
+    """Restore one module while preserving target params and fresh optimizer state."""
 
     with open(checkpoint_path, 'rb') as file:
         loaded = pickle.load(file)
@@ -184,16 +227,27 @@ def restore_module_from_checkpoint(agent, checkpoint_path, module_name):
         raise ValueError(
             f'Checkpoint does not contain network.params[{module_name!r}]'
         ) from error
-    target_params = unfreeze(agent.network.params)
-    target_key = parameter_module_key(target_params, module_name)
+    params_before = agent.network.params
+    target_key = parameter_module_key(params_before, module_name)
+    target_module = params_before[target_key]
+    source_module = _coerce_subtree_like(source_module, target_module)
     source_leaves = jax.tree_util.tree_leaves(source_module)
-    target_leaves = jax.tree_util.tree_leaves(target_params[target_key])
+    target_leaves = jax.tree_util.tree_leaves(target_module)
     if [getattr(leaf, 'shape', None) for leaf in source_leaves] != [
         getattr(leaf, 'shape', None) for leaf in target_leaves
     ]:
         raise ValueError(f'Incompatible parameter shapes for module {module_name!r}')
-    target_params[target_key] = source_module
-    network = agent.network.replace(params=freeze(target_params))
+    values = dict(params_before)
+    values[target_key] = source_module
+    params_after = _mapping_like(params_before, values)
+    if jax.tree_util.tree_structure(params_before) != jax.tree_util.tree_structure(params_after):
+        raise ValueError(
+            'Parameter PyTree structure changed while restoring '
+            f'module {module_name!r}'
+        )
+    # Deliberately keep the target TrainState optimizer/opt_state untouched;
+    # source checkpoints contribute parameters only, never optimizer momentum.
+    network = agent.network.replace(params=params_after)
     return agent.replace(network=network)
 
 

@@ -11,6 +11,7 @@ import queue
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from collections.abc import Mapping
 from pathlib import Path
 
 from impls.experiment import (
@@ -143,6 +144,44 @@ def _jobs(study_path, run_root, include_configs=None, exclude_configs=None, run_
     return jobs
 
 
+def _study_protocol_defaults(job):
+    """Return generic Study protocol defaults for this Configuration stage."""
+
+    protocol = job['study'].data.get('protocol', {})
+    if not isinstance(protocol, Mapping):
+        return {}
+    section_name = job['configuration'].data.get(
+        'protocol_stage', job['configuration'].data.get('stage')
+    )
+    if section_name and isinstance(protocol.get(section_name), Mapping):
+        return protocol[section_name]
+    return protocol
+
+
+def _with_study_protocol_defaults(job, extra_args):
+    """Fill omitted checkpoint flags from declarative Study protocol values."""
+
+    result = list(extra_args)
+    protocol = _study_protocol_defaults(job)
+    option_names = {
+        'save_best_checkpoint': (
+            '--save-best-checkpoint', '--no-save-best-checkpoint',
+            '--save_best_checkpoint', '--no_save_best_checkpoint',
+        ),
+        'save_last_checkpoint': (
+            '--save-last-checkpoint', '--no-save-last-checkpoint',
+            '--save_last_checkpoint', '--no_save_last_checkpoint',
+        ),
+    }
+    for field, names in option_names.items():
+        if field not in protocol:
+            continue
+        if any(str(argument).split('=', 1)[0] in names for argument in result):
+            continue
+        result.append(names[0] if bool(protocol[field]) else names[1])
+    return result
+
+
 def _command(job, run_root, extra_args):
     return [
         sys.executable,
@@ -162,7 +201,7 @@ def _command(job, run_root, extra_args):
         str(job['run_attempt']),
         '--run_root',
         str(run_root),
-        *extra_args,
+        *_with_study_protocol_defaults(job, extra_args),
     ]
 
 

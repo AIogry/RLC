@@ -52,6 +52,30 @@ def _small_config():
     return config
 
 
+def _small_extraction_config(single_state=False):
+    config = _small_config()
+    config['training_mode'] = 'policy_extraction'
+    config['runtime_variant'] = 'policy_extractor'
+    if single_state:
+        actor = config['compute']['actor']
+        actor['enabled'] = True
+        actor['primitive'] = 'mlp'
+        actor['topology'] = 'single_state'
+        actor['credit'] = 'direct'
+        actor['topology_kwargs'] = {
+            'iterations': 4,
+            'residual': False,
+            'input_injection': 'z_plus_x',
+            'state_dim': 8,
+            'state_init': 'normal_buffer',
+            'state_init_std': 1.0,
+            'update_depth': 2,
+            'layer_norm': False,
+            'update_activate_final': True,
+        }
+    return config
+
+
 def _batch(index=0, batch_size=4, obs_dim=4, action_dim=2):
     observations = (
         jnp.arange(batch_size * obs_dim, dtype=jnp.float32)
@@ -272,6 +296,76 @@ class M12AStudyAndDependencyTest(unittest.TestCase):
             self.assertEqual(call.kwargs['num_eval_episodes'], 20)
             self.assertEqual(call.kwargs['eval_temperature'], 0.0)
             self.assertIsNone(call.kwargs['eval_gaussian'])
+
+    def test_restore_then_real_update_preserves_ff_and_ss_optimizer_pytrees(self):
+        study, c001 = prepare_run_design(
+            'experiments/M12A_frozen_critic_policy_extraction/study.yaml',
+            'M12A-C001',
+        )
+        _, c002 = prepare_run_design(
+            'experiments/M12A_frozen_critic_policy_extraction/study.yaml',
+            'M12A-C002',
+        )
+        _, c003 = prepare_run_design(
+            'experiments/M12A_frozen_critic_policy_extraction/study.yaml',
+            'M12A-C003',
+        )
+        batch = _batch()
+        source_agent = CRLAgent.create(
+            19, batch['observations'], batch['actions'], _small_config(),
+        )
+        for label, configuration, extraction_config in (
+            ('FF', c002, _small_extraction_config(False)),
+            ('SS-K4', c003, _small_extraction_config(True)),
+        ):
+            with self.subTest(actor=label), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self._make_completed_source_run(
+                    root, study, c001, source_agent, seed=0,
+                )
+                dependency = validate_source_run_dependency(
+                    study,
+                    configuration,
+                    'frozen_critic',
+                    seed=0,
+                    run_root=root,
+                    resolved_agent=None,
+                )
+                target = CRLPolicyExtractorAgent.create(
+                    19,
+                    batch['observations'],
+                    batch['actions'],
+                    extraction_config,
+                )
+                params_before = target.network.params
+                structure_before = jax.tree_util.tree_structure(params_before)
+                optimizer_before = [
+                    np.asarray(leaf).copy()
+                    for leaf in jax.tree_util.tree_leaves(target.network.opt_state)
+                ]
+                actor_before = tree_fingerprint(_module_params(target, 'actor'))
+                target = restore_module_from_checkpoint(
+                    target, dependency['checkpoint_path'], dependency['module'],
+                )
+                self.assertEqual(
+                    structure_before,
+                    jax.tree_util.tree_structure(target.network.params),
+                )
+                for before, after in zip(
+                    optimizer_before,
+                    jax.tree_util.tree_leaves(target.network.opt_state),
+                ):
+                    np.testing.assert_array_equal(before, np.asarray(after))
+                critic_before = tree_fingerprint(_module_params(target, 'critic'))
+                for index in range(10):
+                    target, info = target.update(_batch(index))
+                    self.assertTrue(
+                        all(np.all(np.isfinite(np.asarray(value))) for value in info.values()),
+                        msg=f'non-finite {label} metrics at update {index}',
+                    )
+                self.assertNotEqual(actor_before, tree_fingerprint(_module_params(target, 'actor')))
+                self.assertEqual(critic_before, tree_fingerprint(_module_params(target, 'critic')))
+                self.assertEqual(target.network.step, 11)
 
     def _make_completed_source_run(
         self, root, study, source_configuration, source_agent, seed=0,

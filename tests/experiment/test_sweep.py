@@ -19,6 +19,10 @@ placements: [baseline]
 environments: [toy-a, toy-b]
 seeds: [0]
 primary_metric: evaluation/overall_success
+protocol:
+  stage1:
+    save_best_checkpoint: false
+    save_last_checkpoint: true
 """
 
 CONFIG_TEMPLATE = """
@@ -26,6 +30,8 @@ study_id: TEST
 config_id: {config_id}
 slug: {slug}
 algorithm: hiql
+stage: stage1
+protocol_stage: stage1
 factors:
   variant: {variant}
 """
@@ -117,6 +123,20 @@ class SweepInfrastructureTest(unittest.TestCase):
         # The fast worker should take work after its first job while GPU 1 is
         # still occupied, demonstrating a dynamic free-GPU queue.
         self.assertGreater(sum(gpu == '0' for _, gpu in assignments), 1)
+
+    def test_study_protocol_fills_omitted_checkpoint_flags(self):
+        _, study_path, _ = self._fixture()
+        job = sweep._jobs(study_path, '/tmp/test-sweep')[0]
+        command = sweep._command(job, '/tmp/test-sweep', [])
+        self.assertIn('--no-save-best-checkpoint', command)
+        self.assertIn('--save-last-checkpoint', command)
+        explicit = sweep._command(
+            job,
+            '/tmp/test-sweep',
+            ['--save-best-checkpoint', '--no-save-last-checkpoint'],
+        )
+        self.assertEqual(explicit.count('--save-best-checkpoint'), 1)
+        self.assertEqual(explicit.count('--no-save-last-checkpoint'), 1)
 
 
 if __name__ == '__main__':

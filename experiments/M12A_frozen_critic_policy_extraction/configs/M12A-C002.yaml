@@ -4,6 +4,7 @@ slug: policy_extraction_ff_actor
 algorithm: crl
 environment: antmaze-large-navigate-v0
 stage: policy_extraction
+protocol_stage: stage2
 placement: actor_ff
 executable: true
 description: Canonical feed-forward CRL actor against a same-seed frozen critic.
