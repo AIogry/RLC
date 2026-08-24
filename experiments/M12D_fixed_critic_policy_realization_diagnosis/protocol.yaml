@@ -1,0 +1,82 @@
+study_id: M12D
+name: Fixed-Critic Policy Realization Diagnosis
+scientific_question: >-
+  Under one seed-matched fixed learned CRL critic, where does the policy-realization
+  advantage of high actor computation arise: training-support extraction, goal shift,
+  or rollout-state shift?
+environment: antmaze-large-navigate-v0
+dataset_root: /data/qijunrong/06-RL/offline-rl/data/raw_ogbench
+run_root: /data/qijunrong/06-RL/offline-rl/exp/RLC/runs
+source_commit: bb2644ccb23ee77a0c08e8b9cded85a57716df67
+seeds: [0, 1, 2]
+evaluation_seed: 12024
+primary_actor_names: [K1SN, K4SN, K4SZ, D9, Residual]
+critic:
+  study: ../M12A_frozen_critic_policy_extraction/study.yaml
+  config: M12A-C001
+  run_attempt: 0
+  checkpoint_role: last
+  checkpoint_step: 1000000
+  module: critic
+  seed_policy: same_integer_seed
+actors:
+  K1SN:
+    label: K1 shared normal
+    study: ../M12B_actor_computation_structure_isolation/study.yaml
+    config: M12B-C001
+    run_attempt: 0
+    checkpoint_role: last
+    factors: {topology: single_state, iterations: 1, parameter_sharing: shared, state_init: normal_buffer}
+  K4SN:
+    label: K4 shared normal
+    study: ../M12A_frozen_critic_policy_extraction/study.yaml
+    config: M12A-C003
+    run_attempt: 2
+    checkpoint_role: last
+    artifact_identity: M12B-R
+    factors: {topology: single_state, iterations: 4, parameter_sharing: shared, state_init: normal_buffer}
+  K4SZ:
+    label: K4 shared zero
+    study: ../M12B_actor_computation_structure_isolation/study.yaml
+    config: M12B-C003
+    run_attempt: 0
+    checkpoint_role: last
+    factors: {topology: single_state, iterations: 4, parameter_sharing: shared, state_init: zero_buffer}
+  D9:
+    label: Deep FF / D9
+    study: ../M12B_actor_computation_structure_isolation/study.yaml
+    config: M12B-C006
+    run_attempt: 0
+    factors: {topology: feedforward, hidden_dense_transformations: 9}
+  Residual:
+    label: Residual FF
+    study: ../M12B_actor_computation_structure_isolation/study.yaml
+    config: M12B-C007
+    run_attempt: 0
+    factors: {topology: feedforward, residual_blocks: 4, block_depth: 2}
+banks:
+  B_T: {batch_count: 10, batch_size: 1024, goal_protocol: exact_GCDataset_actor_goal_sampling}
+  B_DE: {goal_protocol: formal_eval_task_reset_goal, task_balance: equal_cross_product}
+  B_R:
+    episodes_per_actor_task: 20
+    progress_bins: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+    pooling: one_midpoint_nearest_state_per_actor_task_episode_bin
+support_proxy: {reference_states: 50000, metric: nearest_standardized_euclidean, interpretation: proxy_not_true_OOD}
+temporal_checkpoints: [800000, 900000, 1000000]
+pairwise_contrasts:
+  - [K4SN, K1SN]
+  - [K4SN, K4SZ]
+  - [D9, K1SN]
+  - [Residual, K1SN]
+  - [K4SN, D9]
+  - [K4SN, Residual]
+  - [D9, Residual]
+  - [D9, K4SZ]
+  - [Residual, K4SZ]
+formal_constraints:
+  no_training: true
+  no_checkpoint_modification: true
+  no_single_state_internal_trace: true
+  no_git_writes: true
+  no_automatic_formal_launch: true
+

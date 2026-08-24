@@ -1,0 +1,7 @@
+actors:
+  - {name: K1SN, label: K1 shared normal, study: M12B, config: M12B-C001, attempt: 0}
+  - {name: K4SN, label: K4 shared normal, study: M12A, config: M12A-C003, attempt: 2, artifact_identity: M12B-R}
+  - {name: K4SZ, label: K4 shared zero, study: M12B, config: M12B-C003, attempt: 0}
+  - {name: D9, label: Deep FF / D9, study: M12B, config: M12B-C006, attempt: 0}
+  - {name: Residual, label: Residual FF, study: M12B, config: M12B-C007, attempt: 0}
+
