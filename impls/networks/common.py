@@ -1,9 +1,10 @@
 """OGBench-compatible network semantics used by the first migrated slot."""
 
-from typing import Optional, Sequence
+from typing import Any, Optional, Sequence
 
 import distrax
 import flax.linen as nn
+import jax
 import jax.numpy as jnp
 
 from ..computation.factory import ComputationSpec, make_computation_core
@@ -230,6 +231,135 @@ class GCValue(nn.Module):
         if self.value_readout is not None:
             outputs = self.value_readout(outputs)
         return outputs.squeeze(-1)
+
+
+class GCDiscreteCritic(GCValue):
+    """Goal-conditioned critic for discrete actions."""
+
+    action_dim: int = None
+
+    def __call__(self, observations, goals=None, actions=None):
+        actions = jnp.eye(self.action_dim)[actions]
+        return super().__call__(observations, goals, actions)
+
+
+class Param(nn.Module):
+    """Scalar parameter module used by the canonical QRL value models."""
+
+    init_value: float = 0.0
+
+    @nn.compact
+    def __call__(self):
+        return self.param('value', init_fn=lambda key: jnp.full((), self.init_value))
+
+
+class LogParam(nn.Module):
+    """Positive scalar parameter represented in log space."""
+
+    init_value: float = 1.0
+
+    @nn.compact
+    def __call__(self):
+        log_value = self.param(
+            'log_value',
+            init_fn=lambda key: jnp.full((), jnp.log(self.init_value)),
+        )
+        return jnp.exp(log_value)
+
+
+class GCMRNValue(nn.Module):
+    """Metric Residual Network (MRN) quasimetric value function."""
+
+    hidden_dims: Sequence[int]
+    latent_dim: int
+    layer_norm: bool = True
+    encoder: nn.Module = None
+
+    def setup(self):
+        self.phi = MLP(
+            (*self.hidden_dims, self.latent_dim),
+            activate_final=False,
+            layer_norm=self.layer_norm,
+        )
+
+    def __call__(self, observations, goals, is_phi=False, info=False):
+        if is_phi:
+            phi_s = observations
+            phi_g = goals
+        else:
+            if self.encoder is not None:
+                observations = self.encoder(observations)
+                goals = self.encoder(goals)
+            phi_s = self.phi(observations)
+            phi_g = self.phi(goals)
+
+        half_dim = self.latent_dim // 2
+        sym_s = phi_s[..., :half_dim]
+        sym_g = phi_g[..., :half_dim]
+        asym_s = phi_s[..., half_dim:]
+        asym_g = phi_g[..., half_dim:]
+        squared_dist = ((sym_s - sym_g) ** 2).sum(axis=-1)
+        quasi = jax.nn.relu((asym_s - asym_g).max(axis=-1))
+        value = jnp.sqrt(jnp.maximum(squared_dist, 1e-12)) + quasi
+
+        if info:
+            return value, phi_s, phi_g
+        return value
+
+
+class GCIQEValue(nn.Module):
+    """Interval Quasimetric Embedding (IQE) value function."""
+
+    hidden_dims: Sequence[int]
+    latent_dim: int
+    dim_per_component: int
+    layer_norm: bool = True
+    encoder: nn.Module = None
+
+    def setup(self):
+        self.phi = MLP(
+            (*self.hidden_dims, self.latent_dim),
+            activate_final=False,
+            layer_norm=self.layer_norm,
+        )
+        self.alpha = Param()
+
+    def __call__(self, observations, goals, is_phi=False, info=False):
+        alpha = jax.nn.sigmoid(self.alpha())
+        if is_phi:
+            phi_s = observations
+            phi_g = goals
+        else:
+            if self.encoder is not None:
+                observations = self.encoder(observations)
+                goals = self.encoder(goals)
+            phi_s = self.phi(observations)
+            phi_g = self.phi(goals)
+
+        x = jnp.reshape(
+            phi_s, (*phi_s.shape[:-1], -1, self.dim_per_component)
+        )
+        y = jnp.reshape(
+            phi_g, (*phi_g.shape[:-1], -1, self.dim_per_component)
+        )
+        valid = x < y
+        xy = jnp.concatenate(jnp.broadcast_arrays(x, y), axis=-1)
+        ixy = xy.argsort(axis=-1)
+        neg_inc_copies = jnp.take_along_axis(
+            valid, ixy % self.dim_per_component, axis=-1
+        ) * jnp.where(ixy < self.dim_per_component, -1, 1)
+        neg_inp_copies = jnp.cumsum(neg_inc_copies, axis=-1)
+        neg_f = -1.0 * (neg_inp_copies < 0)
+        neg_incf = jnp.concatenate(
+            [neg_f[..., :1], neg_f[..., 1:] - neg_f[..., :-1]], axis=-1
+        )
+        sxy = jnp.take_along_axis(xy, ixy, axis=-1)
+        components = (sxy * neg_incf).sum(axis=-1)
+        value = alpha * components.mean(axis=-1) + (1 - alpha) * components.max(axis=-1)
+
+        if info:
+            return value, phi_s, phi_g
+        return value
 
 
 class GCBilinearValue(nn.Module):

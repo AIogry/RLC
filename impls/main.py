@@ -127,10 +127,12 @@ def _make_config(args, configuration=None):
     if args.width is not None:
         depth = 3 if args.depth is None else args.depth
         config['actor_hidden_dims'] = (args.width,) * depth
-        config['value_hidden_dims'] = (args.width,) * depth
+        if 'value_hidden_dims' in config:
+            config['value_hidden_dims'] = (args.width,) * depth
     elif args.depth is not None:
         config['actor_hidden_dims'] = (512,) * args.depth
-        config['value_hidden_dims'] = (512,) * args.depth
+        if 'value_hidden_dims' in config:
+            config['value_hidden_dims'] = (512,) * args.depth
     if args.agent == 'hiql':
         for slot in ('low_actor', 'high_actor', 'value'):
             config['compute'][slot]['enabled'] = bool(args.computation)
@@ -142,6 +144,10 @@ def _make_config(args, configuration=None):
                 config['compute'][slot]['enabled'] = False
     elif args.agent == 'coghp' and args.computation:
         raise ValueError('Vanilla CoGHP does not use --computation; use its official Mixer core.')
+    elif args.agent in {'gcbc', 'gciql', 'gcivl', 'qrl'} and args.computation:
+        raise ValueError(
+            f'Canonical {args.agent.upper()} does not expose RLC computation slots in M13.'
+        )
     if configuration is not None:
         if configuration.data.get('study_id') == 'M11B':
             from .experiment.m11b import m11b_agent_overrides
@@ -532,12 +538,47 @@ def _resolved_compute_snapshot(config):
 
 def _loss_metric(update_info):
     """Return the algorithm-specific total from the shared update info."""
-    keys = (
-        'critic/contrastive_loss', 'value/contrastive_loss', 'actor/actor_loss',
-        'value/value_loss', 'high_actor/actor_loss', 'low_actor/actor_loss',
-        'actor/q_loss', 'contrastive_loss', 'actor_loss', 'q_loss',
-    )
-    return sum(update_info[key] for key in keys if key in update_info)
+    # Use component totals, never diagnostic subterms.  In particular QRL
+    # exposes value/total_loss together with value/value_loss and lam_loss;
+    # summing every loss-shaped key would count the same objective repeatedly.
+    if 'value/total_loss' in update_info:
+        total = update_info['value/total_loss']
+        return total + sum(
+            update_info[key]
+            for key in ('dynamics/dynamics_loss', 'actor/actor_loss')
+            if key in update_info
+        )
+    if 'critic/critic_loss' in update_info:
+        # GCIQL has a standalone critic TD objective.
+        total = sum(
+            update_info[key]
+            for key in ('value/value_loss', 'critic/critic_loss')
+            if key in update_info
+        )
+        return total + update_info.get('actor/actor_loss', 0.0)
+    if 'actor/actor_loss' in update_info and 'value/value_loss' in update_info:
+        # GCIVL has a value objective and an actor objective, while the
+        # existing HIQL/CoGHP paths expose high/low actor slots below.
+        if not any(key in update_info for key in ('high_actor/actor_loss', 'low_actor/actor_loss')):
+            return update_info['value/value_loss'] + update_info['actor/actor_loss']
+    if set(update_info).intersection({'actor/actor_loss', 'value/value_loss', 'critic/contrastive_loss'}):
+        # Preserve the historical CRL/HIQL/CoGHP monitoring sum exactly for
+        # unchanged update dictionaries, including legacy diagnostic terms.
+        legacy_keys = (
+            'critic/contrastive_loss', 'value/contrastive_loss', 'actor/actor_loss',
+            'value/value_loss', 'high_actor/actor_loss', 'low_actor/actor_loss',
+            'actor/q_loss', 'contrastive_loss', 'actor_loss', 'q_loss',
+        )
+        return sum(update_info[key] for key in legacy_keys if key in update_info)
+    else:
+        total = sum(
+            update_info[key]
+            for key in (
+                'value/contrastive_loss', 'critic/contrastive_loss',
+            )
+            if key in update_info
+        )
+        return total
 
 
 def _evaluate_tasks(agent, env, config, args, eval_seed):
@@ -593,18 +634,37 @@ def _validate_restored_checkpoint(agent, restored, observations, goals, actions=
     before_action = agent.sample_actions(observations, goals, seed=key)
     after_action = restored.sample_actions(observations, goals, seed=key)
     np.testing.assert_array_equal(np.asarray(before_action), np.asarray(after_action))
-    # ModuleDict stores selected modules under ``modules_<name>`` in the
-    # parameter tree.  CRL's DDPG+BC configuration has no V module, so use its
-    # legacy bilinear critic for the value probe instead.
-    module_name = 'value' if 'modules_value' in agent.network.params else 'critic'
-    if module_name == 'critic':
-        before_value = agent.network.select(module_name)(observations, goals, actions)
-        after_value = restored.network.select(module_name)(observations, goals, actions)
-    else:
-        before_value = agent.network.select(module_name)(observations, goals)
-        after_value = restored.network.select(module_name)(observations, goals)
-    np.testing.assert_array_equal(np.asarray(before_value), np.asarray(after_value))
-    print('Checkpoint save/load probe: PASS (same action/value)')
+    checked_modules = ['actor']
+    if 'modules_value' in agent.network.params:
+        before_value = agent.network.select('value')(observations, goals)
+        after_value = restored.network.select('value')(observations, goals)
+        np.testing.assert_array_equal(np.asarray(before_value), np.asarray(after_value))
+        checked_modules.append('value')
+    elif 'modules_critic' in agent.network.params:
+        before_critic = agent.network.select('critic')(observations, goals, actions)
+        after_critic = restored.network.select('critic')(observations, goals, actions)
+        np.testing.assert_array_equal(np.asarray(before_critic), np.asarray(after_critic))
+        checked_modules.append('critic')
+    print(f'Checkpoint save/load probe: PASS (same action/{"/".join(checked_modules[1:]) or "actor-only"})')
+    for module_name in (
+        'target_critic',
+        'target_value',
+        'lam',
+        'dynamics',
+    ):
+        module_key = f'modules_{module_name}'
+        if module_key not in agent.network.params:
+            continue
+        before_module = agent.network.params[module_key]
+        after_module = restored.network.params[module_key]
+        for before_leaf, after_leaf in zip(
+            jax.tree_util.tree_leaves(before_module),
+            jax.tree_util.tree_leaves(after_module),
+        ):
+            np.testing.assert_array_equal(np.asarray(before_leaf), np.asarray(after_leaf))
+        checked_modules.append(module_name)
+    if len(checked_modules) > 1:
+        print(f'Checkpoint auxiliary module probe: PASS ({", ".join(checked_modules[1:])})')
     if agent.network.model_state:
         before_state = jax.tree_util.tree_leaves(agent.network.model_state)
         after_state = jax.tree_util.tree_leaves(restored.network.model_state)
