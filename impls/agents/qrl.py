@@ -9,9 +9,12 @@ import ml_collections
 import numpy as np
 import optax
 
+from ..computation.factory import resolve_slot_spec
+from ..computation.slots import validate_compute_slots
 from ..networks.common import (
     GCActor,
     GCDiscreteActor,
+    ComputationVectorBody,
     GCIQEValue,
     GCMRNValue,
     LogParam,
@@ -184,6 +187,14 @@ class QRLAgent(flax.struct.PyTreeNode):
 
     @classmethod
     def create(cls, seed, ex_observations, ex_actions, config):
+        validate_compute_slots('qrl', config)
+        if (
+            config['actor_loss'] != 'ddpgbc'
+            and config.get('compute', {}).get('dynamics', {}).get('enabled', False)
+        ):
+            raise ValueError(
+                'QRL dynamics computation slot requires actor_loss=ddpgbc'
+            )
         rng = jax.random.PRNGKey(seed)
         rng, init_rng = jax.random.split(rng, 2)
         ex_goals = ex_observations
@@ -207,6 +218,7 @@ class QRLAgent(flax.struct.PyTreeNode):
                 latent_dim=config['latent_dim'],
                 layer_norm=config['layer_norm'],
                 encoder=encoders.get('value'),
+                computation_spec=resolve_slot_spec(config, 'value'),
             )
         elif config['quasimetric_type'] == 'iqe':
             value_def = GCIQEValue(
@@ -215,6 +227,7 @@ class QRLAgent(flax.struct.PyTreeNode):
                 dim_per_component=config.get('dim_per_component', 8),
                 layer_norm=config['layer_norm'],
                 encoder=encoders.get('value'),
+                computation_spec=resolve_slot_spec(config, 'value'),
             )
         else:
             raise ValueError(
@@ -222,15 +235,25 @@ class QRLAgent(flax.struct.PyTreeNode):
             )
 
         if config['actor_loss'] == 'ddpgbc':
-            dynamics_def = MLP(
-                hidden_dims=(*config['value_hidden_dims'], config['latent_dim']),
-                layer_norm=config['layer_norm'],
-            )
+            dynamics_spec = resolve_slot_spec(config, 'dynamics')
+            if dynamics_spec is None:
+                dynamics_def = MLP(
+                    hidden_dims=(*config['value_hidden_dims'], config['latent_dim']),
+                    layer_norm=config['layer_norm'],
+                )
+            else:
+                dynamics_def = ComputationVectorBody(
+                    hidden_dims=(*config['value_hidden_dims'], config['latent_dim']),
+                    layer_norm=config['layer_norm'],
+                    computation_spec=dynamics_spec,
+                    activate_final=False,
+                )
         if config['discrete']:
             actor_def = GCDiscreteActor(
                 hidden_dims=config['actor_hidden_dims'],
                 action_dim=action_dim,
                 gc_encoder=encoders.get('actor'),
+                computation_spec=resolve_slot_spec(config, 'actor'),
             )
         else:
             actor_def = GCActor(
@@ -239,6 +262,7 @@ class QRLAgent(flax.struct.PyTreeNode):
                 state_dependent_std=False,
                 const_std=config['const_std'],
                 gc_encoder=encoders.get('actor'),
+                computation_spec=resolve_slot_spec(config, 'actor'),
             )
 
         network_info = {
@@ -252,13 +276,16 @@ class QRLAgent(flax.struct.PyTreeNode):
                 np.concatenate([ex_latents, ex_actions], axis=-1),
             )
         network_def = ModuleDict({key: value[0] for key, value in network_info.items()})
-        network_params = network_def.init(
-            init_rng,
+        variables = network_def.init(
+            {'params': init_rng, 'buffers': jax.random.fold_in(rng, 0x4D39)},
             **{key: value[1] for key, value in network_info.items()},
-        )['params']
+        )
+        network_params = variables['params']
+        model_state = {key: value for key, value in variables.items() if key != 'params'}
         network = TrainState.create(
             network_def,
             network_params,
+            model_state=model_state,
             tx=optax.adam(learning_rate=config['lr']),
         )
         return cls(
@@ -299,5 +326,18 @@ def get_config():
             gc_negative=False,
             p_aug=0.0,
             frame_stack=None,
+            compute=ml_collections.ConfigDict(
+                dict(
+                    actor=ml_collections.ConfigDict(
+                        dict(enabled=False, primitive='mlp', topology='feedforward', credit='direct')
+                    ),
+                    value=ml_collections.ConfigDict(
+                        dict(enabled=False, primitive='mlp', topology='feedforward', credit='direct')
+                    ),
+                    dynamics=ml_collections.ConfigDict(
+                        dict(enabled=False, primitive='mlp', topology='feedforward', credit='direct')
+                    ),
+                )
+            ),
         )
     )

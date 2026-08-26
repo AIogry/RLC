@@ -51,6 +51,34 @@ class _ComputationValueBody(nn.Module):
         return output
 
 
+class ComputationVectorBody(nn.Module):
+    """Vector-valued body used by QRL phi and latent dynamics.
+
+    The algorithm sees only the vector representation. Topology state and
+    non-trainable buffers remain inside the computation core, which keeps the
+    network contract stable for future tokenized bodies.
+    """
+
+    hidden_dims: Sequence[int]
+    layer_norm: bool
+    computation_spec: ComputationSpec
+    activate_final: bool = False
+
+    def setup(self):
+        self.core = make_computation_core(
+            self.computation_spec,
+            hidden_dims=self.hidden_dims,
+            activate_final=self.activate_final,
+            layer_norm=self.layer_norm,
+        )
+
+    def __call__(self, x):
+        output = self.core(x)
+        if isinstance(output, ComputationOutput):
+            output = output.representation
+        return output
+
+
 class _ComputationBilinearBody(nn.Module):
     """One computationized branch of a CRL bilinear representation."""
 
@@ -106,6 +134,8 @@ class GCActor(nn.Module):
     computation_spec: Optional[ComputationSpec] = None
 
     def setup(self):
+        if self.computation_spec is not None and self.computation_spec.structure == 'puzzle_tokens' and self.gc_encoder is not None:
+            raise ValueError('Puzzle structured computation requires raw standard Puzzle observations; encoder is unsupported')
         if self.computation_spec is None:
             self.actor_net = MLP(self.hidden_dims, activate_final=True)
         else:
@@ -153,6 +183,8 @@ class GCDiscreteActor(nn.Module):
     computation_spec: Optional[ComputationSpec] = None
 
     def setup(self):
+        if self.computation_spec is not None and self.computation_spec.structure == 'puzzle_tokens' and self.gc_encoder is not None:
+            raise ValueError('Puzzle structured computation requires raw standard Puzzle observations; encoder is unsupported')
         if self.computation_spec is None:
             self.actor_net = MLP(self.hidden_dims, activate_final=True)
         else:
@@ -184,6 +216,8 @@ class GCValue(nn.Module):
     computation_spec: Optional[ComputationSpec] = None
 
     def setup(self):
+        if self.computation_spec is not None and self.computation_spec.structure == 'puzzle_tokens' and self.gc_encoder is not None:
+            raise ValueError('Puzzle structured computation requires raw standard Puzzle observations; encoder is unsupported')
         if self.computation_spec is None:
             # Preserve the complete legacy MLP, including its final Dense(1)
             # path, for checkpoint and baseline compatibility.
@@ -274,13 +308,25 @@ class GCMRNValue(nn.Module):
     latent_dim: int
     layer_norm: bool = True
     encoder: nn.Module = None
+    computation_spec: Optional[ComputationSpec] = None
 
     def setup(self):
-        self.phi = MLP(
-            (*self.hidden_dims, self.latent_dim),
-            activate_final=False,
-            layer_norm=self.layer_norm,
-        )
+        if self.computation_spec is not None and self.computation_spec.structure == 'puzzle_tokens' and self.encoder is not None:
+            raise ValueError('Puzzle structured computation requires raw standard Puzzle observations; encoder is unsupported')
+        phi_dims = (*self.hidden_dims, self.latent_dim)
+        if self.computation_spec is None:
+            self.phi = MLP(
+                phi_dims,
+                activate_final=False,
+                layer_norm=self.layer_norm,
+            )
+        else:
+            self.phi = ComputationVectorBody(
+                hidden_dims=phi_dims,
+                layer_norm=self.layer_norm,
+                computation_spec=self.computation_spec,
+                activate_final=False,
+            )
 
     def __call__(self, observations, goals, is_phi=False, info=False):
         if is_phi:
@@ -315,13 +361,25 @@ class GCIQEValue(nn.Module):
     dim_per_component: int
     layer_norm: bool = True
     encoder: nn.Module = None
+    computation_spec: Optional[ComputationSpec] = None
 
     def setup(self):
-        self.phi = MLP(
-            (*self.hidden_dims, self.latent_dim),
-            activate_final=False,
-            layer_norm=self.layer_norm,
-        )
+        if self.computation_spec is not None and self.computation_spec.structure == 'puzzle_tokens' and self.encoder is not None:
+            raise ValueError('Puzzle structured computation requires raw standard Puzzle observations; encoder is unsupported')
+        phi_dims = (*self.hidden_dims, self.latent_dim)
+        if self.computation_spec is None:
+            self.phi = MLP(
+                phi_dims,
+                activate_final=False,
+                layer_norm=self.layer_norm,
+            )
+        else:
+            self.phi = ComputationVectorBody(
+                hidden_dims=phi_dims,
+                layer_norm=self.layer_norm,
+                computation_spec=self.computation_spec,
+                activate_final=False,
+            )
         self.alpha = Param()
 
     def __call__(self, observations, goals, is_phi=False, info=False):

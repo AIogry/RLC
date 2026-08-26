@@ -9,9 +9,16 @@ import jax.numpy as jnp
 import ml_collections
 import optax
 
+from ..computation.factory import resolve_slot_spec
+from ..computation.slots import validate_compute_slots
 from ..networks.common import GCActor, GCDiscreteActor, GCDiscreteCritic, GCValue
 from ..utils.encoders import GCEncoder, encoder_modules
-from ..utils.flax_utils import ModuleDict, TrainState, nonpytree_field
+from ..utils.flax_utils import (
+    ModuleDict,
+    TrainState,
+    nonpytree_field,
+    synchronize_target_module,
+)
 
 
 class GCIQLAgent(flax.struct.PyTreeNode):
@@ -170,6 +177,7 @@ class GCIQLAgent(flax.struct.PyTreeNode):
 
     @classmethod
     def create(cls, seed, ex_observations, ex_actions, config):
+        validate_compute_slots('gciql', config)
         rng = jax.random.PRNGKey(seed)
         rng, init_rng = jax.random.split(rng, 2)
         ex_goals = ex_observations
@@ -190,6 +198,7 @@ class GCIQLAgent(flax.struct.PyTreeNode):
             layer_norm=config['layer_norm'],
             ensemble=False,
             gc_encoder=encoders.get('value'),
+            computation_spec=resolve_slot_spec(config, 'value'),
         )
         if config['discrete']:
             critic_def = GCDiscreteCritic(
@@ -198,6 +207,7 @@ class GCIQLAgent(flax.struct.PyTreeNode):
                 ensemble=True,
                 gc_encoder=encoders.get('critic'),
                 action_dim=action_dim,
+                computation_spec=resolve_slot_spec(config, 'critic'),
             )
         else:
             critic_def = GCValue(
@@ -205,12 +215,14 @@ class GCIQLAgent(flax.struct.PyTreeNode):
                 layer_norm=config['layer_norm'],
                 ensemble=True,
                 gc_encoder=encoders.get('critic'),
+                computation_spec=resolve_slot_spec(config, 'critic'),
             )
         if config['discrete']:
             actor_def = GCDiscreteActor(
                 hidden_dims=config['actor_hidden_dims'],
                 action_dim=action_dim,
                 gc_encoder=encoders.get('actor'),
+                computation_spec=resolve_slot_spec(config, 'actor'),
             )
         else:
             actor_def = GCActor(
@@ -219,6 +231,7 @@ class GCIQLAgent(flax.struct.PyTreeNode):
                 state_dependent_std=False,
                 const_std=config['const_std'],
                 gc_encoder=encoders.get('actor'),
+                computation_spec=resolve_slot_spec(config, 'actor'),
             )
 
         network_info = {
@@ -231,16 +244,19 @@ class GCIQLAgent(flax.struct.PyTreeNode):
             'actor': (actor_def, (ex_observations, ex_goals)),
         }
         network_def = ModuleDict({key: value[0] for key, value in network_info.items()})
-        network_params = network_def.init(
-            init_rng,
+        variables = network_def.init(
+            {'params': init_rng, 'buffers': jax.random.fold_in(rng, 0x4D39)},
             **{key: value[1] for key, value in network_info.items()},
-        )['params']
+        )
+        network_params = variables['params']
+        model_state = {key: value for key, value in variables.items() if key != 'params'}
         network = TrainState.create(
             network_def,
             network_params,
+            model_state=model_state,
             tx=optax.adam(learning_rate=config['lr']),
         )
-        network.params['modules_target_critic'] = network.params['modules_critic']
+        network = synchronize_target_module(network, 'critic')
         return cls(
             rng,
             network=network,
@@ -277,5 +293,18 @@ def get_config():
             gc_negative=True,
             p_aug=0.0,
             frame_stack=None,
+            compute=ml_collections.ConfigDict(
+                dict(
+                    actor=ml_collections.ConfigDict(
+                        dict(enabled=False, primitive='mlp', topology='feedforward', credit='direct')
+                    ),
+                    value=ml_collections.ConfigDict(
+                        dict(enabled=False, primitive='mlp', topology='feedforward', credit='direct')
+                    ),
+                    critic=ml_collections.ConfigDict(
+                        dict(enabled=False, primitive='mlp', topology='feedforward', credit='direct')
+                    ),
+                )
+            ),
         )
     )

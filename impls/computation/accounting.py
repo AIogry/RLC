@@ -42,7 +42,10 @@ def count_dense_macs(tree) -> int:
     for name, value in tree.items():
         if name == 'kernel':
             shape = getattr(value, 'shape', None)
-            if shape is not None and len(shape) == 2:
+            # Leading axes are ensemble/vmap replicas.  They represent
+            # independent Dense transformations and therefore contribute to
+            # physical and executed MAC accounting.
+            if shape is not None and len(shape) >= 2:
                 total += math.prod(shape)
         elif hasattr(value, 'items'):
             total += count_dense_macs(value)
@@ -58,11 +61,220 @@ def count_dense_layers(tree) -> int:
     for name, value in tree.items():
         if name == 'kernel':
             shape = getattr(value, 'shape', None)
-            if shape is not None and len(shape) == 2:
-                total += 1
+            if shape is not None and len(shape) >= 2:
+                total += math.prod(shape[:-2]) if len(shape) > 2 else 1
         elif hasattr(value, 'items'):
             total += count_dense_layers(value)
     return int(total)
+
+
+def _dense_macs(tree, name):
+    """Count Dense kernel products in one named structured-body subtree."""
+
+    return count_dense_macs(tree.get(name, {})) if hasattr(tree, 'get') else 0
+
+
+def _last_kernel_dims(tree):
+    """Return ``(in_features, out_features)`` from a Dense subtree."""
+
+    if not hasattr(tree, 'items'):
+        return None
+    kernel = tree.get('kernel')
+    shape = getattr(kernel, 'shape', None)
+    if shape is None or len(shape) < 2:
+        return None
+    return int(shape[-2]), int(shape[-1])
+
+
+def structured_body_accounting(body_params, structure_kwargs=None):
+    """Account a Puzzle structured body with token/channel execution factors.
+
+    ``count_dense_macs`` alone counts one kernel product.  A token projection
+    executes once per button token, token mixing once per channel, and channel
+    mixing once per token.  This helper reports physical parameter elements
+    from the actual tree and per-sample forward MACs with those multiplicities.
+    """
+
+    kwargs = structure_kwargs if hasattr(structure_kwargs, 'get') else {}
+    body_params = body_params if hasattr(body_params, 'items') else {}
+    num_tokens = int(kwargs.get('num_buttons', 0))
+    token_dim = int(kwargs.get('token_dim', 0))
+    token_hidden_dim = int(kwargs.get('token_mlp_hidden_dim', 0))
+    channel_hidden_dim = int(kwargs.get('channel_mlp_hidden_dim', 0))
+    num_blocks = int(kwargs.get('num_mixer_blocks', 0))
+    if min(num_tokens, token_dim, token_hidden_dim, channel_hidden_dim, num_blocks) <= 0:
+        raise ValueError(
+            'Structured accounting requires positive num_buttons, token_dim, '
+            'token_mlp_hidden_dim, channel_mlp_hidden_dim, and num_mixer_blocks'
+        )
+
+    mixer_blocks = _module_subtrees(body_params, 'mixer_blocks')
+    button_params = count_parameters(body_params.get('button_projection', {}))
+    index_params = count_parameters(body_params.get('index_embedding', {}))
+    robot_params = count_parameters(body_params.get('robot_projection', {}))
+    fusion_params = count_parameters(body_params.get('fusion', {}))
+    mixer_params = sum(count_parameters(value) for value in mixer_blocks.values())
+    block_macs = 0
+    tm_macs = 0
+    for block in mixer_blocks.values():
+        block_macs += (
+            _dense_macs(block, 'token_dense1') * token_dim
+            + _dense_macs(block, 'token_dense2') * token_dim
+            + _dense_macs(block, 'channel_dense1') * num_tokens
+            + _dense_macs(block, 'channel_dense2') * num_tokens
+        )
+        tm = block.get('tm_weights') if hasattr(block, 'get') else None
+        if tm is not None:
+            tm_macs += count_parameters(tm) * token_dim
+
+    button_macs = _dense_macs(body_params, 'button_projection') * num_tokens
+    robot_macs = _dense_macs(body_params, 'robot_projection')
+    fusion_macs = _dense_macs(body_params, 'fusion')
+    dense_macs = button_macs + block_macs + tm_macs + robot_macs + fusion_macs
+    button_dims = _last_kernel_dims(body_params.get('button_projection', {}))
+    robot_dims = _last_kernel_dims(body_params.get('robot_projection', {}))
+    fusion_dims = _last_kernel_dims(body_params.get('fusion', {}))
+    # Button path: shared projection + 4 Dense layers per Mixer block +
+    # fusion.  Robot path is projection + fusion; the longest sequential path
+    # is therefore 1 + 4L + 1.
+    sequential_depth = 4 * num_blocks + 2
+    return {
+        'num_tokens': num_tokens,
+        'token_dim': token_dim,
+        'token_hidden_dim': token_hidden_dim,
+        'channel_hidden_dim': channel_hidden_dim,
+        'num_mixer_blocks': num_blocks,
+        'button_input_dim': button_dims[0] if button_dims else None,
+        'robot_input_dim': robot_dims[0] if robot_dims else None,
+        'output_dim': fusion_dims[1] if fusion_dims else None,
+        'index_embedding': bool(kwargs.get('index_embedding', index_params > 0)),
+        'readout': kwargs.get('readout', 'mean'),
+        'tm_mode': kwargs.get('tm_mode', 'none'),
+        'button_projection_params': int(button_params),
+        'index_embedding_params': int(index_params),
+        'robot_projection_params': int(robot_params),
+        'mixer_params': int(mixer_params),
+        'fusion_params': int(fusion_params),
+        'structured_body_params': int(count_parameters(body_params)),
+        'total_structured_body_params': int(count_parameters(body_params)),
+        'structured_body_dense_macs': int(dense_macs),
+        'structured_dense_macs': int(dense_macs),
+        'total_per_sample_dense_macs': int(dense_macs),
+        'structured_sequential_depth': int(sequential_depth),
+        'sequential_depth': int(sequential_depth),
+        'unique_dense_layers': int(count_dense_layers(body_params)),
+        'executed_dense_layers': int(count_dense_layers(body_params)),
+        'actor_body_dense_macs': int(dense_macs),
+        'token_projection_dense_macs': int(button_macs),
+        'mixer_dense_macs': int(block_macs),
+        'tm_dense_macs': int(tm_macs),
+        'robot_projection_dense_macs': int(robot_macs),
+        'fusion_dense_macs': int(fusion_macs),
+    }
+
+
+def _direct_dense_names(tree):
+    if not hasattr(tree, 'items'):
+        return []
+    names = []
+    for name in tree:
+        text = str(name)
+        if text.startswith('Dense_') and text[6:].isdigit():
+            names.append(name)
+    return sorted(names, key=lambda name: int(str(name).split('_')[-1]))
+
+
+def gciql_architecture_accounting(params, config, computation_reports=None):
+    """Return a uniform per-slot architecture audit for GCIQL.
+
+    The existing computation report intentionally contains only enabled
+    computation slots.  M16A also needs canonical Flat rows, so this helper
+    audits all three GCIQL modules and separates representation-body values
+    from action/scalar readouts.  Structured MACs come from the token-aware
+    report; Flat MACs come directly from the canonical Dense tree.
+    """
+
+    params = params if hasattr(params, 'items') else {}
+    config = config if hasattr(config, 'get') else {}
+    computation_reports = computation_reports if hasattr(computation_reports, 'get') else {}
+    result = {}
+    for slot_name in ('actor', 'value', 'critic'):
+        module = params.get(f'modules_{slot_name}', {})
+        spec = config.get('compute', {}).get(slot_name, {})
+        structured = bool(spec.get('enabled', False)) and spec.get('structure', 'vector') == 'puzzle_tokens'
+        if structured:
+            slot_report = computation_reports.get(slot_name)
+            if not slot_report:
+                raise ValueError(f'Missing structured computation report for GCIQL.{slot_name}')
+            body_params = int(slot_report['structured_body_params'])
+            body_macs = int(slot_report['structured_body_dense_macs'])
+            body_depth = int(slot_report['structured_sequential_depth'])
+            body_unique = int(slot_report['unique_dense_layers'])
+            body_executed = int(slot_report['executed_dense_layers'])
+            readout = module.get('mean_net', {}) if slot_name == 'actor' else module.get('value_readout', {})
+            structure_fields = {
+                key: slot_report.get(key)
+                for key in (
+                    'num_tokens', 'token_dim', 'token_hidden_dim',
+                    'channel_hidden_dim', 'num_mixer_blocks', 'readout',
+                    'index_embedding', 'tm_mode',
+                )
+            }
+        else:
+            if slot_name == 'actor':
+                body = module.get('actor_net', {})
+                readout = module.get('mean_net', {})
+            else:
+                value_net = module.get('value_net', {})
+                dense_names = _direct_dense_names(value_net)
+                if not dense_names:
+                    body = value_net
+                    readout = {}
+                else:
+                    scalar_name = dense_names[-1]
+                    body = {name: value_net[name] for name in value_net if name != scalar_name}
+                    readout = value_net[scalar_name]
+            body_params = count_parameters(body)
+            body_macs = count_dense_macs(body)
+            body_depth = len(_direct_dense_names(body))
+            body_unique = count_dense_layers(body)
+            body_executed = body_unique
+            structure_fields = {
+                'num_tokens': None,
+                'token_dim': None,
+                'token_hidden_dim': None,
+                'channel_hidden_dim': None,
+                'num_mixer_blocks': None,
+                'readout': None,
+                'index_embedding': False,
+                'tm_mode': None,
+            }
+        readout_params = count_parameters(readout)
+        readout_macs = count_dense_macs(readout)
+        readout_layers = count_dense_layers(readout)
+        result[slot_name] = {
+            'slot_name': slot_name,
+            'structure': 'puzzle_tokens' if structured else 'vector',
+            'topology': 'feedforward',
+            'block': 'mlp_mixer' if structured else 'plain',
+            'trainable_params': count_parameters(module),
+            'computation_body_params': body_params,
+            'readout_params': readout_params,
+            'computation_body_dense_macs': body_macs,
+            'readout_dense_macs': readout_macs,
+            'total_dense_macs': body_macs + readout_macs,
+            'sequential_depth': body_depth + (1 if readout_layers else 0),
+            'computation_body_sequential_depth': body_depth,
+            'unique_dense_layers': body_unique + readout_layers,
+            'executed_dense_layers': body_executed + readout_layers,
+            **structure_fields,
+        }
+    return {
+        'algorithm': 'gciql',
+        'slots': result,
+        'total_trainable_params': sum(item['trainable_params'] for item in result.values()),
+        'total_dense_macs': sum(item['total_dense_macs'] for item in result.values()),
+    }
 
 
 def _module_subtrees(tree, prefix):
@@ -318,6 +530,8 @@ def computation_slot_accounting(
     credit=None,
     topology_kwargs=None,
     core_path=(),
+    structure='vector',
+    structure_kwargs=None,
 ):
     """Return generic accounting for any enabled computation slot.
 
@@ -339,6 +553,14 @@ def computation_slot_accounting(
         if topology == 'feedforward'
         else core
     )
+    if structure == 'puzzle_tokens':
+        if topology != 'feedforward':
+            raise ValueError('Puzzle structured accounting requires topology=feedforward')
+        structured_metrics = structured_body_accounting(body_core, structure_kwargs)
+    elif structure == 'vector':
+        structured_metrics = {}
+    else:
+        raise ValueError(f'Unsupported computation structure for accounting: {structure!r}')
     is_recurrent = topology in ('single_state', 'two_state')
 
     state_dim = None
@@ -386,6 +608,8 @@ def computation_slot_accounting(
         'slot_name': str(slot_name),
         'topology': topology,
         'primitive': primitive,
+        'structure': structure,
+        'structure_kwargs': dict(structure_kwargs or {}),
         'credit': credit,
         'parameter_sharing': parameter_sharing if topology == 'single_state' else None,
         'block': block if topology == 'feedforward' else None,
@@ -410,7 +634,12 @@ def computation_slot_accounting(
         'update_module_params': count_parameters(update_module),
         'h_update_params': count_parameters(h_update),
         'l_update_params': count_parameters(l_update),
+        # Stable generic aliases for downstream milestone comparisons.  The
+        # historical actor_body_dense_macs name is retained above.
+        'dense_macs': int(topology_metrics.get('actor_body_dense_macs', 0)),
+        'computation_dense_macs': int(topology_metrics.get('actor_body_dense_macs', 0)),
         **topology_metrics,
+        **structured_metrics,
     }
 
 

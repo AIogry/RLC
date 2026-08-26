@@ -1,0 +1,37 @@
+study_id: M16A
+config_id: M16A-4x4-B000
+slug: 4x4_flat
+algorithm: gciql
+environment: puzzle-4x4-play-v0
+protocol_stage: formal
+placement: actor+value+critic
+executable: true
+condition_id: B000
+semantic_condition: B000_FLAT_BASELINE
+description: Flat baseline on puzzle-4x4-play-v0; seed 0.
+factors: {environment: puzzle-4x4-play-v0, condition: B000, structure: vector, topology: feedforward, block: plain, num_buttons: 16, num_mixer_blocks: 0}
+agent_overrides:
+  actor_loss: ddpgbc
+  compute:
+    actor:
+      enabled: false
+      primitive: mlp
+      topology: feedforward
+      block: plain
+      credit: direct
+      structure: vector
+    value:
+      enabled: false
+      primitive: mlp
+      topology: feedforward
+      block: plain
+      credit: direct
+      structure: vector
+    critic:
+      enabled: false
+      primitive: mlp
+      topology: feedforward
+      block: plain
+      credit: direct
+      structure: vector
+

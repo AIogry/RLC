@@ -17,8 +17,10 @@ from .computation.accounting import (
     computation_slot_accounting,
     count_non_trainable,
     count_parameters,
+    gciql_architecture_accounting,
     hiql_policy_accounting,
 )
+from .computation.slots import descriptor_for, validate_compute_slots
 from .utils.datasets import GCDataset, HGCDataset, MultiHGCDataset
 from .utils.env_utils import make_env_and_datasets, resolve_dataset_dir
 from .utils.evaluation import evaluate, extract_episode_success
@@ -146,7 +148,8 @@ def _make_config(args, configuration=None):
         raise ValueError('Vanilla CoGHP does not use --computation; use its official Mixer core.')
     elif args.agent in {'gcbc', 'gciql', 'gcivl', 'qrl'} and args.computation:
         raise ValueError(
-            f'Canonical {args.agent.upper()} does not expose RLC computation slots in M13.'
+            f'Canonical {args.agent.upper()} computation slots are configured explicitly; '
+            'bare --computation does not enable all slots.'
         )
     if configuration is not None:
         if configuration.data.get('study_id') == 'M11B':
@@ -171,34 +174,103 @@ def _make_config(args, configuration=None):
             )
         if config.get('actor_loss') != 'ddpgbc' and configuration.data.get('algorithm') == 'crl':
             raise ValueError('M9 CRL actor configurations must use actor_loss=ddpgbc.')
+    validate_compute_slots(args.agent, config)
     return config
 
 
+def _slot_hidden_dims(config, descriptor):
+    """Resolve descriptor-declared branch widths without a magic 512."""
+
+    source = descriptor.hidden_dims_source
+    if source == 'actor_hidden_dims':
+        return tuple(config['actor_hidden_dims'])
+    if source == 'value_hidden_dims':
+        return tuple(config['value_hidden_dims'])
+    if source == '(*value_hidden_dims, latent_dim)':
+        return tuple(config['value_hidden_dims']) + (int(config['latent_dim']),)
+    raise ValueError(
+        f'Unsupported hidden_dims_source {source!r} for slot {descriptor.slot_name!r}'
+    )
+
+
+def _slot_state_dim(config, descriptor):
+    source = descriptor.state_dim_source
+    if source == 'actor_hidden_dims[-1]':
+        return int(config['actor_hidden_dims'][-1])
+    if source == 'value_hidden_dims[-1]':
+        return int(config['value_hidden_dims'][-1])
+    if source == 'latent_dim':
+        return int(config['latent_dim'])
+    raise ValueError(
+        f'Unsupported state_dim_source {source!r} for slot {descriptor.slot_name!r}'
+    )
+
+
+def _semantic_bool(config, descriptor, semantic):
+    if semantic == 'false':
+        return False
+    if semantic == 'true':
+        return True
+    if semantic == 'config.layer_norm':
+        return bool(config.get('layer_norm', False))
+    raise ValueError(
+        f'Unsupported computation semantic {semantic!r} for slot {descriptor.slot_name!r}'
+    )
+
+
 def _computation_runtime_extras(config):
-    extras = {'resolved_actor_hidden_dims': list(config['actor_hidden_dims'])}
+    """Serialize enabled slots using the declarative descriptor ontology."""
+
+    agent_name = config['agent_name']
+    validate_compute_slots(agent_name, config)
+    extras = {
+        'resolved_actor_hidden_dims': list(config['actor_hidden_dims']),
+        'slot_descriptors': {},
+    }
     slots = config.get('compute', {})
     single_state = {}
     two_state = {}
+    feedforward = {}
     for slot_name, slot in slots.items():
         if not slot.get('enabled', False):
             continue
+        descriptor = descriptor_for(agent_name, slot_name)
         kwargs = slot.get('topology_kwargs', {})
-        is_critic_branch = slot_name.startswith(('critic_', 'value_'))
-        if slot.get('topology') == 'single_state':
+        state_dim = int(kwargs.get('state_dim', _slot_state_dim(config, descriptor)))
+        layer_norm = bool(kwargs.get(
+            'layer_norm', _semantic_bool(config, descriptor, descriptor.layer_norm_semantics)
+        ))
+        activate_final = bool(kwargs.get(
+            'update_activate_final',
+            _semantic_bool(config, descriptor, descriptor.activate_final_semantics),
+        ))
+        common = {
+            'slot_name': slot_name,
+            'role': descriptor.role,
+            'module_path': list(descriptor.module_path),
+            'core_path': list(descriptor.core_path),
+            'hidden_dims': list(_slot_hidden_dims(config, descriptor)),
+            'state_dim': state_dim,
+            'output_dim': state_dim,
+            'layer_norm_semantics': descriptor.layer_norm_semantics,
+            'activate_final_semantics': descriptor.activate_final_semantics,
+            'layer_norm': layer_norm,
+            'update_activate_final': activate_final,
+            'topology': slot.get('topology'),
+            'primitive': slot.get('primitive', 'mlp'),
+            'structure': slot.get('structure', 'vector'),
+            'structure_kwargs': _jsonable(slot.get('structure_kwargs', {})),
+            'input_semantics': descriptor.input_semantics,
+            'action_semantics': descriptor.action_semantics,
+            'credit': slot.get('credit', 'direct'),
+        }
+        extras['slot_descriptors'][slot_name] = common
+        topology = slot.get('topology')
+        if topology == 'single_state':
             single_state[slot_name] = {
-                'topology': 'single_state',
-                'primitive': slot.get('primitive', 'mlp'),
-                'credit': slot.get('credit', 'direct'),
-                'state_dim': int(kwargs.get('state_dim', config['actor_hidden_dims'][-1])),
+                **common,
                 'iterations': int(kwargs.get('iterations', 1)),
                 'update_depth': int(kwargs.get('update_depth', 2)),
-                'layer_norm': bool(kwargs.get(
-                    'layer_norm',
-                    config.get('layer_norm', False) if is_critic_branch else False,
-                )),
-                'update_activate_final': bool(kwargs.get(
-                    'update_activate_final', not is_critic_branch,
-                )),
                 'residual': bool(kwargs.get('residual', False)),
                 'input_injection': kwargs.get('input_injection', 'z_plus_x'),
                 'state_init': kwargs.get('state_init', 'normal_buffer'),
@@ -207,31 +279,20 @@ def _computation_runtime_extras(config):
                     'parameter_sharing', kwargs.get('parameter_sharing', 'shared')
                 ),
             }
-        elif slot.get('topology') == 'feedforward':
-            extras.setdefault('feedforward', {})[slot_name] = {
-                'topology': 'feedforward',
-                'primitive': slot.get('primitive', 'mlp'),
+        elif topology == 'feedforward':
+            feedforward[slot_name] = {
+                **common,
                 'block': slot.get('block', 'plain'),
                 'block_kwargs': _jsonable(slot.get('block_kwargs', {})),
             }
-        elif slot.get('topology') == 'two_state':
+        elif topology == 'two_state':
             h_cycles = int(kwargs.get('h_cycles', 2))
             l_cycles = int(kwargs.get('l_cycles', 1))
             two_state[slot_name] = {
-                'topology': 'two_state',
-                'primitive': slot.get('primitive', 'mlp'),
-                'credit': slot.get('credit'),
-                'state_dim': int(kwargs.get('state_dim', config['actor_hidden_dims'][-1])),
+                **common,
                 'h_cycles': h_cycles,
                 'l_cycles': l_cycles,
                 'update_depth': int(kwargs.get('update_depth', 2)),
-                'layer_norm': bool(kwargs.get(
-                    'layer_norm',
-                    config.get('layer_norm', False) if is_critic_branch else False,
-                )),
-                'update_activate_final': bool(kwargs.get(
-                    'update_activate_final', not is_critic_branch,
-                )),
                 'h_update_executions': h_cycles,
                 'l_update_executions': h_cycles * l_cycles,
                 'total_update_executions': h_cycles * (l_cycles + 1),
@@ -239,6 +300,8 @@ def _computation_runtime_extras(config):
                 'state_init': kwargs.get('state_init', 'normal_buffer'),
                 'state_init_std': float(kwargs.get('state_init_std', 1.0)),
             }
+    if feedforward:
+        extras['feedforward'] = feedforward
     if single_state:
         extras['single_state'] = single_state
     if two_state:
@@ -380,15 +443,8 @@ def _computation_slot_accounting(agent, config):
     model_state = agent.network.model_state or {}
     buffers = model_state.get('buffers', {}) if hasattr(model_state, 'get') else {}
     compute = config.get('compute', {})
-    slot_paths = {
-        'actor': (('modules_actor',), ('actor_net', 'topology')),
-        'high_actor': (('modules_high_actor',), ('actor_net', 'topology')),
-        'low_actor': (('modules_low_actor',), ('actor_net', 'topology')),
-        'critic_state': (('modules_critic', 'phi'), ('core', 'topology')),
-        'critic_goal': (('modules_critic', 'psi'), ('core', 'topology')),
-        'value_state': (('modules_value', 'phi'), ('core', 'topology')),
-        'value_goal': (('modules_value', 'psi'), ('core', 'topology')),
-    }
+    agent_name = config['agent_name']
+    validate_compute_slots(agent_name, config)
 
     def path_get(tree, path):
         for key in path:
@@ -401,32 +457,27 @@ def _computation_slot_accounting(agent, config):
     for slot_name, spec in compute.items():
         if not spec.get('enabled', False):
             continue
-        if slot_name not in slot_paths:
-            raise ValueError(f'Unsupported computation slot for accounting: {slot_name!r}')
-        module_path, core_path = slot_paths[slot_name]
+        descriptor = descriptor_for(agent_name, slot_name)
+        module_path, core_path = descriptor.module_path, descriptor.core_path
         topology = spec.get('topology')
         kwargs = dict(spec.get('topology_kwargs', {}))
         kwargs.setdefault(
             'parameter_sharing', spec.get('parameter_sharing', 'shared')
         )
         kwargs.setdefault('block', spec.get('block', 'plain'))
-        hidden_dim = int(
-            config['value_hidden_dims'][-1]
-            if slot_name.startswith(('critic_', 'value_'))
-            else config['actor_hidden_dims'][-1]
-        )
+        hidden_dims = _slot_hidden_dims(config, descriptor)
+        hidden_dim = int(_slot_state_dim(config, descriptor))
         if topology in ('single_state', 'two_state'):
             kwargs.setdefault('state_dim', hidden_dim)
             kwargs.setdefault('update_depth', 2)
-            # Primitive semantics are caller-owned, not M11A factors.  CRL
-            # critic/value branches replace vanilla LayerNorm MLPs with a
-            # final latent Dense, while actor slots preserve legacy M9 MLPs.
-            is_critic_branch = slot_name.startswith(('critic_', 'value_'))
             kwargs.setdefault(
                 'layer_norm',
-                bool(config.get('layer_norm', False)) if is_critic_branch else False,
+                _semantic_bool(config, descriptor, descriptor.layer_norm_semantics),
             )
-            kwargs.setdefault('update_activate_final', not is_critic_branch)
+            kwargs.setdefault(
+                'update_activate_final',
+                _semantic_bool(config, descriptor, descriptor.activate_final_semantics),
+            )
             if topology == 'single_state':
                 kwargs.setdefault('iterations', 1)
             else:
@@ -443,7 +494,20 @@ def _computation_slot_accounting(agent, config):
             credit=spec.get('credit', 'direct'),
             topology_kwargs=kwargs,
             core_path=core_path,
+            structure=spec.get('structure', 'vector'),
+            structure_kwargs=spec.get('structure_kwargs', {}),
         )
+        report[slot_name].update({
+            'role': descriptor.role,
+            'module_path': list(module_path),
+            'core_path': list(core_path),
+            'hidden_dims': list(hidden_dims),
+            'output_dim': int(_slot_state_dim(config, descriptor)),
+            'layer_norm_semantics': descriptor.layer_norm_semantics,
+            'activate_final_semantics': descriptor.activate_final_semantics,
+            'input_semantics': descriptor.input_semantics,
+            'action_semantics': descriptor.action_semantics,
+        })
     return report
 
 
@@ -465,15 +529,30 @@ def _accounting_consistency_audit(legacy, generic, config):
     topology/module-path drift fails before the first optimizer update.
     """
 
+    enabled_slots = [
+        slot_name
+        for slot_name, spec in config.get('compute', {}).items()
+        if spec.get('enabled', False)
+    ]
+    if config['agent_name'] not in {'hiql', 'crl'}:
+        return {
+            'status': 'not_applicable',
+            'checked_slots': [],
+            'generic_slots': [slot for slot in enabled_slots if slot in generic],
+            'legacy_slots': [],
+            'fields': list(_ACCOUNTING_CONSISTENCY_FIELDS),
+            'mismatches': [],
+        }
+
     mismatches = []
     checked_slots = []
-    for slot_name, spec in config.get('compute', {}).items():
-        if not spec.get('enabled', False):
+    # The legacy surface intentionally describes actor parameters only.  For
+    # CRL, critic/value branches are generic-only; compare every shared slot
+    # strictly and report the disjoint sets explicitly.
+    for slot_name in enabled_slots:
+        if slot_name not in legacy:
             continue
         checked_slots.append(slot_name)
-        if slot_name not in legacy:
-            mismatches.append(f'{slot_name}: missing from actor_parameter_accounting')
-            continue
         if slot_name not in generic:
             mismatches.append(f'{slot_name}: missing from computation_slot_accounting')
             continue
@@ -941,10 +1020,17 @@ def run(args):
             accounting, slot_accounting, config,
         )
         run_context.metadata['accounting_consistency'] = accounting_consistency
+        architecture_accounting = {}
+        if config['agent_name'] == 'gciql':
+            architecture_accounting = gciql_architecture_accounting(
+                agent.network.params, config, slot_accounting,
+            )
+        run_context.metadata['architecture_accounting'] = architecture_accounting
         update_runtime_metadata(run_dir, {
             'actor_parameter_accounting': accounting,
             'computation_slot_accounting': slot_accounting,
             'accounting_consistency': accounting_consistency,
+            'architecture_accounting': architecture_accounting,
             'frozen_dependencies': _frozen_dependency_records(dependency_records),
         })
         if args.restore_path is not None:

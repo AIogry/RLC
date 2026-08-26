@@ -1,6 +1,6 @@
 """Factory for the intentionally small first-stage computation framework."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from numbers import Integral
 from typing import Mapping, Optional, Sequence
 
@@ -26,6 +26,10 @@ class ComputationSpec:
     block: str = 'plain'
     parameter_sharing: str = 'shared'
     block_kwargs: Mapping = field(default_factory=dict)
+    structure: str = 'vector'
+    structure_kwargs: Mapping = field(default_factory=dict)
+    input_semantics: str = 'latent_vector'
+    action_semantics: str = 'none'
 
     @classmethod
     def from_mapping(cls, value: Optional[Mapping] = None):
@@ -42,23 +46,41 @@ class ComputationSpec:
             credit=value.get('credit', 'direct'),
             topology_kwargs=dict(value.get('topology_kwargs', {})),
             block_kwargs=dict(value.get('block_kwargs', {})),
+            structure=value.get('structure', 'vector'),
+            structure_kwargs=dict(value.get('structure_kwargs', {})),
+            input_semantics=value.get('input_semantics', 'latent_vector'),
+            action_semantics=value.get('action_semantics', 'none'),
         )
 
 
 def resolve_slot_spec(config: Optional[Mapping], slot_name: str):
     """Resolve one optional computation slot from an agent configuration.
 
-    Slot resolution is shared across algorithms.  It only interprets the
-    common ``compute.<slot_name>`` configuration and returns ``None`` for a
-    disabled or absent slot; it does not construct a network or encode any
-    algorithm-specific semantics.
+    Slot resolution is shared across algorithms.  It interprets the common
+    ``compute.<slot_name>`` configuration and injects the slot's declarative
+    input/action semantics; it returns ``None`` for a disabled or absent slot.
     """
 
     compute = config.get('compute', {}) if config is not None else {}
     slot = compute.get(slot_name, {}) if compute is not None else {}
     if not slot or not slot.get('enabled', False):
         return None
-    return ComputationSpec.from_mapping(slot)
+    spec = ComputationSpec.from_mapping(slot)
+    # These semantics belong to the algorithm slot descriptor.  They are
+    # injected centrally rather than exposed as user-configurable composition.
+    agent_name = config.get('agent_name') if hasattr(config, 'get') else None
+    if agent_name is None:
+        # Standalone factory callers (including legacy parity tests) may
+        # resolve a slot without an algorithm registry context.  Their
+        # explicitly supplied semantics remain valid.
+        return spec
+    from .slots import descriptor_for
+    descriptor = descriptor_for(agent_name, slot_name)
+    return replace(
+        spec,
+        input_semantics=descriptor.input_semantics,
+        action_semantics=descriptor.action_semantics,
+    )
 
 
 def make_computation_core(
@@ -76,14 +98,43 @@ def make_computation_core(
 
     if not isinstance(spec, ComputationSpec):
         spec = ComputationSpec.from_mapping(spec)
-    if spec.primitive not in ('mlp', 'original_mlp'):
-        raise ValueError(f'Unsupported baseline primitive: {spec.primitive}')
     hidden_dims = tuple(hidden_dims)
     if not hidden_dims:
         raise ValueError('Recurrent computation cores require at least one hidden dimension')
     if any(isinstance(dim, bool) or not isinstance(dim, Integral) or dim <= 0 for dim in hidden_dims):
         raise ValueError(f'Computation hidden dims must be positive integers, got {hidden_dims!r}')
     hidden_dims = tuple(int(dim) for dim in hidden_dims)
+    if spec.structure not in ('vector', 'puzzle_tokens'):
+        raise ValueError(
+            f'Unsupported computation structure: {spec.structure!r}; '
+            "expected 'vector' or 'puzzle_tokens'"
+        )
+    if spec.structure == 'puzzle_tokens':
+        if spec.topology != 'feedforward':
+            raise ValueError(
+                'Puzzle token computation currently supports topology=feedforward only; '
+                'token recurrence is deferred to a later milestone'
+            )
+        if spec.credit != DirectCredit.name:
+            raise ValueError(
+                f'Puzzle token computation requires credit={DirectCredit.name!r}, '
+                f'got {spec.credit!r}'
+            )
+        if spec.block != 'mlp_mixer':
+            raise ValueError("Puzzle token computation requires block='mlp_mixer'")
+        from .structured import PuzzleStructuredBody
+        kwargs = dict(spec.structure_kwargs)
+        primitive = PuzzleStructuredBody(
+            output_dim=hidden_dims[-1],
+            input_semantics=spec.input_semantics,
+            action_semantics=spec.action_semantics,
+            layer_norm=layer_norm,
+            activate_final=True if activate_final is None else bool(activate_final),
+            **kwargs,
+        )
+        return ComputationCore(topology=FeedForward(primitive=primitive))
+    if spec.primitive not in ('mlp', 'original_mlp'):
+        raise ValueError(f'Unsupported baseline primitive: {spec.primitive}')
     # Historical direct recurrent-core callers used the actor/update MLP
     # recipe, whose update module ended with an activation.  Keep that
     # fallback while requiring network callers to pass the primitive semantics

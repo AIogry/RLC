@@ -99,6 +99,38 @@ class TrainState(flax.struct.PyTreeNode):
         return self.apply_gradients(grads), info
 
 
+def synchronize_target_module(network, module_name):
+    """Copy an online module's params and non-trainable state to its target.
+
+    Target modules are architectural copies, not independent computation
+    slots.  This helper is used at initialization so recurrent buffers are
+    exactly equal as well as parameters.  Subsequent Polyak updates in the
+    canonical agents intentionally touch parameters only.
+    """
+
+    source_key = parameter_module_key(network.params, module_name)
+    target_key = parameter_module_key(network.params, f'target_{module_name}')
+    params = dict(network.params)
+    params[target_key] = jax.tree_util.tree_map(
+        lambda value: jnp.array(value), params[source_key]
+    )
+
+    model_state = network.model_state
+    if model_state and isinstance(model_state, Mapping):
+        model_state = dict(model_state)
+        collection = model_state.get('buffers')
+        if collection is not None and isinstance(collection, Mapping):
+            collection = dict(collection)
+            source_buffer_key = f'modules_{module_name}'
+            target_buffer_key = f'modules_target_{module_name}'
+            if source_buffer_key in collection and target_buffer_key in collection:
+                collection[target_buffer_key] = jax.tree_util.tree_map(
+                    lambda value: jnp.array(value), collection[source_buffer_key]
+                )
+            model_state['buffers'] = collection
+    return network.replace(params=params, model_state=model_state)
+
+
 def _write_checkpoint(agent, checkpoint_path, checkpoint_metadata=None):
     """Serialize a complete agent PyTree, including optimizer and RNG state."""
 
