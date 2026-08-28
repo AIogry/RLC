@@ -1,0 +1,40 @@
+study_id: M16B
+config_id: M16B-3x3-S002
+slug: 3x3_mixer_l2_alpha1p0
+algorithm: gciql
+environment: puzzle-3x3-play-v0
+protocol_stage: formal
+placement: actor+value+critic
+executable: true
+condition_id: S002
+semantic_condition: S002_STRUCTURED_MIXER_L2_ALPHA1P0
+description: Structured Mixer L2 on puzzle-3x3-play-v0 with explicit alpha=1.0; seed 0.
+factors: {environment: puzzle-3x3-play-v0, condition: S002, structure: puzzle_tokens, topology: feedforward, block: mlp_mixer, num_buttons: 9, num_mixer_blocks: 2, alpha: 1.0}
+agent_overrides:
+  actor_loss: ddpgbc
+  alpha: 1.0
+  compute:
+    actor:
+      enabled: true
+      primitive: mlp
+      topology: feedforward
+      block: mlp_mixer
+      credit: direct
+      structure: puzzle_tokens
+      structure_kwargs: {num_buttons: 9, token_dim: 128, robot_hidden_dim: 128, token_mlp_hidden_dim: 64, channel_mlp_hidden_dim: 256, num_mixer_blocks: 2, index_embedding: true, readout: mean, tm_mode: none}
+    value:
+      enabled: true
+      primitive: mlp
+      topology: feedforward
+      block: mlp_mixer
+      credit: direct
+      structure: puzzle_tokens
+      structure_kwargs: {num_buttons: 9, token_dim: 128, robot_hidden_dim: 128, token_mlp_hidden_dim: 64, channel_mlp_hidden_dim: 256, num_mixer_blocks: 2, index_embedding: true, readout: mean, tm_mode: none}
+    critic:
+      enabled: true
+      primitive: mlp
+      topology: feedforward
+      block: mlp_mixer
+      credit: direct
+      structure: puzzle_tokens
+      structure_kwargs: {num_buttons: 9, token_dim: 128, robot_hidden_dim: 128, token_mlp_hidden_dim: 64, channel_mlp_hidden_dim: 256, num_mixer_blocks: 2, index_embedding: true, readout: mean, tm_mode: none}

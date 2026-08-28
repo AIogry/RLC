@@ -122,7 +122,7 @@ PYTHONPATH=/home/eai/Research/RLC \
   --study experiments/M16A_puzzle_mixer_depth_scaling/study.yaml \
   --run-root /data/qijunrong/06-RL/offline-rl/exp/RLC/runs \
   --run-attempt 0 \
-  --output-dir docs/milestones/M16A_results
+  --output-dir docs/8-28/M16A_results
 ```
 
 脚本输出 long-format CSV、JSON 和 Markdown：每个单元的 final/best/best step/last-3/AUC、完整性状态、参数/MAC/depth，以及同环境相对 B000 的 `Δ last@1M`、`Δ best`、`Δ normalized AUC`。缺少任意评估点时 AUC 留空，缺少 1M 时 final 留空，不把 partial run 当作正式结果。

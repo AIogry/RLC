@@ -17,6 +17,7 @@ from impls.experiment import load_study, make_run_path, prepare_run_design
 EXPECTED_STEPS = list(range(100_000, 1_000_001, 100_000))
 METRIC = 'evaluation/overall_success'
 CONDITIONS = ('B000', 'S001', 'S002', 'S004')
+TASK_METRICS = tuple(f'evaluation/task{index}_success' for index in range(1, 6))
 
 
 def _float(value):
@@ -27,7 +28,9 @@ def _float(value):
     return result if math.isfinite(result) else None
 
 
-def _read_eval(path):
+def _read_eval_records(path):
+    """Read every raw task-level evaluation record without aggregation."""
+
     if not path.is_file():
         return []
     with path.open(newline='') as file:
@@ -37,8 +40,19 @@ def _read_eval(path):
             step = _float(row.get('step'))
             value = _float(row.get(METRIC) or row.get('overall_success'))
             if step is not None and value is not None:
-                rows.append((int(step), value))
-    return sorted(rows)
+                rows.append({
+                    'step': int(step),
+                    METRIC: value,
+                    **{metric: _float(row.get(metric)) for metric in TASK_METRICS},
+                })
+    return sorted(rows, key=lambda item: item['step'])
+
+
+def _read_eval(path):
+    return [
+        (record['step'], record[METRIC])
+        for record in _read_eval_records(path)
+    ]
 
 
 def _auc(rows):
@@ -140,6 +154,31 @@ def _write_csv(rows, path):
 
 def _write_json(rows, path):
     path.write_text(json.dumps(rows, indent=2, sort_keys=True) + '\n')
+
+
+def _write_raw_eval(rows, path):
+    """Export all 160 unaggregated M16A evaluation records as one CSV."""
+
+    fields = [
+        'study_id', 'config_id', 'environment', 'condition_id', 'seed',
+        'run_attempt', 'run_status', 'step', *TASK_METRICS, METRIC, 'run_dir',
+    ]
+    with path.open('w', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=fields)
+        writer.writeheader()
+        for row in rows:
+            for record in _read_eval_records(Path(row['run_dir']) / 'eval.csv'):
+                writer.writerow({
+                    'study_id': row['study_id'],
+                    'config_id': row['config_id'],
+                    'environment': row['environment'],
+                    'condition_id': row['condition_id'],
+                    'seed': row['seed'],
+                    'run_attempt': row['run_attempt'],
+                    'run_status': row['run_status'],
+                    'run_dir': row['run_dir'],
+                    **record,
+                })
 
 
 def _write_plots(rows, output_dir):
@@ -244,7 +283,7 @@ def main(argv=None):
     parser.add_argument('--study', default='experiments/M16A_puzzle_mixer_depth_scaling/study.yaml')
     parser.add_argument('--run-root', default='/data/qijunrong/06-RL/offline-rl/exp/RLC/runs')
     parser.add_argument('--run-attempt', type=int, default=0)
-    parser.add_argument('--output-dir', default='docs/milestones/M16A_results')
+    parser.add_argument('--output-dir', default='docs/8-28/M16A_results')
     parser.add_argument('--plots', action='store_true')
     args = parser.parse_args(argv)
     output_dir = Path(args.output_dir)
@@ -252,6 +291,7 @@ def main(argv=None):
     rows = collect(args.study, args.run_root, args.run_attempt)
     _write_csv(rows, output_dir / 'results_long.csv')
     _write_json(rows, output_dir / 'results_summary.json')
+    _write_raw_eval(rows, output_dir / 'raw_eval_long.csv')
     (output_dir / 'results_summary.md').write_text(_markdown(rows))
     if args.plots:
         _write_plots(rows, output_dir)

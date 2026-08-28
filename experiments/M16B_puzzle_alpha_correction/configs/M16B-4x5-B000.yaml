@@ -1,0 +1,19 @@
+study_id: M16B
+config_id: M16B-4x5-B000
+slug: 4x5_flat_alpha1p0
+algorithm: gciql
+environment: puzzle-4x5-play-v0
+protocol_stage: formal
+placement: actor+value+critic
+executable: true
+condition_id: B000
+semantic_condition: B000_FLAT_BASELINE_ALPHA1P0
+description: Flat baseline on puzzle-4x5-play-v0 with explicit alpha=1.0; seed 0.
+factors: {environment: puzzle-4x5-play-v0, condition: B000, structure: vector, topology: feedforward, block: plain, num_buttons: 20, num_mixer_blocks: 0, alpha: 1.0}
+agent_overrides:
+  actor_loss: ddpgbc
+  alpha: 1.0
+  compute:
+    actor: {enabled: false, primitive: mlp, topology: feedforward, block: plain, credit: direct, structure: vector}
+    value: {enabled: false, primitive: mlp, topology: feedforward, block: plain, credit: direct, structure: vector}
+    critic: {enabled: false, primitive: mlp, topology: feedforward, block: plain, credit: direct, structure: vector}
