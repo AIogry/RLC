@@ -1,0 +1,120 @@
+study_id: M16C
+name: "GCIQL Puzzle-4x4 Mixer L2 alpha sweep"
+question: >-
+  For the joint actor+value+critic Puzzle-token MLP-Mixer L2 configuration on
+  Puzzle-4x4, how does the DDPG+BC coefficient alpha affect learning between
+  the existing alpha=0.3 and alpha=1.0 anchors?
+parent_studies: [M16A, M16B]
+study_role: exploratory_alpha_tuning_for_S002_only
+primary_factors:
+  - actor_bc_weight_alpha
+fixed_design:
+  algorithm: gciql
+  environment: puzzle-4x4-play-v0
+  condition: S002
+  placement: actor+value+critic
+  actor_hidden_dims: [512, 512, 512]
+  value_hidden_dims: [512, 512, 512]
+  layer_norm: true
+  lr: 0.0003
+  batch_size: 1024
+  train_steps: 1000000
+  discount: 0.99
+  expectile: 0.9
+  tau: 0.005
+  actor_loss: ddpgbc
+  alpha: configuration_specific_explicit_sweep
+  const_std: true
+  discrete: false
+  dataset_class: GCDataset
+  value_goal_sampling: {p_curgoal: 0.2, p_trajgoal: 0.5, p_randomgoal: 0.3, geom_sample: true}
+  actor_goal_sampling: {p_curgoal: 0.0, p_trajgoal: 1.0, p_randomgoal: 0.0, geom_sample: false}
+  gc_negative: true
+  p_aug: 0.0
+  frame_stack: null
+  structured:
+    structure: puzzle_tokens
+    topology: feedforward
+    block: mlp_mixer
+    primitive: mlp
+    credit: direct
+    token_dim: 128
+    robot_hidden_dim: 128
+    token_mlp_hidden_dim: 64
+    channel_mlp_hidden_dim: 256
+    index_embedding: true
+    readout: mean
+    tm_mode: none
+  polyak_semantics: target_new = tau * online_post_gradient + (1 - tau) * target_old
+alpha_policy:
+  mode: explicit_per_configuration_sweep
+  runtime_authority: configuration.agent_overrides.alpha
+  new_scanned_values: [0.1, 0.2, 0.5, 0.7]
+  reusable_anchor_values: [0.3, 1.0]
+  combined_grid: [0.1, 0.2, 0.3, 0.5, 0.7, 1.0]
+  selection_scope: Puzzle-4x4_S002_seed0_exploratory_only
+conditions: [S002]
+deferred_conditions: [B000, S001, S004]
+deferred_factors:
+  - flat_baseline_alpha_sweep
+  - additional_training_seeds
+  - other_puzzle_sizes
+  - alternative_mixer_depths
+  - placement_decomposition
+algorithms: [gciql]
+placements: [actor+value+critic]
+environments: [puzzle-4x4-play-v0]
+seeds: [0]
+primary_metric: evaluation/overall_success
+protocol:
+  train_steps: 1000000
+  batch_size: 1024
+  log_interval: 5000
+  eval_interval: 100000
+  eval_tasks: all
+  eval_task_count: 5
+  eval_episodes: 20
+  eval_temperature: 0.0
+  eval_gaussian: null
+  video_episodes: 0
+  save_interval: 100000
+  save_best_checkpoint: true
+  save_last_checkpoint: true
+  selection_metric: evaluation/overall_success
+  selection_rule: >-
+    final@1M primary; values within 0.05 of the seed-0 maximum are retained
+    as co-candidates for later multi-seed confirmation rather than force-ranked
+  primary_endpoint: final@1M
+  secondary_endpoints: [best_success, best_step, normalized_eval_auc, last3_mean]
+  auc:
+    checkpoints: [100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000]
+    interval: [100000, 1000000]
+    rule: trapezoidal_area_divided_by_900000
+  formal_training_started: false
+environment_references:
+  puzzle-4x4-play-v0: {underlying_ogbench_env: puzzle-4x4-v0, num_buttons: 16, role: alpha_tuning_anchor}
+reusable_anchor_runs:
+  alpha_0p3:
+    source_study: M16A
+    source_config_id: M16A-4x4-S002
+    source_environment: puzzle-4x4-play-v0
+    source_seed: 0
+    source_run: /data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M16A/M16A-4x4-S002__4x4_mixer_l2/puzzle-4x4-play-v0/seed_000
+  alpha_1p0:
+    source_study: M16B
+    source_config_id: M16B-4x4-S002
+    source_environment: puzzle-4x4-play-v0
+    source_seed: 0
+    source_run: /data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M16B/M16B-4x4-S002__4x4_mixer_l2_alpha1p0/puzzle-4x4-play-v0/seed_000
+comparison_policy:
+  M16C_scope: Estimate the S002 alpha response on Puzzle-4x4 only.
+  no_new_B000: M16C must not be interpreted as a new within-alpha architecture comparison.
+  no_flat_optimum_claim: M16C cannot establish the Flat B000 optimum because B000 is intentionally absent.
+  cross_alpha: Combine the four new cells with M16A/M16B S002 anchors only after provenance validation.
+acceptance:
+  expected_formal_runs: 4
+  expected_environment_condition_cells: 4
+  require_all_cells_completed: true
+  no_early_stopping_for_poor_performance: true
+  no_git_writes_by_agent: true
+  no_automatic_formal_launch: true
