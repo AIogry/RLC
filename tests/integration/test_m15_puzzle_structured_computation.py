@@ -215,9 +215,12 @@ class M15AlgorithmIntegrationTest(unittest.TestCase):
         _enable_structured(config, ('actor', 'value', 'critic'))
         batch = _batch()
         agent = agents['gciql'].create(10, batch['observations'], batch['actions'], config)
-        critic = agent.network.params['modules_critic']['value_net']['core']['topology']['primitive']
-        target = agent.network.params['modules_target_critic']['value_net']['core']['topology']['primitive']
-        self.assertEqual(critic['index_embedding'].shape, (2, 9, 7))
+        # M17 routes the production structured path through
+        # adapter -> core -> readout.  The legacy PuzzleStructuredBody remains
+        # a reference oracle, not the active factory result.
+        critic = agent.network.params['modules_critic']['value_net']['core']
+        target = agent.network.params['modules_target_critic']['value_net']['core']
+        self.assertEqual(critic['adapter']['index_embedding'].shape, (2, 9, 7))
         for left, right in zip(jax.tree_util.tree_leaves(critic), jax.tree_util.tree_leaves(target)):
             np.testing.assert_array_equal(np.asarray(left), np.asarray(right))
         updated, info = agent.update(batch)
@@ -257,7 +260,7 @@ class M15AlgorithmIntegrationTest(unittest.TestCase):
         self.assertTrue(all(np.all(np.isfinite(np.asarray(v))) for v in info.values()))
         self.assertIn('modules_dynamics', updated.network.params)
 
-    def test_invalid_puzzle_topology_fails_loudly(self):
+    def test_invalid_structured_single_state_contract_fails_loudly(self):
         spec = ComputationSpec.from_mapping({
             'structure': 'puzzle_tokens',
             'topology': 'single_state',
@@ -265,8 +268,15 @@ class M15AlgorithmIntegrationTest(unittest.TestCase):
             'block': 'mlp_mixer',
             'structure_kwargs': _structure_kwargs(9),
             'input_semantics': 'goal_pair',
+            'topology_kwargs': {
+                'iterations': 2,
+                'input_mapping': 'mlp',
+                'state_init': 'zero_buffer',
+                'input_injection': 'z_plus_x',
+                'residual': False,
+            },
         })
-        with self.assertRaisesRegex(ValueError, 'topology=feedforward'):
+        with self.assertRaisesRegex(ValueError, 'input_mapping=identity'):
             make_computation_core(spec, hidden_dims=(8,), activate_final=True)
 
     def test_structured_accounting_contains_token_multiplicity(self):

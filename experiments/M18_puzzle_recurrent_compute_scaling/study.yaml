@@ -1,0 +1,163 @@
+study_id: M18
+name: "Fixed-Parameter Recurrent Computation Scaling on Puzzle"
+question: >-
+  How does increasing shared recurrent computation budget K affect GCIQL
+  performance on Puzzle-4x4 when the structured MLP-Mixer block capacity and
+  trainable parameter count are fixed?
+parent_milestone: M17
+primary_factors:
+  - recurrent_compute_budget_K
+fixed_design:
+  algorithm: gciql
+  environment: puzzle-4x4-play-v0
+  seed: 0
+  placement: actor+value+critic
+  actor_hidden_dims: [512, 512, 512]
+  value_hidden_dims: [512, 512, 512]
+  layer_norm: true
+  lr: 0.0003
+  batch_size: 1024
+  train_steps: 1000000
+  discount: 0.99
+  expectile: 0.9
+  tau: 0.005
+  actor_loss: ddpgbc
+  alpha: 0.4
+  const_std: true
+  discrete: false
+  dataset_class: GCDataset
+  value_goal_sampling: {p_curgoal: 0.2, p_trajgoal: 0.5, p_randomgoal: 0.3, geom_sample: true}
+  actor_goal_sampling: {p_curgoal: 0.0, p_trajgoal: 1.0, p_randomgoal: 0.0, geom_sample: false}
+  gc_negative: true
+  p_aug: 0.0
+  frame_stack: null
+  structured:
+    structure: puzzle_tokens
+    primitive: mlp
+    block: mlp_mixer
+    block_depth_L: 2
+    num_buttons: 16
+    robot_dim: 19
+    button_feature_dim: 4
+    token_dim: 128
+    robot_hidden_dim: 128
+    token_hidden_dim: 64
+    channel_hidden_dim: 256
+    index_embedding: true
+    tm_mode: none
+    topology: single_state
+    state_dim: 128
+    state_init: zero_buffer
+    state_init_std: 1.0
+    input_mapping: identity
+    input_injection: z_plus_x
+    topology_residual: false
+    parameter_sharing: shared
+    credit: direct
+    readout: mean_context
+  m17_prerequisites:
+    - Puzzle modular production path is adapter -> core -> readout.
+    - FeedForward(L) equals SingleState(L,K=1) under the canonical structured contract.
+    - Fixed L with shared update parameters keeps trainable parameter count invariant over K.
+  polyak_semantics: target_new = tau * online_post_gradient + (1 - tau) * target_old
+alpha_provenance:
+  runtime_authority: configuration.agent_overrides.alpha
+  value: 0.4
+  status: fixed_operating_point_not_alpha_optimization
+  rationale: >-
+    alpha=0.4 is the midpoint of the empirically favorable 0.3--0.5 region
+    observed for Puzzle-4x4 S002 seed 0. It was not directly trained in M16C
+    and is not claimed to be an optimum.
+  m16c_new_trained_values: [0.1, 0.2, 0.5, 0.7]
+  reusable_anchor_values: [0.3, 1.0]
+deferred_factors:
+  - flat_baseline
+  - feedforward_L2_formal_replication
+  - mixer_block_depth_L
+  - alpha
+  - normal_buffer_state_initialization
+  - topology_residual
+  - no_repeated_input_injection
+  - alternative_readouts
+  - alternative_structured_representations
+  - two_state_or_HRM_topologies
+  - adaptive_or_learned_test_time_computation
+  - other_Puzzle_sizes
+  - other_algorithms
+  - additional_training_seeds
+algorithms: [gciql]
+placements: [actor+value+critic]
+environments: [puzzle-4x4-play-v0]
+seeds: [0]
+primary_metric: evaluation/overall_success
+protocol:
+  train_steps: 1000000
+  batch_size: 1024
+  log_interval: 5000
+  eval_interval: 100000
+  eval_tasks: all
+  eval_task_count: 5
+  eval_episodes: 20
+  eval_temperature: 0.0
+  eval_gaussian: null
+  video_episodes: 0
+  save_interval: 100000
+  save_best_checkpoint: true
+  save_last_checkpoint: true
+  selection_metric: evaluation/overall_success
+  selection_rule: strict_greater_than_keep_earlier_tie
+  primary_endpoint: final@1M
+  secondary_endpoints: [best_success, best_step, last3_mean, normalized_eval_auc]
+  auc:
+    checkpoints: [100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000]
+    interval: [100000, 1000000]
+    rule: trapezoidal_area_divided_by_900000
+  formal_training_started: false
+matrix:
+  block_depth_L: 2
+  recurrent_compute_budget_K: [1, 2, 4, 8]
+  expected_formal_runs: 4
+  unique_mixer_layers_per_recurrent_path: 2
+  executed_mixer_layers_per_recurrent_path: {1: 2, 2: 4, 4: 8, 8: 16}
+hypotheses:
+  H1_useful_scaling: >-
+    More shared recurrent execution may improve final success and AUC under a
+    fixed trainable capacity.
+  H2_finite_optimum: >-
+    The response may peak at a finite K, for example K4 outperforming K8.
+  H3_neutral: >-
+    K may have limited descriptive effect under the current transition,
+    repeated input injection, readout, and optimization design.
+  H4_degradation: >-
+    Additional recurrent execution may reduce performance under the current
+    M17 SingleState transition; this does not establish that recurrence is
+    generally useless.
+interpretation_boundaries:
+  - This is a seed-0 exploratory recurrent-computation scaling study, not a statistical-significance study.
+  - No monotonic scaling law or statistically optimal K may be claimed from this matrix alone.
+  - Topology residual=false does not disable the internal token/channel residuals of each MLP-Mixer block.
+  - Recurrent state is decision-local and is freshly initialized for every actor/value/critic forward call.
+cross_k_diagnostic:
+  study_id: M18-D
+  role: post_hoc_test_time_depth_probe
+  training_K: [1, 2, 4, 8]
+  test_K: [1, 2, 4, 8]
+  checkpoint_selector: last
+  evaluation_only: true
+  no_finetuning: true
+  no_checkpoint_rewrite: true
+  interpretation: >-
+    K_train x K_test measures how one learned shared transition responds to a
+    changed inference execution depth. K_test > K_train is a depth-distribution
+    shift probe, not an adaptive test-time-computation algorithm.
+failure_policy:
+  infrastructure_bug: Repair the implementation and rerun the identical scientific configuration with provenance retained.
+  non_finite: Record and investigate; do not silently alter hyperparameters and relabel the run as identical.
+  oom: Do not lower only one K batch size; first rule out accidental saved intermediates or untied recurrent blocks.
+  poor_performance: Run every K through 1M; poor intermediate performance is not a valid early-stop condition.
+acceptance:
+  expected_formal_runs: 4
+  require_all_cells_completed: true
+  no_early_stopping_for_poor_performance: true
+  no_git_writes_by_agent: true
+  no_automatic_formal_launch: true

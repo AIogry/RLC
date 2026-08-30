@@ -1,4 +1,4 @@
-"""Structured computation bodies for standard OGBench Puzzle observations."""
+"""Structured computation orchestration and legacy Puzzle reference body."""
 
 from numbers import Integral
 
@@ -6,8 +6,93 @@ import flax.linen as nn
 import jax.numpy as jnp
 
 from .blocks.mlp_mixer import MLPMixerBlock
+from .interfaces import ComputationOutput
 from .primitives.mlp import default_init
+from ..representation.interfaces import StructuredRepresentation
 from ..representation.puzzle import parse_puzzle_observation
+
+
+class StructuredComputationBody(nn.Module):
+    """Compose representation adapter, computation core, and structured readout.
+
+    The body is domain-agnostic: its adapter decides how raw input becomes
+    tokens/context, its core decides how tokens are transformed, and its
+    readout decides how a token state becomes the vector required by the
+    existing algorithm head.  It is also the only layer that normalizes the
+    public single-observation boundary to the internal ``[B, T, D]`` form.
+    """
+
+    adapter: nn.Module
+    core: nn.Module
+    readout: nn.Module
+
+    @staticmethod
+    def _normalize(rep):
+        if not isinstance(rep, StructuredRepresentation):
+            raise TypeError(
+                'Structured adapter must return StructuredRepresentation, '
+                f'got {type(rep)!r}'
+            )
+        tokens = jnp.asarray(rep.tokens)
+        squeeze_batch = tokens.ndim == 2
+        if squeeze_batch:
+            tokens = tokens[None, ...]
+        if tokens.ndim != 3:
+            raise ValueError(
+                'Structured computation canonical token shape is [B, T, D]; '
+                f'got {tokens.shape}'
+            )
+        if rep.context is None:
+            raise ValueError('Structured representation requires a context for the active readout')
+        context = jnp.asarray(rep.context)
+        if squeeze_batch:
+            if context.ndim != 1:
+                raise ValueError(
+                    'Unbatched structured context must be [C]; '
+                    f'got tokens={tokens.shape}, context={context.shape}'
+                )
+            context = context[None, ...]
+        if context.ndim != 2 or context.shape[0] != tokens.shape[0]:
+            raise ValueError(
+                'Structured context must be [B, C] after normalization; '
+                f'got tokens={tokens.shape}, context={context.shape}'
+            )
+        mask = rep.mask
+        if mask is not None:
+            mask = jnp.asarray(mask)
+            if squeeze_batch:
+                if mask.ndim != 1:
+                    raise ValueError(
+                        'Unbatched structured mask must be [T]; '
+                        f'got {mask.shape}'
+                    )
+                mask = mask[None, ...]
+            if mask.shape != tokens.shape[:-1]:
+                raise ValueError(
+                    'Structured mask must match [B, T]; '
+                    f'got tokens={tokens.shape}, mask={mask.shape}'
+                )
+        return tokens, context, mask, squeeze_batch
+
+    def __call__(self, x):
+        representation = self.adapter(x)
+        tokens, context, mask, squeeze_batch = self._normalize(representation)
+        computed = self.core(tokens)
+        if not isinstance(computed, ComputationOutput):
+            computed = ComputationOutput(representation=computed)
+        output = self.readout(computed.representation, context=context, mask=mask)
+        computed_tokens = computed.representation[0] if squeeze_batch else computed.representation
+        if squeeze_batch:
+            output = output[0]
+        auxiliary = {
+            'adapter_auxiliary': representation.auxiliary,
+            'computed_tokens': computed_tokens,
+        }
+        return ComputationOutput(
+            representation=output,
+            state=computed.state,
+            auxiliary=auxiliary,
+        )
 
 
 class PuzzleStructuredBody(nn.Module):

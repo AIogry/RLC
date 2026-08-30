@@ -1,5 +1,6 @@
 """Input representations used by computation bodies."""
 
-from .puzzle import parse_puzzle_observation
+from .interfaces import StructuredRepresentation
+from .puzzle import PuzzleTokenAdapter, parse_puzzle_observation
 
-__all__ = ('parse_puzzle_observation',)
+__all__ = ('StructuredRepresentation', 'PuzzleTokenAdapter', 'parse_puzzle_observation')

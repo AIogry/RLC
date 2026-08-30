@@ -214,10 +214,11 @@ def validate_compute_slots(agent_name: str, config: Mapping):
                     f'{agent_name}.{slot_name}'
                 )
             if structure == 'puzzle_tokens':
-                if slot.get('topology') != 'feedforward':
+                topology = slot.get('topology')
+                if topology not in ('feedforward', 'single_state'):
                     raise ValueError(
                         f'Puzzle token computation for {agent_name}.{slot_name} '
-                        'requires topology=feedforward; token recurrence is deferred'
+                        'requires topology=feedforward or single_state'
                     )
                 if slot.get('credit', 'direct') != 'direct':
                     raise ValueError(
@@ -240,3 +241,39 @@ def validate_compute_slots(agent_name: str, config: Mapping):
                         f'Puzzle token computation for {agent_name}.{slot_name} '
                         'requires structure_kwargs.num_buttons'
                     )
+                readout = slot.get('readout', structure_kwargs.get('readout', 'mean_context'))
+                if readout not in ('mean', 'mean_context'):
+                    raise ValueError(
+                        f'Puzzle token computation for {agent_name}.{slot_name} '
+                        f'has unsupported readout={readout!r}'
+                    )
+                if topology == 'single_state':
+                    topology_kwargs = slot.get('topology_kwargs', {})
+                    if not hasattr(topology_kwargs, 'get'):
+                        raise ValueError(
+                            f'Computation topology_kwargs for {agent_name}.{slot_name} '
+                            'must be a mapping'
+                        )
+                    if topology_kwargs.get('input_mapping', 'identity') != 'identity':
+                        raise ValueError(
+                            f'Puzzle token SingleState for {agent_name}.{slot_name} '
+                            'requires input_mapping=identity'
+                        )
+                    if topology_kwargs.get('input_injection', 'z_plus_x') != 'z_plus_x':
+                        raise ValueError(
+                            f'Puzzle token SingleState for {agent_name}.{slot_name} '
+                            'requires input_injection=z_plus_x'
+                        )
+                    if topology_kwargs.get('residual', False) is not False:
+                        raise ValueError(
+                            f'Puzzle token SingleState for {agent_name}.{slot_name} '
+                            'requires residual=false'
+                        )
+                    sharing = slot.get(
+                        'parameter_sharing', topology_kwargs.get('parameter_sharing', 'shared')
+                    )
+                    if sharing != 'shared':
+                        raise ValueError(
+                            f'Puzzle token SingleState for {agent_name}.{slot_name} '
+                            'requires parameter_sharing=shared'
+                        )

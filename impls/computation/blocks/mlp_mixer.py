@@ -5,6 +5,8 @@ use ``impls.networks.coghp.MixerBlock`` until a separate production migration
 gate approves switching its import path.
 """
 
+from numbers import Integral
+
 import flax.linen as nn
 import jax.numpy as jnp
 
@@ -58,3 +60,47 @@ class MLPMixerBlock(nn.Module):
         z = nn.gelu(z)
         z = self.channel_dense2(z)
         return x + z
+
+
+class MLPMixerStack(nn.Module):
+    """One L-layer MLP-Mixer computation block unit.
+
+    ``num_blocks`` is the intra-block depth ``L``.  Its layers are untied
+    within the unit.  A topology may execute the *same* stack repeatedly;
+    repeated topology execution must not be represented by extra stack copies.
+    """
+
+    num_blocks: int
+    num_tokens: int
+    embed_dim: int
+    hidden_dim_tokens: int
+    hidden_dim_channels: int
+    init_scale: float = 1e-2
+    decay_alpha: float = 0.9
+    tm_mode: str = 'lower_triangular'
+
+    def setup(self):
+        if isinstance(self.num_blocks, bool) or not isinstance(self.num_blocks, Integral):
+            raise ValueError(f'num_blocks must be an integer, got {self.num_blocks!r}')
+        if self.num_blocks <= 0:
+            raise ValueError(f'num_blocks must be positive, got {self.num_blocks}')
+        self.blocks = tuple(
+            MLPMixerBlock(
+                num_tokens=self.num_tokens,
+                embed_dim=self.embed_dim,
+                hidden_dim_tokens=self.hidden_dim_tokens,
+                hidden_dim_channels=self.hidden_dim_channels,
+                init_scale=self.init_scale,
+                decay_alpha=self.decay_alpha,
+                tm_mode=self.tm_mode,
+            )
+            for _ in range(int(self.num_blocks))
+        )
+
+    def __call__(self, x):
+        x = jnp.asarray(x)
+        if x.ndim != 3:
+            raise ValueError(f'MLPMixerStack expects [B, T, D], got {x.shape}')
+        for block in self.blocks:
+            x = block(x)
+        return x

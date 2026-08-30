@@ -7,9 +7,11 @@ from typing import Mapping, Optional, Sequence
 from .credit.direct import DirectCredit
 from .credit.full_bptt import FullBPTTCredit
 from .credit.one_step import OneStepCredit
+from .blocks.mlp_mixer import MLPMixerStack
 from .blocks.residual_mlp import ResidualMLPStack
 from .interfaces import ComputationCore
 from .primitives.mlp import MLP
+from .readouts import MeanContextReadout
 from .topologies.feedforward import FeedForward
 from .topologies.single_state import SingleState
 from .topologies.two_state import TwoState
@@ -30,11 +32,14 @@ class ComputationSpec:
     structure_kwargs: Mapping = field(default_factory=dict)
     input_semantics: str = 'latent_vector'
     action_semantics: str = 'none'
+    readout: str = 'mean_context'
+    readout_kwargs: Mapping = field(default_factory=dict)
 
     @classmethod
     def from_mapping(cls, value: Optional[Mapping] = None):
         if value is None:
             return cls()
+        structure_kwargs = dict(value.get('structure_kwargs', {}))
         return cls(
             primitive=value.get('primitive', 'mlp'),
             block=value.get('block', 'plain'),
@@ -47,9 +52,14 @@ class ComputationSpec:
             topology_kwargs=dict(value.get('topology_kwargs', {})),
             block_kwargs=dict(value.get('block_kwargs', {})),
             structure=value.get('structure', 'vector'),
-            structure_kwargs=dict(value.get('structure_kwargs', {})),
+            structure_kwargs=structure_kwargs,
             input_semantics=value.get('input_semantics', 'latent_vector'),
             action_semantics=value.get('action_semantics', 'none'),
+            # ``structure_kwargs.readout=mean`` is the frozen M15/M16 spelling.
+            # Keep it as a compatible alias while the modular path records a
+            # first-class readout choice.
+            readout=value.get('readout', structure_kwargs.get('readout', 'mean_context')),
+            readout_kwargs=dict(value.get('readout_kwargs', {})),
         )
 
 
@@ -110,11 +120,6 @@ def make_computation_core(
             "expected 'vector' or 'puzzle_tokens'"
         )
     if spec.structure == 'puzzle_tokens':
-        if spec.topology != 'feedforward':
-            raise ValueError(
-                'Puzzle token computation currently supports topology=feedforward only; '
-                'token recurrence is deferred to a later milestone'
-            )
         if spec.credit != DirectCredit.name:
             raise ValueError(
                 f'Puzzle token computation requires credit={DirectCredit.name!r}, '
@@ -122,17 +127,137 @@ def make_computation_core(
             )
         if spec.block != 'mlp_mixer':
             raise ValueError("Puzzle token computation requires block='mlp_mixer'")
-        from .structured import PuzzleStructuredBody
-        kwargs = dict(spec.structure_kwargs)
-        primitive = PuzzleStructuredBody(
-            output_dim=hidden_dims[-1],
+        if spec.primitive not in ('mlp', 'original_mlp'):
+            raise ValueError(f'Unsupported Puzzle token primitive: {spec.primitive!r}')
+        if spec.topology not in ('feedforward', 'single_state'):
+            raise ValueError(
+                'Puzzle token computation supports topology=feedforward or single_state; '
+                f'got {spec.topology!r}'
+            )
+
+        # Existing M15/M16 studies store Mixer dimensions under
+        # structure_kwargs.  M17 permits their ownership to be recorded under
+        # block_kwargs too, without forcing a meaningless historical rename.
+        structure_kwargs = dict(spec.structure_kwargs)
+        block_kwargs = dict(spec.block_kwargs)
+        if 'num_buttons' not in structure_kwargs:
+            raise ValueError('Puzzle token computation requires structure_kwargs.num_buttons')
+        num_blocks = int(
+            block_kwargs.get(
+                'num_blocks',
+                block_kwargs.get('num_mixer_blocks', structure_kwargs.get('num_mixer_blocks', 1)),
+            )
+        )
+        token_dim = int(structure_kwargs.get('token_dim', 128))
+        token_hidden_dim = int(
+            block_kwargs.get(
+                'token_hidden_dim',
+                block_kwargs.get(
+                    'token_mlp_hidden_dim',
+                    structure_kwargs.get('token_mlp_hidden_dim', 64),
+                ),
+            )
+        )
+        channel_hidden_dim = int(
+            block_kwargs.get(
+                'channel_hidden_dim',
+                block_kwargs.get(
+                    'channel_mlp_hidden_dim',
+                    structure_kwargs.get('channel_mlp_hidden_dim', 256),
+                ),
+            )
+        )
+        from .structured import StructuredComputationBody
+        from ..representation.puzzle import PuzzleTokenAdapter
+
+        adapter = PuzzleTokenAdapter(
+            num_buttons=int(structure_kwargs['num_buttons']),
+            robot_dim=int(structure_kwargs.get('robot_dim', 19)),
+            button_feature_dim=int(structure_kwargs.get('button_feature_dim', 4)),
+            token_dim=token_dim,
+            robot_hidden_dim=int(structure_kwargs.get('robot_hidden_dim', 128)),
+            index_embedding=bool(structure_kwargs.get('index_embedding', True)),
             input_semantics=spec.input_semantics,
             action_semantics=spec.action_semantics,
             layer_norm=layer_norm,
-            activate_final=True if activate_final is None else bool(activate_final),
-            **kwargs,
         )
-        return ComputationCore(topology=FeedForward(primitive=primitive))
+        block_unit = MLPMixerStack(
+            num_blocks=num_blocks,
+            num_tokens=int(structure_kwargs['num_buttons']),
+            embed_dim=token_dim,
+            hidden_dim_tokens=token_hidden_dim,
+            hidden_dim_channels=channel_hidden_dim,
+            tm_mode=structure_kwargs.get('tm_mode', block_kwargs.get('tm_mode', 'none')),
+        )
+        if spec.topology == 'feedforward':
+            structured_core = ComputationCore(topology=FeedForward(primitive=block_unit))
+        else:
+            topology_kwargs = dict(spec.topology_kwargs)
+            input_mapping = topology_kwargs.pop('input_mapping', 'identity')
+            if input_mapping != 'identity':
+                raise ValueError(
+                    'Structured SingleState requires input_mapping=identity to preserve '
+                    'FeedForward(L) == SingleState(L, K=1)'
+                )
+            state_dim = int(topology_kwargs.pop('state_dim', token_dim))
+            if state_dim != token_dim:
+                raise ValueError(
+                    'Structured SingleState state_dim must equal token_dim; '
+                    f'got state_dim={state_dim}, token_dim={token_dim}'
+                )
+            residual = topology_kwargs.pop('residual', False)
+            if residual is not False:
+                raise ValueError('Structured SingleState freezes topology residual=False')
+            input_injection = topology_kwargs.pop('input_injection', 'z_plus_x')
+            if input_injection != 'z_plus_x':
+                raise ValueError('Structured SingleState requires input_injection=z_plus_x')
+            sharing = topology_kwargs.pop('parameter_sharing', spec.parameter_sharing)
+            if sharing != 'shared' or spec.parameter_sharing != 'shared':
+                raise ValueError('Structured SingleState requires parameter_sharing=shared')
+            allowed = {'iterations', 'state_init', 'state_init_std'}
+            unexpected = set(topology_kwargs) - allowed
+            if unexpected:
+                raise ValueError(
+                    'Unsupported structured SingleState topology kwargs: '
+                    f'{sorted(unexpected)!r}'
+                )
+            structured_core = ComputationCore(
+                topology=SingleState(
+                    state_dim=token_dim,
+                    iterations=topology_kwargs.get('iterations', 1),
+                    residual=False,
+                    input_injection='z_plus_x',
+                    state_init=topology_kwargs.get('state_init', 'zero_buffer'),
+                    state_init_std=topology_kwargs.get('state_init_std', 1.0),
+                    parameter_sharing='shared',
+                    input_mapping_mode='identity',
+                    external_update_block=block_unit,
+                )
+            )
+        readout_name = spec.readout
+        if readout_name not in ('mean', 'mean_context'):
+            raise ValueError(
+                'Puzzle token computation currently supports readout=mean_context '
+                f'(legacy alias mean); got {readout_name!r}'
+            )
+        readout_kwargs = dict(spec.readout_kwargs)
+        requested_output_dim = int(readout_kwargs.pop('output_dim', hidden_dims[-1]))
+        if requested_output_dim != hidden_dims[-1]:
+            raise ValueError(
+                'Structured readout output_dim must match the algorithm slot width; '
+                f'got {requested_output_dim}, expected {hidden_dims[-1]}'
+            )
+        if readout_kwargs:
+            raise ValueError(f'Unsupported mean_context readout kwargs: {sorted(readout_kwargs)!r}')
+        return StructuredComputationBody(
+            adapter=adapter,
+            core=structured_core,
+            readout=MeanContextReadout(
+                output_dim=hidden_dims[-1],
+                layer_norm=layer_norm,
+                activate_final=True if activate_final is None else bool(activate_final),
+            ),
+        )
     if spec.primitive not in ('mlp', 'original_mlp'):
         raise ValueError(f'Unsupported baseline primitive: {spec.primitive}')
     # Historical direct recurrent-core callers used the actor/update MLP

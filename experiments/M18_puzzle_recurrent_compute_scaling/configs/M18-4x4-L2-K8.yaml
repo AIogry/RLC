@@ -1,0 +1,55 @@
+study_id: M18
+config_id: M18-4x4-L2-K8
+slug: puzzle4x4_mixer_l2_shared_k8_alpha0p4
+algorithm: gciql
+environment: puzzle-4x4-play-v0
+protocol_stage: formal
+placement: actor+value+critic
+executable: true
+condition_id: M18_L2_K8
+semantic_condition: STRUCTURED_MIXER_L2_SINGLE_STATE_SHARED_K8_ALPHA0P4
+description: Fixed-parameter Puzzle-4x4 GCIQL recurrent-computation condition, L=2, K=8, alpha=0.4, seed 0.
+factors: {environment: puzzle-4x4-play-v0, structure: puzzle_tokens, block: mlp_mixer, topology: single_state, block_depth_L: 2, recurrent_compute_budget_K: 8, K: 8, alpha: 0.4}
+agent_overrides:
+  actor_loss: ddpgbc
+  alpha: 0.4
+  compute:
+    actor:
+      enabled: true
+      primitive: mlp
+      structure: puzzle_tokens
+      structure_kwargs: {num_buttons: 16, robot_dim: 19, button_feature_dim: 4, token_dim: 128, robot_hidden_dim: 128, index_embedding: true}
+      block: mlp_mixer
+      block_kwargs: {num_blocks: 2, token_hidden_dim: 64, channel_hidden_dim: 256, tm_mode: none}
+      topology: single_state
+      topology_kwargs: {iterations: 8, input_mapping: identity, state_dim: 128, state_init: zero_buffer, state_init_std: 1.0, input_injection: z_plus_x, residual: false, parameter_sharing: shared}
+      parameter_sharing: shared
+      credit: direct
+      readout: mean_context
+      readout_kwargs: {output_dim: 512}
+    value:
+      enabled: true
+      primitive: mlp
+      structure: puzzle_tokens
+      structure_kwargs: {num_buttons: 16, robot_dim: 19, button_feature_dim: 4, token_dim: 128, robot_hidden_dim: 128, index_embedding: true}
+      block: mlp_mixer
+      block_kwargs: {num_blocks: 2, token_hidden_dim: 64, channel_hidden_dim: 256, tm_mode: none}
+      topology: single_state
+      topology_kwargs: {iterations: 8, input_mapping: identity, state_dim: 128, state_init: zero_buffer, state_init_std: 1.0, input_injection: z_plus_x, residual: false, parameter_sharing: shared}
+      parameter_sharing: shared
+      credit: direct
+      readout: mean_context
+      readout_kwargs: {output_dim: 512}
+    critic:
+      enabled: true
+      primitive: mlp
+      structure: puzzle_tokens
+      structure_kwargs: {num_buttons: 16, robot_dim: 19, button_feature_dim: 4, token_dim: 128, robot_hidden_dim: 128, index_embedding: true}
+      block: mlp_mixer
+      block_kwargs: {num_blocks: 2, token_hidden_dim: 64, channel_hidden_dim: 256, tm_mode: none}
+      topology: single_state
+      topology_kwargs: {iterations: 8, input_mapping: identity, state_dim: 128, state_init: zero_buffer, state_init_std: 1.0, input_injection: z_plus_x, residual: false, parameter_sharing: shared}
+      parameter_sharing: shared
+      credit: direct
+      readout: mean_context
+      readout_kwargs: {output_dim: 512}

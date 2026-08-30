@@ -111,6 +111,54 @@ def _merge_config(config, overrides):
     return config
 
 
+def _normalize_structured_compute_defaults(config):
+    """Materialize M17 structured defaults in the resolved runtime config.
+
+    Historical M15/M16 YAML keeps some fields under ``structure_kwargs`` for
+    compatibility.  This helper does not rename those fields or alter vector
+    slots; it only makes the active modular readout and structured
+    SingleState contract explicit before provenance is serialized.
+    """
+
+    compute = config.get('compute', {}) if hasattr(config, 'get') else {}
+    for slot in compute.values():
+        if not hasattr(slot, 'get') or not slot.get('enabled', False):
+            continue
+        if slot.get('structure', 'vector') != 'puzzle_tokens':
+            continue
+        structure_kwargs = slot.get('structure_kwargs', {})
+        if not hasattr(structure_kwargs, 'get'):
+            raise ValueError('Puzzle structured computation requires mapping structure_kwargs')
+        if 'readout' not in slot:
+            slot['readout'] = structure_kwargs.get('readout', 'mean_context')
+        if 'readout_kwargs' not in slot:
+            slot['readout_kwargs'] = {}
+        if 'block_kwargs' not in slot:
+            slot['block_kwargs'] = {}
+        if slot.get('topology') != 'single_state':
+            continue
+        topology_kwargs = slot.get('topology_kwargs', {})
+        if not hasattr(topology_kwargs, 'get'):
+            raise ValueError('Structured SingleState requires mapping topology_kwargs')
+        topology_kwargs = dict(topology_kwargs)
+        topology_kwargs.setdefault('iterations', 1)
+        topology_kwargs.setdefault('input_mapping', 'identity')
+        topology_kwargs.setdefault('state_dim', int(structure_kwargs.get('token_dim')))
+        topology_kwargs.setdefault('state_init', 'zero_buffer')
+        topology_kwargs.setdefault('state_init_std', 1.0)
+        topology_kwargs.setdefault('input_injection', 'z_plus_x')
+        topology_kwargs.setdefault('residual', False)
+        topology_kwargs.setdefault('parameter_sharing', 'shared')
+        slot['topology_kwargs'] = topology_kwargs
+        # ``slot`` can be an ml_collections.ConfigDict, which deliberately
+        # exposes mapping access but not ``dict.setdefault``.  Keep the M17
+        # resolved-config contract identical while supporting Study YAML
+        # resolution for structured SingleState configurations.
+        if 'parameter_sharing' not in slot:
+            slot['parameter_sharing'] = 'shared'
+    return config
+
+
 def _make_config(args, configuration=None):
     config = agent_configs[args.agent]()
     # Reference CRL configs historically used ml-collections placeholders for
@@ -174,6 +222,7 @@ def _make_config(args, configuration=None):
             )
         if config.get('actor_loss') != 'ddpgbc' and configuration.data.get('algorithm') == 'crl':
             raise ValueError('M9 CRL actor configurations must use actor_loss=ddpgbc.')
+    _normalize_structured_compute_defaults(config)
     validate_compute_slots(args.agent, config)
     return config
 
@@ -236,7 +285,16 @@ def _computation_runtime_extras(config):
             continue
         descriptor = descriptor_for(agent_name, slot_name)
         kwargs = slot.get('topology_kwargs', {})
-        state_dim = int(kwargs.get('state_dim', _slot_state_dim(config, descriptor)))
+        topology = slot.get('topology')
+        structure = slot.get('structure', 'vector')
+        structure_kwargs = slot.get('structure_kwargs', {})
+        block_kwargs = slot.get('block_kwargs', {})
+        structured_single_state = structure == 'puzzle_tokens' and topology == 'single_state'
+        default_state_dim = (
+            int(structure_kwargs.get('token_dim'))
+            if structured_single_state else _slot_state_dim(config, descriptor)
+        )
+        state_dim = int(kwargs.get('state_dim', default_state_dim))
         layer_norm = bool(kwargs.get(
             'layer_norm', _semantic_bool(config, descriptor, descriptor.layer_norm_semantics)
         ))
@@ -256,10 +314,28 @@ def _computation_runtime_extras(config):
             'activate_final_semantics': descriptor.activate_final_semantics,
             'layer_norm': layer_norm,
             'update_activate_final': activate_final,
-            'topology': slot.get('topology'),
+            'topology': topology,
             'primitive': slot.get('primitive', 'mlp'),
-            'structure': slot.get('structure', 'vector'),
-            'structure_kwargs': _jsonable(slot.get('structure_kwargs', {})),
+            'structure': structure,
+            'structure_kwargs': _jsonable(structure_kwargs),
+            'block': slot.get('block', 'plain'),
+            'block_kwargs': _jsonable(block_kwargs),
+            'block_depth_L': (
+                int(block_kwargs.get(
+                    'num_blocks',
+                    block_kwargs.get('num_mixer_blocks', structure_kwargs.get('num_mixer_blocks', 0)),
+                ))
+                if structure == 'puzzle_tokens' and slot.get('block') == 'mlp_mixer' else None
+            ),
+            'iterations_K': (
+                1 if topology == 'feedforward' else
+                int(kwargs.get('iterations', 1)) if topology == 'single_state' else None
+            ),
+            'readout': (
+                slot.get('readout', structure_kwargs.get('readout', 'mean_context'))
+                if structure == 'puzzle_tokens' else None
+            ),
+            'readout_kwargs': _jsonable(slot.get('readout_kwargs', {})),
             'input_semantics': descriptor.input_semantics,
             'action_semantics': descriptor.action_semantics,
             'credit': slot.get('credit', 'direct'),
@@ -270,10 +346,16 @@ def _computation_runtime_extras(config):
             single_state[slot_name] = {
                 **common,
                 'iterations': int(kwargs.get('iterations', 1)),
+                'iterations_K': int(kwargs.get('iterations', 1)),
                 'update_depth': int(kwargs.get('update_depth', 2)),
                 'residual': bool(kwargs.get('residual', False)),
                 'input_injection': kwargs.get('input_injection', 'z_plus_x'),
-                'state_init': kwargs.get('state_init', 'normal_buffer'),
+                'input_mapping': kwargs.get(
+                    'input_mapping', 'identity' if structured_single_state else 'mlp'
+                ),
+                'state_init': kwargs.get(
+                    'state_init', 'zero_buffer' if structured_single_state else 'normal_buffer'
+                ),
                 'state_init_std': float(kwargs.get('state_init_std', 1.0)),
                 'parameter_sharing': slot.get(
                     'parameter_sharing', kwargs.get('parameter_sharing', 'shared')
@@ -284,6 +366,7 @@ def _computation_runtime_extras(config):
                 **common,
                 'block': slot.get('block', 'plain'),
                 'block_kwargs': _jsonable(slot.get('block_kwargs', {})),
+                'iterations_K': 1,
             }
         elif topology == 'two_state':
             h_cycles = int(kwargs.get('h_cycles', 2))
@@ -460,6 +543,7 @@ def _computation_slot_accounting(agent, config):
         descriptor = descriptor_for(agent_name, slot_name)
         module_path, core_path = descriptor.module_path, descriptor.core_path
         topology = spec.get('topology')
+        structure = spec.get('structure', 'vector')
         kwargs = dict(spec.get('topology_kwargs', {}))
         kwargs.setdefault(
             'parameter_sharing', spec.get('parameter_sharing', 'shared')
@@ -467,7 +551,7 @@ def _computation_slot_accounting(agent, config):
         kwargs.setdefault('block', spec.get('block', 'plain'))
         hidden_dims = _slot_hidden_dims(config, descriptor)
         hidden_dim = int(_slot_state_dim(config, descriptor))
-        if topology in ('single_state', 'two_state'):
+        if topology in ('single_state', 'two_state') and structure != 'puzzle_tokens':
             kwargs.setdefault('state_dim', hidden_dim)
             kwargs.setdefault('update_depth', 2)
             kwargs.setdefault(
@@ -483,8 +567,21 @@ def _computation_slot_accounting(agent, config):
             else:
                 kwargs.setdefault('h_cycles', 2)
                 kwargs.setdefault('l_cycles', 1)
+        elif topology == 'single_state' and structure == 'puzzle_tokens':
+            kwargs.setdefault('state_dim', int(spec.get('structure_kwargs', {}).get('token_dim')))
+            kwargs.setdefault('iterations', 1)
+            kwargs.setdefault('input_mapping', 'identity')
+            kwargs.setdefault('input_injection', 'z_plus_x')
+            kwargs.setdefault('residual', False)
+            kwargs.setdefault('state_init', 'zero_buffer')
         module = path_get(params, module_path)
         buffer_module = path_get(buffers, module_path) if buffers else {}
+        core_path = descriptor.core_path
+        if structure == 'puzzle_tokens' and core_path and core_path[-1] == 'topology':
+            # M17 structured bodies own an inner generic topology rather than
+            # pretending that the whole raw-input body is a FeedForward
+            # primitive.  The descriptor still names the legacy vector path.
+            core_path = core_path[:-1]
         report[slot_name] = computation_slot_accounting(
             module,
             buffer_module,
@@ -494,8 +591,9 @@ def _computation_slot_accounting(agent, config):
             credit=spec.get('credit', 'direct'),
             topology_kwargs=kwargs,
             core_path=core_path,
-            structure=spec.get('structure', 'vector'),
+            structure=structure,
             structure_kwargs=spec.get('structure_kwargs', {}),
+            block_kwargs=spec.get('block_kwargs', {}),
         )
         report[slot_name].update({
             'role': descriptor.role,
