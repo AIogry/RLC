@@ -12,7 +12,7 @@ from ..computation.interfaces import ComputationOutput
 from ..computation.primitives.mlp import MLP, default_init
 
 
-def ensemblize(cls, num_qs, out_axes=0, in_axes=None, **kwargs):
+def ensemblize(cls, num_qs, out_axes=0, in_axes=None, methods=None, **kwargs):
     # Computationized CRL branches may own non-trainable recurrent state
     # buffers.  Map and split the buffer collection exactly like parameters so
     # ensemble members remain independent modules rather than sharing one
@@ -25,6 +25,7 @@ def ensemblize(cls, num_qs, out_axes=0, in_axes=None, **kwargs):
         in_axes=in_axes,
         out_axes=out_axes,
         axis_size=num_qs,
+        methods=methods,
         **kwargs,
     )
 
@@ -49,6 +50,15 @@ class _ComputationValueBody(nn.Module):
         if isinstance(output, ComputationOutput):
             output = output.representation
         return output
+
+    def trace_tokens(self, x, max_iterations=None):
+        trace_fn = getattr(self.core, 'trace_tokens', None)
+        if trace_fn is None:
+            raise ValueError(
+                'Computation value trace requires a structured body exposing trace_tokens; '
+                f'got {type(self.core)!r}'
+            )
+        return trace_fn(x, max_iterations)
 
 
 class ComputationVectorBody(nn.Module):
@@ -172,6 +182,32 @@ class GCActor(nn.Module):
             distribution = TransformedWithMode(distribution, distrax.Block(distrax.Tanh(), ndims=1))
         return distribution
 
+    def diagnostic_trace(self, observations, goals=None, goal_encoded=False, max_iterations=None):
+        """Return token/readout/action-mean trajectories for structured diagnostics.
+
+        This is intentionally separate from ``__call__``.  It uses the same
+        restored structured body and ``mean_net`` but never samples an action,
+        updates an optimizer, or changes actor distribution semantics.
+        """
+
+        if self.computation_spec is None or self.computation_spec.structure != 'puzzle_tokens':
+            raise ValueError('GCActor diagnostic_trace requires puzzle_tokens structured computation')
+        if self.gc_encoder is not None:
+            inputs = self.gc_encoder(observations, goals, goal_encoded=goal_encoded)
+        else:
+            inputs = [observations]
+            if goals is not None:
+                inputs.append(goals)
+            inputs = jnp.concatenate(inputs, axis=-1)
+        trace_fn = getattr(self.actor_net, 'trace_tokens', None)
+        if trace_fn is None:
+            raise ValueError('GCActor structured body does not expose trace_tokens')
+        trace = trace_fn(inputs, max_iterations)
+        return {
+            **trace,
+            'action_means': self.mean_net(trace['readout_states']),
+        }
+
 
 class GCDiscreteActor(nn.Module):
     """Goal-conditioned categorical actor with an optional replaceable body."""
@@ -234,7 +270,11 @@ class GCValue(nn.Module):
             return
 
         if self.ensemble:
-            body_module = ensemblize(_ComputationValueBody, 2)
+            body_module = ensemblize(
+                _ComputationValueBody,
+                2,
+                methods=('__call__', 'trace_tokens'),
+            )
             readout_module = ensemblize(nn.Dense, 2, in_axes=0)
             self.value_net = body_module(
                 hidden_dims=self.hidden_dims,
@@ -265,6 +305,27 @@ class GCValue(nn.Module):
         if self.value_readout is not None:
             outputs = self.value_readout(outputs)
         return outputs.squeeze(-1)
+
+    def diagnostic_trace(self, observations, goals=None, actions=None, max_iterations=None):
+        """Return structured token/readout/scalar trajectories for one value slot."""
+
+        if self.computation_spec is None or self.computation_spec.structure != 'puzzle_tokens':
+            raise ValueError('GCValue diagnostic_trace requires puzzle_tokens structured computation')
+        inputs = [observations]
+        if goals is not None:
+            inputs.append(goals)
+        if actions is not None:
+            inputs.append(actions)
+        trace_fn = getattr(self.value_net, 'trace_tokens', None)
+        if trace_fn is None:
+            raise ValueError('GCValue structured body does not expose trace_tokens')
+        trace = trace_fn(jnp.concatenate(inputs, axis=-1), max_iterations)
+        if self.value_readout is None:
+            raise ValueError('GCValue diagnostic_trace requires a computation value readout')
+        return {
+            **trace,
+            'values': self.value_readout(trace['readout_states']).squeeze(-1),
+        }
 
 
 class GCDiscreteCritic(GCValue):

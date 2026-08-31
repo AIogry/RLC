@@ -142,6 +142,56 @@ class SingleState(nn.Module):
             )
         return z + update if self.residual else update
 
+    def trace_states(self, x_raw, max_iterations=None, state=None):
+        """Return the diagnostic-only recurrent trajectory ``(Z^0, ..., Z^K)``.
+
+        This helper deliberately does not participate in the ordinary
+        ``__call__`` path.  It reuses :meth:`step` and the already-instantiated
+        update module, so it neither creates parameters nor changes the
+        training recurrence.  Shared updates may be executed beyond the
+        configuration's training-time ``iterations`` for an explicit
+        diagnostic depth-extrapolation probe; untied updates cannot.
+        """
+
+        if state is not None:
+            raise ValueError('SingleState topology does not accept an external state; it is decision-local.')
+        if max_iterations is None:
+            max_iterations = self.iterations
+        if isinstance(max_iterations, bool) or not isinstance(max_iterations, Integral):
+            raise ValueError(
+                'SingleState trace max_iterations must be a non-negative integer, '
+                f'got {max_iterations!r}'
+            )
+        max_iterations = int(max_iterations)
+        if max_iterations < 0:
+            raise ValueError(f'SingleState trace max_iterations must be non-negative, got {max_iterations}')
+
+        x_raw = jnp.asarray(x_raw)
+        if self.input_mapping_mode == 'identity':
+            x_hidden = x_raw
+        else:
+            x_hidden = self.input_mapping(x_raw)
+        if x_hidden.shape[-1] != self.state_dim:
+            raise ValueError(
+                f'SingleState input mapping produced {x_hidden.shape[-1]} features, '
+                f'expected state_dim={self.state_dim}'
+            )
+        z = jnp.broadcast_to(self.z_init.value, x_hidden.shape)
+        states = [z]
+        if self.parameter_sharing == 'shared':
+            update_modules = (self.update_module,) * max_iterations
+        else:
+            if max_iterations > len(self.update_modules):
+                raise ValueError(
+                    'Untied SingleState trace cannot exceed its configured iteration count: '
+                    f'{max_iterations} > {len(self.update_modules)}'
+                )
+            update_modules = self.update_modules[:max_iterations]
+        for update_module in update_modules:
+            z = self.step(z, x_hidden, update_module=update_module)
+            states.append(z)
+        return tuple(states)
+
     def __call__(self, x_raw, state=None):
         if state is not None:
             raise ValueError('SingleState topology does not accept an external state; it is decision-local.')

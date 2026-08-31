@@ -143,10 +143,10 @@ class M18RecurrentComputeScalingTest(unittest.TestCase):
         observations = np.zeros((2, 83), dtype=np.float32)
         actions = np.zeros((2, 5), dtype=np.float32)
         source_config = jsonable(_resolved_config(1))
-        target_config = m18_cross_k_eval.prepare_test_time_config(source_config, 8)
+        target_config = m18_cross_k_eval.prepare_actor_test_time_config(source_config, 8)
         self.assertEqual(
             [target_config['compute'][slot]['topology_kwargs']['iterations'] for slot in ('actor', 'value', 'critic')],
-            [8, 8, 8],
+            [8, 1, 1],
         )
         for slot in ('actor', 'value', 'critic'):
             self.assertEqual(source_config['compute'][slot]['block_kwargs'], target_config['compute'][slot]['block_kwargs'])
@@ -213,7 +213,7 @@ class M18RecurrentComputeScalingTest(unittest.TestCase):
             record = save_semantic_checkpoint(
                 source_agent,
                 source_run,
-                'last',
+                'best',
                 1,
                 {
                     'environment': 'puzzle-4x4-play-v0',
@@ -222,18 +222,20 @@ class M18RecurrentComputeScalingTest(unittest.TestCase):
                     'config_slug': configuration.slug,
                     'git_commit': 'm18-test-commit',
                     'seed': 0,
+                    'selection_metric': 'evaluation/overall_success',
+                    'selection_metric_value': 0.5,
                 },
             )
-            write_checkpoint_index(source_run, best=None, last=record)
+            write_checkpoint_index(source_run, best=record, last=None)
             checkpoint = source_run / record['path']
             before_hash = sha256_file(checkpoint)
             jobs = m18_cross_k_eval.plan_jobs(
                 STUDY,
                 run_root,
                 output_root,
-                'last',
-                config_filter={configuration.config_id},
-                test_ks=(8,),
+                'best',
+                train_ks=(1,),
+                actor_test_ks=(8,),
             )
             self.assertEqual(len(jobs), 1)
             self.assertEqual(jobs[0]['status'], 'planned')
@@ -243,10 +245,11 @@ class M18RecurrentComputeScalingTest(unittest.TestCase):
                 evaluation_seed=18191,
                 eval_temperature=0.0,
                 eval_gaussian=None,
+                diagnostic_code_commit='m18-test-diagnostic',
             )
             self.assertEqual(summary['status'], 'completed')
-            self.assertEqual((summary['K_train'], summary['K_test']), (1, 8))
-            self.assertEqual(summary['total_episodes'], 5)
+            self.assertEqual((summary['K_train'], summary['K_actor_test']), (1, 8))
+            self.assertEqual(summary['episodes'], 5)
             self.assertTrue((jobs[0]['output_dir'] / 'task_results.csv').is_file())
             self.assertEqual(before_hash, sha256_file(checkpoint))
 

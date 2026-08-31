@@ -94,6 +94,37 @@ class StructuredComputationBody(nn.Module):
             auxiliary=auxiliary,
         )
 
+    def trace_tokens(self, x, max_iterations=None):
+        """Expose a structured recurrent trace without changing ``__call__``.
+
+        The returned tensors retain the canonical batch axis even for an
+        unbatched public input: ``token_states`` is ``[B, K+1, T, D]`` and
+        ``readout_states`` is ``[B, K+1, H]``.  Every readout uses this
+        module's restored adapter/context/readout parameters; no diagnostic
+        module or alternate readout is constructed.
+        """
+
+        representation = self.adapter(x)
+        tokens, context, mask, _ = self._normalize(representation)
+        topology = getattr(self.core, 'topology', None)
+        trace_fn = getattr(topology, 'trace_states', None)
+        if trace_fn is None:
+            raise ValueError(
+                'Structured trace requires a topology exposing trace_states; '
+                f'got {type(topology)!r}'
+            )
+        states = trace_fn(tokens, max_iterations)
+        if not states:
+            raise ValueError('Structured trace returned no recurrent states')
+        readouts = tuple(
+            self.readout(state, context=context, mask=mask)
+            for state in states
+        )
+        return {
+            'token_states': jnp.stack(states, axis=1),
+            'readout_states': jnp.stack(readouts, axis=1),
+        }
+
 
 class PuzzleStructuredBody(nn.Module):
     """Puzzle tokenizer, MLP-Mixer stack, readout, and robot fusion.

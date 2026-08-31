@@ -227,6 +227,7 @@ def validate_source_run(
     expected_study_id=None,
     expected_environment=None,
     check_checkpoint_metadata=True,
+    allow_running_source_if_checkpoint_best=False,
 ):
     """Validate a source run and return immutable provenance information."""
 
@@ -239,8 +240,25 @@ def validate_source_run(
         raise ReevaluationError(f'Missing source resolved_config.json: {resolved_path}')
     metadata = _read_json(metadata_path)
     resolved = _read_json(resolved_path)
-    if metadata.get('status') != 'completed':
-        raise ReevaluationError(f'Source run is not completed: {metadata.get("status")!r}')
+    if checkpoint_selector is None:
+        if checkpoint_step is None:
+            raise ReevaluationError('A checkpoint_step or checkpoint_selector is required')
+        checkpoint_selector = {'selector': 'step', 'step': int(checkpoint_step)}
+    try:
+        normalized_selector = normalize_checkpoint_selector(checkpoint_selector)
+    except (TypeError, ValueError, KeyError) as error:
+        raise ReevaluationError(f'Invalid checkpoint selector {checkpoint_selector!r}: {error}') from error
+    allowed_statuses = {'completed'}
+    if allow_running_source_if_checkpoint_best and normalized_selector['selector'] == 'best':
+        # A semantic best artifact is complete and independently checksummed
+        # before its index pointer is published.  This narrow exception is
+        # intentionally unavailable to last/final or numeric checkpoints.
+        allowed_statuses.add('running')
+    if metadata.get('status') not in allowed_statuses:
+        raise ReevaluationError(
+            f'Source run status {metadata.get("status")!r} is not allowed for '
+            f'checkpoint selector {normalized_selector!r}; allowed={sorted(allowed_statuses)!r}'
+        )
     if metadata.get('git_dirty') is not False:
         raise ReevaluationError(f'Formal source run is not clean: {metadata.get("git_dirty")!r}')
 
@@ -275,18 +293,14 @@ def validate_source_run(
             f'metadata={stored_fingerprint!r}, file={resolved_fingerprint!r}, calculated={calculated_fingerprint!r}'
         )
 
-    if checkpoint_selector is None:
-        if checkpoint_step is None:
-            raise ReevaluationError('A checkpoint_step or checkpoint_selector is required')
-        checkpoint_selector = {'selector': 'step', 'step': int(checkpoint_step)}
     try:
         checkpoint = resolve_checkpoint(
             source_run_dir,
-            checkpoint_selector,
+            normalized_selector,
             load_metadata=check_checkpoint_metadata,
         )
     except (FileNotFoundError, OSError, TypeError, ValueError, KeyError) as error:
-        raise ReevaluationError(f'Cannot resolve checkpoint {checkpoint_selector!r}: {error}') from error
+        raise ReevaluationError(f'Cannot resolve checkpoint {normalized_selector!r}: {error}') from error
     checkpoint_path = Path(checkpoint['checkpoint_path'])
     checkpoint_step = int(checkpoint['checkpoint_step'])
     if not checkpoint_path.is_file():
@@ -324,6 +338,7 @@ def validate_source_run(
         'source_training_seed': training_seed,
         'source_git_commit': metadata.get('git_commit'),
         'source_git_dirty': metadata.get('git_dirty'),
+        'source_run_status_at_validation': metadata.get('status'),
         'source_resolved_config_fingerprint': stored_fingerprint,
         'source_metadata': metadata,
         'resolved_config': resolved,
@@ -331,7 +346,7 @@ def validate_source_run(
         'checkpoint_path': str(checkpoint_path),
         'checkpoint_sha256': sha256_file(checkpoint_path),
         'checkpoint_metadata': jsonable(checkpoint_metadata),
-        'requested_checkpoint_selector': normalize_checkpoint_selector(checkpoint_selector),
+        'requested_checkpoint_selector': normalized_selector,
         'resolved_checkpoint_role': checkpoint['checkpoint_role'],
         'resolved_checkpoint_step': int(checkpoint['checkpoint_step']),
     }

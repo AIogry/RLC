@@ -47,6 +47,22 @@ class ModuleDict(nn.Module):
             return out
         return self.modules[name](*args, **kwargs)
 
+    def diagnostic_trace(self, *args, name=None, **kwargs):
+        """Route an explicit diagnostic-only trace request to one submodule.
+
+        Normal network calls continue through ``__call__``.  Keeping this
+        routing method on ModuleDict lets a TrainState apply one restored
+        module's diagnostic helper without constructing an alternate parameter
+        tree or exposing trace state to the training graph.
+        """
+
+        if name is None or name not in self.modules:
+            raise ValueError(f'Unknown diagnostic module name: {name!r}')
+        trace_fn = getattr(self.modules[name], 'diagnostic_trace', None)
+        if trace_fn is None:
+            raise ValueError(f'Module {name!r} does not expose diagnostic_trace')
+        return trace_fn(*args, **kwargs)
+
 
 class TrainState(flax.struct.PyTreeNode):
     step: int
