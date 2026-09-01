@@ -11,13 +11,20 @@ import numpy as np
 
 from impls.agents import agents
 from impls.computation.topologies.single_state import SingleState
+from impls.diagnostics.puzzle_logic import Puzzle4x4LogicalOracle, audit_real_puzzle_environment
 from impls.experiment import load_study, make_run_path, prepare_run_design
 from impls.experiment.management import config_fingerprint, jsonable
 from impls.experiment.reevaluation import ReevaluationError, validate_source_run
 from impls.main import _make_config, _parse_args
 from impls.utils.checkpointing import sha256_file, write_checkpoint_index
 from impls.utils.flax_utils import save_semantic_checkpoint
-from tools import analyze_m18_d, m18_cross_k_eval, m18_trace_diagnostics
+from tools import (
+    analyze_m18_d,
+    m18_cross_actor_critic,
+    m18_cross_k_eval,
+    m18_paired_rollout_diagnostics,
+    m18_trace_diagnostics,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -314,6 +321,181 @@ class M18DAggregationTest(unittest.TestCase):
             self.assertEqual(len(list(output_dir.glob('D*.png'))), 11)
             with self.assertRaises(FileExistsError):
                 analyze_m18_d.analyze(diagnostics_root, output_dir, dry_run=False)
+
+
+class M18DSupplementUnitTest(unittest.TestCase):
+    def test_d2_plus_is_per_sample_and_validates_both_energy_identities(self):
+        with tempfile.TemporaryDirectory() as directory:
+            artifact_dir = (
+                Path(directory) / 'diagnostics' / 'M18D' / 'trace' / 'checkpoint_best'
+                / 'fixed_batch_N16_seed1' / 'trainK4' / 'maxTraceK8'
+            )
+            artifact_dir.mkdir(parents=True)
+            (artifact_dir / 'm18d_metadata.json').write_text(json.dumps({
+                'status': 'completed', 'diagnostic_id': 'M18-D234', 'K_train': 4,
+                'source_checkpoint_step': 900000, 'source_checkpoint_sha256': 'test-sha',
+            }))
+            # state_rms^2 = mean_token_rms^2 + token_variance for every
+            # sample/iteration.  k=0 is zero and must remain NaN, not 0/1.
+            state_energy = np.asarray([
+                [0.0, 4.0, 9.0, 16.0, 25.0, 36.0],
+                [0.0, 16.0, 25.0, 36.0, 49.0, 64.0],
+            ])
+            mean_energy = np.asarray([
+                [0.0, 1.0, 4.0, 4.0, 9.0, 9.0],
+                [0.0, 4.0, 9.0, 9.0, 16.0, 16.0],
+            ])
+            np.savez_compressed(
+                artifact_dir / 'actor_metrics.npz',
+                sample_id=np.asarray([7, 8], dtype=np.int64),
+                iteration_k=np.arange(6, dtype=np.int64),
+                slot=np.asarray('actor'), K_train=np.asarray(4, dtype=np.int64),
+                checkpoint_role=np.asarray('best'), ensemble_member=np.asarray(''),
+                state_rms=np.sqrt(state_energy), mean_token_rms=np.sqrt(mean_energy),
+                token_variance=state_energy - mean_energy,
+            )
+            rows, arrays, _ = analyze_m18_d._collect_retained_energy(Path(directory) / 'diagnostics')
+            retained = [
+                row for row in rows
+                if row['metric'] == 'mean_pooling_retained_energy_fraction' and row['iteration_k'] == 1
+            ]
+            self.assertEqual(len(retained), 1)
+            self.assertAlmostEqual(retained[0]['mean'], (1.0 / 4.0 + 4.0 / 16.0) / 2.0, places=7)
+            zero = [
+                row for row in rows
+                if row['metric'] == 'mean_pooling_retained_energy_fraction' and row['iteration_k'] == 0
+            ]
+            self.assertEqual(zero[0]['count'], 0)
+            self.assertTrue(zero[0]['mean'] is None)
+            self.assertTrue(np.all(np.isnan(arrays['mean_pooling_retained_energy_fraction'][arrays['iteration_k'] == 0])))
+            self.assertTrue(np.allclose(
+                arrays['mean_pooling_retained_energy_fraction'][np.isfinite(arrays['mean_pooling_retained_energy_fraction'])],
+                arrays['rho_from_token_variance_identity'][np.isfinite(arrays['mean_pooling_retained_energy_fraction'])],
+                rtol=0.0,
+                atol=2e-6,
+            ))
+            extrapolated = arrays['is_depth_extrapolation'][arrays['iteration_k'] == 5]
+            self.assertTrue(np.all(extrapolated == 1))
+
+    def test_d6_within_critic_margins_joint_rate_and_dataset_controls(self):
+        q4 = {
+            'data': np.asarray([[0.0, 0.0], [0.0, 0.0]]),
+            'a4': np.asarray([[2.0, -1.0], [1.0, -2.0]]),
+            'a8': np.asarray([[1.0, 1.0], [0.0, 0.0]]),
+        }
+        q8 = {
+            'data': np.asarray([[0.0, 0.0], [0.0, 0.0]]),
+            'a4': np.asarray([[1.0, 2.0], [0.0, 1.0]]),
+            'a8': np.asarray([[2.0, 0.0], [1.0, -1.0]]),
+        }
+        result = m18_cross_actor_critic.d6_per_sample(q4, q8, tolerance=1e-6)
+        np.testing.assert_allclose(result['Q4_a4'], np.asarray([1.0, -2.0]))
+        np.testing.assert_allclose(result['Delta_Q4_self'], np.asarray([1.0, -2.0]))
+        np.testing.assert_allclose(result['Delta_Q8_self'], np.asarray([1.0, -2.0]))
+        np.testing.assert_array_equal(result['self_preference_4'], np.asarray([1, 0], dtype=np.int8))
+        np.testing.assert_array_equal(result['self_preference_8'], np.asarray([1, 0], dtype=np.int8))
+        np.testing.assert_array_equal(result['joint_self_preference'], np.asarray([1, 0], dtype=np.int8))
+        np.testing.assert_allclose(result['Delta_Q4_own_vs_data'], np.asarray([1.0, -2.0]))
+        rows = {row['metric']: row for row in m18_cross_actor_critic.d6_summary_rows(result)}
+        self.assertAlmostEqual(rows['joint_self_preference']['mean'], 0.5)
+        self.assertAlmostEqual(rows['Delta_Q4_self']['positive_fraction'], 0.5)
+
+    def test_d3_native_final_action_loader_reuses_exact_saved_action(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'actor_metrics.npz'
+            clipped = np.zeros((3, 5, 2), dtype=np.float64)
+            clipped[:, 4] = np.asarray([[0.1, -0.2], [0.3, -0.4], [0.5, -0.6]])
+            np.savez_compressed(
+                path,
+                sample_id=np.asarray([10, 11, 12], dtype=np.int64),
+                iteration_k=np.arange(5, dtype=np.int64), slot=np.asarray('actor'),
+                K_train=np.asarray(4, dtype=np.int64), checkpoint_role=np.asarray('best'),
+                checkpoint_step=np.asarray(9, dtype=np.int64), ensemble_member=np.asarray(''),
+                clipped_action=clipped,
+                normal_actor_mode_at_train_k=clipped[:, 4].copy(),
+            )
+            action, metadata = m18_cross_actor_critic._load_d3_final_action(
+                path,
+                train_k=4,
+                expected_sample_id=np.asarray([10, 11, 12]),
+                max_samples=3,
+                expected_checkpoint_step=9,
+            )
+            np.testing.assert_array_equal(action, clipped[:, 4])
+            self.assertEqual(metadata['iteration_k'], 4)
+            self.assertEqual(metadata['checkpoint_step'], 9)
+            self.assertEqual(metadata['normal_mode_clipped_parity_max_abs_error'], 0.0)
+
+    def test_puzzle_oracle_extraction_transition_distance_and_pair_plan(self):
+        oracle = Puzzle4x4LogicalOracle()
+        self.assertEqual(oracle.state_count, 2 ** 16)
+        zero = np.zeros(16, dtype=np.int8)
+        next_state = oracle.transition_states(zero, 5)
+        self.assertEqual(oracle.distance(zero, zero), 0)
+        self.assertEqual(oracle.distance(next_state, zero), 1)
+        event = oracle.classify_observed_transition(zero, next_state)
+        self.assertTrue(event['verified_single_press_event'])
+        self.assertEqual(event['pressed_button_id'], 5)
+        optimal = oracle.optimal_pressed_buttons(next_state, zero)
+        self.assertIn(5, optimal)
+        self.assertEqual(oracle.distance(oracle.transition_states(next_state, 5), zero), 0)
+        invariant = oracle.validate_distance_invariants(zero)
+        self.assertEqual(invariant['goal_distance'], 0)
+        self.assertGreater(invariant['reachable_state_count'], 0)
+        forward = m18_paired_rollout_diagnostics.paired_episode_plan((1, 2), 2, 18018)
+        reverse = m18_paired_rollout_diagnostics.paired_episode_plan((2, 1), 2, 18018)
+        self.assertEqual(forward, reverse)
+
+    def test_paired_goal_manifest_is_byte_identical_for_both_model_consumers(self):
+        """D5's raw policy goal is shared, despite env-local goal rendering noise."""
+
+        import ogbench
+
+        plan = m18_paired_rollout_diagnostics.paired_episode_plan((1, 2), 1, 18018)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            arrays, created = m18_paired_rollout_diagnostics._create_paired_goal_manifest(root, plan)
+            loaded, recovered = m18_paired_rollout_diagnostics._load_paired_goal_manifest(root, plan)
+            self.assertEqual(created['fingerprint'], recovered['fingerprint'])
+            self.assertEqual(len(loaded), len(plan))
+            oracle = Puzzle4x4LogicalOracle()
+            env = ogbench.make_env_and_datasets('puzzle-4x4-play-v0', env_only=True)
+            try:
+                for index, paired in enumerate(plan):
+                    shared_goal = loaded[paired['paired_episode_id']]['policy_goal']
+                    # These two copies model the K4 and K8 worker inputs.  The
+                    # requirement is byte identity, not merely equal logical
+                    # button targets.
+                    k4_goal = np.asarray(shared_goal).copy()
+                    k8_goal = np.asarray(shared_goal).copy()
+                    np.testing.assert_array_equal(k4_goal, k8_goal)
+                    np.testing.assert_array_equal(k4_goal, arrays['policy_goal'][index])
+                    _, info = env.reset(
+                        seed=int(paired['episode_seed']),
+                        options={'task_id': int(paired['task_id']), 'render_goal': False},
+                    )
+                    self.assertEqual(
+                        oracle.encode(oracle.extract_logical_state(k4_goal)),
+                        oracle.encode(oracle.extract_logical_state(np.asarray(info['goal']))),
+                    )
+                    self.assertEqual(
+                        loaded[paired['paired_episode_id']]['policy_goal_logical_configuration'],
+                        int(arrays['policy_goal_logical_configuration'][index]),
+                    )
+            finally:
+                env.close()
+
+    def test_real_puzzle_environment_transition_oracle_parity(self):
+        import ogbench
+
+        env = ogbench.make_env_and_datasets('puzzle-4x4-play-v0', env_only=True)
+        try:
+            audit = audit_real_puzzle_environment(env, validation_seed=18018, transition_cases=8)
+        finally:
+            env.close()
+        self.assertTrue(audit['environment_semantics_audit_passed'], audit['errors'])
+        self.assertTrue(audit['exact_shortest_distance_available'], audit['errors'])
+        self.assertEqual(audit['transition_cases_passed'], 8)
 
 
 class M18DRealPuzzleSmokeTest(unittest.TestCase):
