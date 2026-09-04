@@ -214,6 +214,93 @@ def validate_compute_slots(agent_name: str, config: Mapping):
                     f'{agent_name}.{slot_name}'
                 )
             if structure == 'puzzle_tokens':
+                block = slot.get('block', 'plain')
+                if block == 'entity_mlp':
+                    # M19A is deliberately a narrowly scoped control.  Do
+                    # not accept recurrent, alternate-readout, or legacy
+                    # token-mixing variants and silently reinterpret them.
+                    if slot.get('topology') != 'feedforward':
+                        raise ValueError(
+                            f'EntityMLP Puzzle computation for {agent_name}.{slot_name} '
+                            'requires topology=feedforward'
+                        )
+                    if slot.get('credit', 'direct') != 'direct':
+                        raise ValueError(
+                            f'EntityMLP Puzzle computation for {agent_name}.{slot_name} '
+                            'requires credit=direct'
+                        )
+                    structure_kwargs = slot.get('structure_kwargs', {})
+                    if not hasattr(structure_kwargs, 'get'):
+                        raise ValueError(
+                            f'EntityMLP structure_kwargs for {agent_name}.{slot_name} '
+                            'must be a mapping'
+                        )
+                    if 'num_buttons' not in structure_kwargs:
+                        raise ValueError(
+                            f'EntityMLP Puzzle computation for {agent_name}.{slot_name} '
+                            'requires structure_kwargs.num_buttons'
+                        )
+                    readout = slot.get('readout', structure_kwargs.get('readout', 'mean_context'))
+                    if readout != 'mean_context':
+                        raise ValueError(
+                            f'EntityMLP Puzzle computation for {agent_name}.{slot_name} '
+                            'requires readout=mean_context'
+                        )
+                    topology_kwargs = slot.get('topology_kwargs', {})
+                    if not hasattr(topology_kwargs, 'get') or topology_kwargs:
+                        raise ValueError(
+                            f'EntityMLP Puzzle computation for {agent_name}.{slot_name} '
+                            'does not permit topology_kwargs'
+                        )
+                    block_kwargs = slot.get('block_kwargs', {})
+                    if not hasattr(block_kwargs, 'get'):
+                        raise ValueError(
+                            f'EntityMLP block_kwargs for {agent_name}.{slot_name} '
+                            'must be a mapping'
+                        )
+                    token_mixing_keys = (
+                        set(structure_kwargs) | set(block_kwargs)
+                    ) & {
+                        'token_hidden_dim', 'token_mlp_hidden_dim', 'tm_mode',
+                        'num_tokens', 'hidden_dim_tokens',
+                    }
+                    if token_mixing_keys:
+                        raise ValueError(
+                            f'EntityMLP Puzzle computation for {agent_name}.{slot_name} '
+                            f'cannot include token-mixing kwargs {sorted(token_mixing_keys)!r}'
+                        )
+                    unexpected_structure = set(structure_kwargs) - {
+                        'num_buttons', 'robot_dim', 'button_feature_dim', 'token_dim',
+                        'robot_hidden_dim', 'index_embedding',
+                    }
+                    if unexpected_structure:
+                        raise ValueError(
+                            f'EntityMLP structure_kwargs for {agent_name}.{slot_name} '
+                            f'contain unsupported keys {sorted(unexpected_structure)!r}'
+                        )
+                    unexpected_block = set(block_kwargs) - {
+                        'num_blocks', 'num_mixer_blocks', 'channel_hidden_dim',
+                        'channel_mlp_hidden_dim',
+                    }
+                    if unexpected_block:
+                        raise ValueError(
+                            f'EntityMLP block_kwargs for {agent_name}.{slot_name} '
+                            f'contain unsupported keys {sorted(unexpected_block)!r}'
+                        )
+                    if not any(name in block_kwargs for name in ('num_blocks', 'num_mixer_blocks')):
+                        raise ValueError(
+                            f'EntityMLP Puzzle computation for {agent_name}.{slot_name} '
+                            'requires block_kwargs.num_blocks'
+                        )
+                    if not any(
+                        name in block_kwargs
+                        for name in ('channel_hidden_dim', 'channel_mlp_hidden_dim')
+                    ):
+                        raise ValueError(
+                            f'EntityMLP Puzzle computation for {agent_name}.{slot_name} '
+                            'requires block_kwargs.channel_hidden_dim'
+                        )
+                    continue
                 topology = slot.get('topology')
                 if topology not in ('feedforward', 'single_state'):
                     raise ValueError(
@@ -225,7 +312,7 @@ def validate_compute_slots(agent_name: str, config: Mapping):
                         f'Puzzle token computation for {agent_name}.{slot_name} '
                         'requires credit=direct'
                     )
-                if slot.get('block', 'plain') != 'mlp_mixer':
+                if block != 'mlp_mixer':
                     raise ValueError(
                         f'Puzzle token computation for {agent_name}.{slot_name} '
                         "requires block='mlp_mixer'"

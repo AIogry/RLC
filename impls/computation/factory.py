@@ -7,6 +7,7 @@ from typing import Mapping, Optional, Sequence
 from .credit.direct import DirectCredit
 from .credit.full_bptt import FullBPTTCredit
 from .credit.one_step import OneStepCredit
+from .blocks.entity_mlp import EntityMLPStack
 from .blocks.mlp_mixer import MLPMixerStack
 from .blocks.residual_mlp import ResidualMLPStack
 from .interfaces import ComputationCore
@@ -93,6 +94,157 @@ def resolve_slot_spec(config: Optional[Mapping], slot_name: str):
     )
 
 
+_ENTITY_STRUCTURE_KEYS = frozenset({
+    'num_buttons',
+    'robot_dim',
+    'button_feature_dim',
+    'token_dim',
+    'robot_hidden_dim',
+    'index_embedding',
+})
+_ENTITY_BLOCK_KEYS = frozenset({
+    'num_blocks',
+    # These spellings are accepted only as schema compatibility aliases.
+    # M19A itself uses num_blocks/channel_hidden_dim.
+    'num_mixer_blocks',
+    'channel_hidden_dim',
+    'channel_mlp_hidden_dim',
+})
+_ENTITY_TOKEN_MIXING_KEYS = frozenset({
+    'token_hidden_dim',
+    'token_mlp_hidden_dim',
+    'tm_mode',
+    'num_tokens',
+    'hidden_dim_tokens',
+})
+
+
+def _entity_mlp_value(kwargs, names, label):
+    """Resolve one explicitly supplied EntityMLP setting without fallback."""
+
+    values = [(name, kwargs[name]) for name in names if name in kwargs]
+    if not values:
+        raise ValueError(f'EntityMLP requires block_kwargs.{label}')
+    first = values[0][1]
+    if any(value != first for _, value in values[1:]):
+        raise ValueError(
+            f'EntityMLP conflicting aliases for {label}: '
+            f'{[(name, value) for name, value in values]!r}'
+        )
+    if isinstance(first, bool) or not isinstance(first, Integral) or first <= 0:
+        raise ValueError(
+            f'EntityMLP block_kwargs.{label} must be a positive integer, got {first!r}'
+        )
+    return int(first)
+
+
+def _make_entity_mlp_puzzle_core(spec, *, hidden_dims, activate_final, layer_norm):
+    """Construct the tightly scoped M19A EntityMLP structured path.
+
+    This branch intentionally does not share a construction helper with the
+    Mixer branch below. Keeping Mixer construction untouched protects its
+    historical parameter tree and RNG split semantics.
+    """
+
+    if spec.credit != DirectCredit.name:
+        raise ValueError(
+            f'EntityMLP Puzzle computation requires credit={DirectCredit.name!r}, '
+            f'got {spec.credit!r}'
+        )
+    if spec.topology != 'feedforward':
+        raise ValueError(
+            'EntityMLP Puzzle computation supports only topology=feedforward; '
+            f'got {spec.topology!r}'
+        )
+    if spec.readout != 'mean_context':
+        raise ValueError(
+            'EntityMLP Puzzle computation requires readout=mean_context; '
+            f'got {spec.readout!r}'
+        )
+    if spec.topology_kwargs:
+        raise ValueError(
+            'EntityMLP Puzzle computation does not accept topology_kwargs; '
+            'recurrent state and topology modifiers are out of scope'
+        )
+    if spec.primitive not in ('mlp', 'original_mlp'):
+        raise ValueError(f'Unsupported EntityMLP Puzzle primitive: {spec.primitive!r}')
+
+    structure_kwargs = dict(spec.structure_kwargs)
+    block_kwargs = dict(spec.block_kwargs)
+    token_mixing_keys = (
+        set(structure_kwargs) | set(block_kwargs)
+    ) & _ENTITY_TOKEN_MIXING_KEYS
+    if token_mixing_keys:
+        raise ValueError(
+            'EntityMLP does not accept token-mixing kwargs: '
+            f'{sorted(token_mixing_keys)!r}'
+        )
+    unexpected_structure = set(structure_kwargs) - _ENTITY_STRUCTURE_KEYS
+    if unexpected_structure:
+        raise ValueError(
+            'Unsupported EntityMLP structure_kwargs: '
+            f'{sorted(unexpected_structure)!r}'
+        )
+    unexpected_block = set(block_kwargs) - _ENTITY_BLOCK_KEYS
+    if unexpected_block:
+        raise ValueError(
+            'Unsupported EntityMLP block_kwargs: '
+            f'{sorted(unexpected_block)!r}'
+        )
+    if 'num_buttons' not in structure_kwargs:
+        raise ValueError('EntityMLP Puzzle computation requires structure_kwargs.num_buttons')
+
+    num_blocks = _entity_mlp_value(
+        block_kwargs, ('num_blocks', 'num_mixer_blocks'), 'num_blocks'
+    )
+    channel_hidden_dim = _entity_mlp_value(
+        block_kwargs, ('channel_hidden_dim', 'channel_mlp_hidden_dim'),
+        'channel_hidden_dim',
+    )
+    token_dim = int(structure_kwargs.get('token_dim', 128))
+    if token_dim <= 0:
+        raise ValueError(f'EntityMLP structure_kwargs.token_dim must be positive, got {token_dim!r}')
+
+    from .structured import StructuredComputationBody
+    from ..representation.puzzle import PuzzleTokenAdapter
+
+    adapter = PuzzleTokenAdapter(
+        num_buttons=int(structure_kwargs['num_buttons']),
+        robot_dim=int(structure_kwargs.get('robot_dim', 19)),
+        button_feature_dim=int(structure_kwargs.get('button_feature_dim', 4)),
+        token_dim=token_dim,
+        robot_hidden_dim=int(structure_kwargs.get('robot_hidden_dim', 128)),
+        index_embedding=bool(structure_kwargs.get('index_embedding', True)),
+        input_semantics=spec.input_semantics,
+        action_semantics=spec.action_semantics,
+        layer_norm=layer_norm,
+    )
+    block_unit = EntityMLPStack(
+        num_blocks=num_blocks,
+        embed_dim=token_dim,
+        hidden_dim_channels=channel_hidden_dim,
+    )
+    structured_core = ComputationCore(topology=FeedForward(primitive=block_unit))
+    readout_kwargs = dict(spec.readout_kwargs)
+    requested_output_dim = int(readout_kwargs.pop('output_dim', hidden_dims[-1]))
+    if requested_output_dim != hidden_dims[-1]:
+        raise ValueError(
+            'Structured readout output_dim must match the algorithm slot width; '
+            f'got {requested_output_dim}, expected {hidden_dims[-1]}'
+        )
+    if readout_kwargs:
+        raise ValueError(f'Unsupported mean_context readout kwargs: {sorted(readout_kwargs)!r}')
+    return StructuredComputationBody(
+        adapter=adapter,
+        core=structured_core,
+        readout=MeanContextReadout(
+            output_dim=hidden_dims[-1],
+            layer_norm=layer_norm,
+            activate_final=True if activate_final is None else bool(activate_final),
+        ),
+    )
+
+
 def make_computation_core(
     spec: ComputationSpec,
     *,
@@ -120,6 +272,13 @@ def make_computation_core(
             "expected 'vector' or 'puzzle_tokens'"
         )
     if spec.structure == 'puzzle_tokens':
+        if spec.block == 'entity_mlp':
+            return _make_entity_mlp_puzzle_core(
+                spec,
+                hidden_dims=hidden_dims,
+                activate_final=activate_final,
+                layer_norm=layer_norm,
+            )
         if spec.credit != DirectCredit.name:
             raise ValueError(
                 f'Puzzle token computation requires credit={DirectCredit.name!r}, '

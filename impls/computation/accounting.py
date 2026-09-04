@@ -180,19 +180,24 @@ def modular_structured_body_accounting(
     topology='feedforward',
     topology_kwargs=None,
     block_kwargs=None,
+    block_type='mlp_mixer',
 ):
-    """Account the M17 adapter -> block -> topology -> readout composition.
+    """Account the modular adapter -> block -> topology -> readout composition.
 
     The report separates physical representation/block/readout ownership from
     repeated execution.  Dense MACs are per sample and include ensemble axes
     when the owning slot is an ensemble member (for example GCIQL critic).
+    ``block_type`` preserves the historical Mixer surface while allowing the
+    M19A EntityMLP channel-only control to expose non-misleading generic
+    block accounting.
     """
 
     structure_kwargs = structure_kwargs if hasattr(structure_kwargs, 'get') else {}
     topology_kwargs = topology_kwargs if hasattr(topology_kwargs, 'get') else {}
-    structure_kwargs = structure_kwargs if hasattr(structure_kwargs, 'get') else {}
     block_kwargs = block_kwargs if hasattr(block_kwargs, 'get') else {}
     body_params = body_params if hasattr(body_params, 'items') else {}
+    if block_type not in ('mlp_mixer', 'entity_mlp'):
+        raise ValueError(f'Unsupported modular structured block_type: {block_type!r}')
     adapter = body_params.get('adapter', {})
     readout = body_params.get('readout', {})
     core = body_params.get('core', {})
@@ -211,15 +216,6 @@ def modular_structured_body_accounting(
 
     num_tokens = int(structure_kwargs.get('num_buttons', 0))
     token_dim = int(structure_kwargs.get('token_dim', 0))
-    token_hidden_dim = int(
-        block_kwargs.get(
-            'token_hidden_dim',
-            block_kwargs.get(
-                'token_mlp_hidden_dim',
-                structure_kwargs.get('token_mlp_hidden_dim', 0),
-            ),
-        )
-    )
     channel_hidden_dim = int(
         block_kwargs.get(
             'channel_hidden_dim',
@@ -235,17 +231,33 @@ def modular_structured_body_accounting(
             block_kwargs.get('num_mixer_blocks', structure_kwargs.get('num_mixer_blocks', 0)),
         )
     )
-    if min(num_tokens, token_dim, token_hidden_dim, channel_hidden_dim, num_blocks) <= 0:
+    if block_type == 'mlp_mixer':
+        token_hidden_dim = int(
+            block_kwargs.get(
+                'token_hidden_dim',
+                block_kwargs.get(
+                    'token_mlp_hidden_dim',
+                    structure_kwargs.get('token_mlp_hidden_dim', 0),
+                ),
+            )
+        )
+        required_dimensions = (
+            num_tokens, token_dim, token_hidden_dim, channel_hidden_dim, num_blocks,
+        )
+    else:
+        token_hidden_dim = None
+        required_dimensions = (num_tokens, token_dim, channel_hidden_dim, num_blocks)
+    if min(required_dimensions) <= 0:
         raise ValueError(
             'Modular structured accounting requires positive num_buttons, token_dim, '
-            'token_mlp_hidden_dim, channel_mlp_hidden_dim, and block depth L'
+            'channel_mlp_hidden_dim, and block depth L'
         )
 
-    mixer_blocks = _module_subtrees(block_unit, 'blocks')
-    if len(mixer_blocks) != num_blocks:
+    blocks = _module_subtrees(block_unit, 'blocks')
+    if len(blocks) != num_blocks:
         raise ValueError(
             'Modular structured accounting block-depth mismatch: '
-            f'config L={num_blocks}, parameter blocks={len(mixer_blocks)}'
+            f'config L={num_blocks}, parameter blocks={len(blocks)}'
         )
     button_projection = adapter.get('button_projection', {})
     context_projection = adapter.get('robot_projection', {})
@@ -254,41 +266,78 @@ def modular_structured_body_accounting(
     index_params = count_parameters(adapter.get('index_embedding', {}))
     context_params = count_parameters(context_projection)
     fusion_params = count_parameters(fusion)
-    mixer_params = count_parameters(block_unit)
-
-    mixer_macs_per_execution = 0
+    computation_block_params = count_parameters(block_unit)
+    token_mixing_params = 0
+    channel_mixing_params = 0
+    token_mixing_macs_per_execution = 0
+    channel_mixing_macs_per_execution = 0
     tm_macs_per_execution = 0
-    for block in mixer_blocks.values():
-        mixer_macs_per_execution += (
-            _dense_macs(block, 'token_dense1') * token_dim
-            + _dense_macs(block, 'token_dense2') * token_dim
-            + _dense_macs(block, 'channel_dense1') * num_tokens
+    for block in blocks.values():
+        channel_mixing_params += (
+            count_parameters(_mapping_get(block, 'channel_dense1', {}))
+            + count_parameters(_mapping_get(block, 'channel_dense2', {}))
+        )
+        channel_mixing_macs_per_execution += (
+            _dense_macs(block, 'channel_dense1') * num_tokens
             + _dense_macs(block, 'channel_dense2') * num_tokens
         )
-        tm = block.get('tm_weights') if hasattr(block, 'get') else None
-        if tm is not None:
-            tm_macs_per_execution += count_parameters(tm) * token_dim
+        if block_type == 'mlp_mixer':
+            token_mixing_params += (
+                count_parameters(_mapping_get(block, 'token_dense1', {}))
+                + count_parameters(_mapping_get(block, 'token_dense2', {}))
+            )
+            token_mixing_macs_per_execution += (
+                _dense_macs(block, 'token_dense1') * token_dim
+                + _dense_macs(block, 'token_dense2') * token_dim
+            )
+            tm = block.get('tm_weights') if hasattr(block, 'get') else None
+            if tm is not None:
+                token_mixing_params += count_parameters(tm)
+                tm_macs_per_execution += count_parameters(tm) * token_dim
+        elif _mapping_get(block, 'tm_weights') is not None:
+            raise ValueError('EntityMLP parameter tree must not contain tm_weights')
+
+    computation_block_macs_per_execution = (
+        token_mixing_macs_per_execution
+        + tm_macs_per_execution
+        + channel_mixing_macs_per_execution
+    )
     token_projection_macs = _dense_macs(adapter, 'button_projection') * num_tokens
     context_projection_macs = _dense_macs(adapter, 'robot_projection')
     fusion_macs = _dense_macs(readout, 'fusion')
     adapter_macs = token_projection_macs + context_projection_macs
-    executed_mixer_macs = (mixer_macs_per_execution + tm_macs_per_execution) * iterations
-    total_macs = adapter_macs + executed_mixer_macs + fusion_macs
+    executed_block_macs = computation_block_macs_per_execution * iterations
+    total_macs = adapter_macs + executed_block_macs + fusion_macs
 
-    # Four Dense transformations form one Mixer layer.  The physical count
-    # includes vmap ensemble axes; logical L remains per block unit.
-    physical_mixer_dense_layers = count_dense_layers(block_unit)
-    unique_mixer_layers = physical_mixer_dense_layers // 4
+    # The physical count includes vmap ensemble axes. Logical L remains a
+    # per-block-unit quantity, while generic fields expose physical Dense
+    # transformations without calling EntityMLP a Mixer.
+    physical_block_dense_layers = count_dense_layers(block_unit)
+    dense_layers_per_block = 4 if block_type == 'mlp_mixer' else 2
+    if physical_block_dense_layers % dense_layers_per_block:
+        raise ValueError(
+            f'{block_type} Dense-layer tree is incompatible with {dense_layers_per_block} '
+            'Dense transformations per block'
+        )
+    physical_mixer_dense_layers = (
+        physical_block_dense_layers if block_type == 'mlp_mixer' else 0
+    )
+    unique_mixer_layers = (
+        physical_mixer_dense_layers // 4 if block_type == 'mlp_mixer' else 0
+    )
     executed_mixer_dense_layers = physical_mixer_dense_layers * iterations
     adapter_dense_layers = count_dense_layers(adapter)
     readout_dense_layers = count_dense_layers(readout)
-    unique_dense_layers = adapter_dense_layers + physical_mixer_dense_layers + readout_dense_layers
-    executed_dense_layers = adapter_dense_layers + executed_mixer_dense_layers + readout_dense_layers
-    # On a single actor/value/critic path the token branch has projection,
-    # four transformations per Mixer layer/execution, then fusion.  This is
-    # execution depth, distinct from each Mixer's internal residual edges.
-    sequential_depth = 2 + 4 * num_blocks * iterations
-    unique_sequential_depth = 2 + 4 * num_blocks
+    unique_dense_layers = adapter_dense_layers + physical_block_dense_layers + readout_dense_layers
+    executed_dense_layers = (
+        adapter_dense_layers
+        + physical_block_dense_layers * iterations
+        + readout_dense_layers
+    )
+    # The single token path contains a button projection, the block's Dense
+    # transforms, then fusion. It intentionally ignores ensemble replication.
+    sequential_depth = 2 + dense_layers_per_block * num_blocks * iterations
+    unique_sequential_depth = 2 + dense_layers_per_block * num_blocks
     button_dims = _last_kernel_dims(button_projection)
     context_dims = _last_kernel_dims(context_projection)
     fusion_dims = _last_kernel_dims(fusion)
@@ -299,17 +348,21 @@ def modular_structured_body_accounting(
         'token_dim': token_dim,
         'token_hidden_dim': token_hidden_dim,
         'channel_hidden_dim': channel_hidden_dim,
-        'num_mixer_blocks': num_blocks,
+        'num_mixer_blocks': num_blocks if block_type == 'mlp_mixer' else None,
         'button_input_dim': button_dims[0] if button_dims else None,
         'robot_input_dim': context_dims[0] if context_dims else None,
         'output_dim': fusion_dims[1] if fusion_dims else None,
         'index_embedding': bool(structure_kwargs.get('index_embedding', index_params > 0)),
         'readout': 'mean_context',
-        'tm_mode': structure_kwargs.get('tm_mode', block_kwargs.get('tm_mode', 'none')),
+        'tm_mode': (
+            structure_kwargs.get('tm_mode', block_kwargs.get('tm_mode', 'none'))
+            if block_type == 'mlp_mixer' else None
+        ),
         'button_projection_params': int(button_params),
         'index_embedding_params': int(index_params),
         'robot_projection_params': int(context_params),
-        'mixer_params': int(mixer_params),
+        # These legacy fields retain their historical Mixer-only meaning.
+        'mixer_params': int(computation_block_params if block_type == 'mlp_mixer' else 0),
         'fusion_params': int(fusion_params),
         'structured_body_params': int(body_params_total),
         'total_structured_body_params': int(body_params_total),
@@ -324,14 +377,27 @@ def modular_structured_body_accounting(
         'token_projection_dense_macs': int(token_projection_macs),
         'robot_projection_dense_macs': int(context_projection_macs),
         'fusion_dense_macs': int(fusion_macs),
-        'mixer_dense_macs': int(mixer_macs_per_execution),
+        'mixer_dense_macs': int(
+            token_mixing_macs_per_execution + channel_mixing_macs_per_execution
+            if block_type == 'mlp_mixer' else 0
+        ),
         'tm_dense_macs': int(tm_macs_per_execution),
         # M17 ownership and L/K accounting.
         'adapter_params': int(count_parameters(adapter)),
         'adapter_dense_macs': int(adapter_macs),
         'context_projection_params': int(context_params),
         'context_projection_dense_macs': int(context_projection_macs),
-        'computation_block_params': int(mixer_params),
+        'block_type': block_type,
+        'token_interaction': block_type == 'mlp_mixer',
+        'token_mixing_params': int(token_mixing_params),
+        'token_mixing_dense_macs': int(
+            token_mixing_macs_per_execution + tm_macs_per_execution
+        ),
+        'channel_mixing_params': int(channel_mixing_params),
+        'channel_mixing_dense_macs': int(channel_mixing_macs_per_execution),
+        'computation_block_params': int(computation_block_params),
+        'computation_block_dense_macs': int(computation_block_macs_per_execution),
+        'executed_computation_block_dense_macs': int(executed_block_macs),
         'block_depth_L': int(num_blocks),
         'iterations_K': int(iterations),
         'unique_mixer_layers': int(unique_mixer_layers),
@@ -339,9 +405,13 @@ def modular_structured_body_accounting(
         'unique_mixer_dense_layers': int(physical_mixer_dense_layers),
         'executed_mixer_dense_layers': int(executed_mixer_dense_layers),
         'mixer_dense_macs_per_execution': int(
-            mixer_macs_per_execution + tm_macs_per_execution
+            computation_block_macs_per_execution if block_type == 'mlp_mixer' else 0
         ),
-        'executed_mixer_dense_macs': int(executed_mixer_macs),
+        'executed_mixer_dense_macs': int(
+            executed_block_macs if block_type == 'mlp_mixer' else 0
+        ),
+        'unique_block_dense_layers': int(physical_block_dense_layers),
+        'executed_block_dense_layers': int(physical_block_dense_layers * iterations),
         'readout_params': int(count_parameters(readout)),
         'readout_dense_macs': int(fusion_macs),
         'unique_sequential_depth': int(unique_sequential_depth),
@@ -396,6 +466,11 @@ def gciql_architecture_accounting(params, config, computation_reports=None):
                     'index_embedding', 'tm_mode', 'block_depth_L',
                     'iterations_K', 'unique_mixer_layers',
                     'executed_mixer_layers',
+                    'block_type', 'token_interaction',
+                    'token_mixing_params', 'token_mixing_dense_macs',
+                    'channel_mixing_params', 'channel_mixing_dense_macs',
+                    'computation_block_params', 'computation_block_dense_macs',
+                    'unique_block_dense_layers', 'executed_block_dense_layers',
                 )
             }
             topology_name = slot_report.get('topology', 'feedforward')
@@ -715,6 +790,7 @@ def computation_slot_accounting(
     structure='vector',
     structure_kwargs=None,
     block_kwargs=None,
+    block_type='mlp_mixer',
 ):
     """Return generic accounting for any enabled computation slot.
 
@@ -744,6 +820,7 @@ def computation_slot_accounting(
             topology=topology,
             topology_kwargs=topology_kwargs,
             block_kwargs=block_kwargs,
+            block_type=block_type,
         )
     elif structure == 'vector':
         structured_metrics = {}
@@ -775,7 +852,7 @@ def computation_slot_accounting(
             'block_kwargs': dict(block_kwargs or {}),
             'credit': credit,
             'parameter_sharing': parameter_sharing if topology == 'single_state' else None,
-            'block': 'mlp_mixer',
+            'block': block_type,
             'state_dim': state_dim,
             'update_depth': None,
             'iterations': iterations,

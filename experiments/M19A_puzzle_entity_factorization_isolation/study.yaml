@@ -1,0 +1,137 @@
+study_id: M19A
+name: "Puzzle Entity Factorization Isolation: Entity-wise MLP control"
+question: >-
+  With the M16B alpha=1.0 GCIQL protocol fixed, does an entity-wise
+  channel-only MLP over Puzzle button tokens retain the observed advantage of
+  the MLP-Mixer, or is explicit pre-pooling cross-token interaction required?
+parent_study: M16B
+primary_factors: [pre_pooling_token_interaction]
+fixed_design:
+  algorithm: gciql
+  actor_hidden_dims: [512, 512, 512]
+  value_hidden_dims: [512, 512, 512]
+  layer_norm: true
+  lr: 0.0003
+  batch_size: 1024
+  train_steps: 1000000
+  discount: 0.99
+  expectile: 0.9
+  tau: 0.005
+  actor_loss: ddpgbc
+  alpha: 1.0
+  const_std: true
+  discrete: false
+  dataset_class: GCDataset
+  value_goal_sampling: {p_curgoal: 0.2, p_trajgoal: 0.5, p_randomgoal: 0.3, geom_sample: true}
+  actor_goal_sampling: {p_curgoal: 0.0, p_trajgoal: 1.0, p_randomgoal: 0.0, geom_sample: false}
+  gc_negative: true
+  p_aug: 0.0
+  frame_stack: null
+  structured:
+    structure: puzzle_tokens
+    primitive: mlp
+    block: entity_mlp
+    block_depth_L: 2
+    token_interaction: false
+    topology: feedforward
+    credit: direct
+    token_dim: 128
+    robot_hidden_dim: 128
+    channel_hidden_dim: 256
+    index_embedding: true
+    readout: mean_context
+  polyak_semantics: target_new = tau * online_post_gradient + (1 - tau) * target_old
+deferred_factors:
+  - parameter_matched_entity_mlp
+  - mac_matched_entity_mlp
+  - additional_training_seeds
+  - other_puzzle_sizes
+  - alpha_sweep
+  - alternative_readouts
+algorithms: [gciql]
+placements: [actor+value+critic]
+environments: [puzzle-4x4-play-v0]
+seeds: [0]
+primary_metric: evaluation/overall_success
+alpha_policy:
+  mode: explicit_fixed_anchor_matched
+  value: 1.0
+  runtime_authority: configuration.agent_overrides.alpha
+  source: M16B Puzzle-play GCIQL alpha=1.0 historical anchors
+historical_anchors:
+  anchor_flat:
+    study_id: M16B
+    config_id: M16B-4x4-B000
+    semantic_condition: canonical_flat_gciql
+    source_run: /data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M16B/M16B-4x4-B000__4x4_flat_alpha1p0/puzzle-4x4-play-v0/seed_000
+    environment: puzzle-4x4-play-v0
+    seed: 0
+    alpha: 1.0
+  anchor_mixer:
+    study_id: M16B
+    config_id: M16B-4x4-S002
+    semantic_condition: puzzle_token_mlp_mixer_l2
+    source_run: /data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M16B/M16B-4x4-S002__4x4_mixer_l2_alpha1p0/puzzle-4x4-play-v0/seed_000
+    environment: puzzle-4x4-play-v0
+    seed: 0
+    alpha: 1.0
+    block_depth_L: 2
+new_condition:
+  config_id: M19A-4x4-E001
+  semantic_condition: ENTITY_TOKEN_ENTITY_MLP_L2
+  block: entity_mlp
+  block_depth_L: 2
+  alpha: 1.0
+  seed: 0
+  new_formal_runs: 1
+anchor_reuse_policy:
+  cross_commit_anchor_reuse: true
+  no_anchor_retraining: true
+  compatibility_gates:
+    - gciql_training_semantics_unchanged
+    - m17_legacy_to_modular_mixer_parity_regression
+    - m18_d_is_diagnostic_only
+    - m19a_does_not_modify_flat_or_mixer_normal_path
+    - m16b_m17_m18_regression_tests_pass
+protocol:
+  train_steps: 1000000
+  batch_size: 1024
+  log_interval: 5000
+  eval_interval: 100000
+  eval_tasks: all
+  eval_task_count: 5
+  eval_episodes: 20
+  eval_temperature: 0.0
+  eval_gaussian: null
+  video_episodes: 0
+  save_interval: 100000
+  save_best_checkpoint: true
+  save_last_checkpoint: true
+  selection_metric: evaluation/overall_success
+  selection_rule: strict_greater_than_keep_earlier_tie
+  primary_endpoint: final@1M
+  secondary_endpoints: [best_success, best_step, last3_mean, normalized_eval_auc]
+  auc:
+    checkpoints: [100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000]
+    interval: [100000, 1000000]
+    rule: trapezoidal_area_divided_by_900000
+  formal_training_started: false
+comparison_policy:
+  methods_in_fixed_order:
+    - Flat MLP (historical M16B anchor)
+    - Entity Token + Entity MLP (new M19A formal run)
+    - Entity Token + MLP-Mixer (historical M16B anchor)
+  structured_factorization_package_effect: J(EntityMLP) - J(FlatMLP)
+  added_token_mixing_branch_effect: J(MLPMixer) - J(EntityMLP)
+  limitations:
+    - seed_0_only
+    - historical_cross_commit_anchors
+    - unmatched_parameter_and_mac_budgets
+    - flat_to_entity_changes_the_full_structured_factorization_package
+acceptance:
+  expected_new_formal_runs: 1
+  expected_historical_anchors: 2
+  no_automatic_formal_launch: true
+  no_git_writes_by_agent: true
+  require_cross_token_independence: true
+  require_anchor_reuse_validation: true

@@ -1,0 +1,60 @@
+study_id: M19A
+config_id: M19A-4x4-E001
+slug: 4x4_entity_mlp_l2_alpha1p0
+algorithm: gciql
+environment: puzzle-4x4-play-v0
+protocol_stage: formal
+placement: actor+value+critic
+executable: true
+condition_id: E001
+semantic_condition: ENTITY_TOKEN_ENTITY_MLP_L2
+description: >-
+  Puzzle-4x4 alpha=1.0 EntityMLP L2 control. The block is exactly the
+  MLP-Mixer channel branch applied independently to each button token.
+factors:
+  environment: puzzle-4x4-play-v0
+  condition: E001
+  structure: puzzle_tokens
+  topology: feedforward
+  block: entity_mlp
+  block_depth_L: 2
+  token_interaction: false
+  num_buttons: 16
+  alpha: 1.0
+agent_overrides:
+  actor_loss: ddpgbc
+  alpha: 1.0
+  compute:
+    actor:
+      enabled: true
+      primitive: mlp
+      structure: puzzle_tokens
+      structure_kwargs: {num_buttons: 16, robot_dim: 19, button_feature_dim: 4, token_dim: 128, robot_hidden_dim: 128, index_embedding: true}
+      block: entity_mlp
+      block_kwargs: {num_blocks: 2, channel_hidden_dim: 256}
+      topology: feedforward
+      credit: direct
+      readout: mean_context
+      readout_kwargs: {output_dim: 512}
+    value:
+      enabled: true
+      primitive: mlp
+      structure: puzzle_tokens
+      structure_kwargs: {num_buttons: 16, robot_dim: 19, button_feature_dim: 4, token_dim: 128, robot_hidden_dim: 128, index_embedding: true}
+      block: entity_mlp
+      block_kwargs: {num_blocks: 2, channel_hidden_dim: 256}
+      topology: feedforward
+      credit: direct
+      readout: mean_context
+      readout_kwargs: {output_dim: 512}
+    critic:
+      enabled: true
+      primitive: mlp
+      structure: puzzle_tokens
+      structure_kwargs: {num_buttons: 16, robot_dim: 19, button_feature_dim: 4, token_dim: 128, robot_hidden_dim: 128, index_embedding: true}
+      block: entity_mlp
+      block_kwargs: {num_blocks: 2, channel_hidden_dim: 256}
+      topology: feedforward
+      credit: direct
+      readout: mean_context
+      readout_kwargs: {output_dim: 512}

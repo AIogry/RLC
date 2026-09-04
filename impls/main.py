@@ -135,6 +135,25 @@ def _normalize_structured_compute_defaults(config):
             slot['readout_kwargs'] = {}
         if 'block_kwargs' not in slot:
             slot['block_kwargs'] = {}
+        if slot.get('block') == 'entity_mlp':
+            # EntityMLP owns only the channel branch. Materialize its derived
+            # runtime semantics without injecting any Mixer-only fields.
+            block_kwargs = slot['block_kwargs']
+            if not hasattr(block_kwargs, 'get'):
+                raise ValueError('EntityMLP requires mapping block_kwargs')
+            if 'num_blocks' in block_kwargs:
+                slot['block_depth_L'] = int(block_kwargs['num_blocks'])
+            elif 'num_mixer_blocks' in block_kwargs:
+                slot['block_depth_L'] = int(block_kwargs['num_mixer_blocks'])
+            if 'channel_hidden_dim' in block_kwargs:
+                slot['channel_hidden_dim'] = int(block_kwargs['channel_hidden_dim'])
+            elif 'channel_mlp_hidden_dim' in block_kwargs:
+                slot['channel_hidden_dim'] = int(block_kwargs['channel_mlp_hidden_dim'])
+            slot['block_type'] = 'entity_mlp'
+            slot['token_interaction'] = False
+            # EntityMLP does not support a structured recurrent topology, so
+            # never materialize SingleState defaults for an invalid request.
+            continue
         if slot.get('topology') != 'single_state':
             continue
         topology_kwargs = slot.get('topology_kwargs', {})
@@ -289,6 +308,7 @@ def _computation_runtime_extras(config):
         structure = slot.get('structure', 'vector')
         structure_kwargs = slot.get('structure_kwargs', {})
         block_kwargs = slot.get('block_kwargs', {})
+        block_type = slot.get('block', 'plain')
         structured_single_state = structure == 'puzzle_tokens' and topology == 'single_state'
         default_state_dim = (
             int(structure_kwargs.get('token_dim'))
@@ -325,7 +345,7 @@ def _computation_runtime_extras(config):
                     'num_blocks',
                     block_kwargs.get('num_mixer_blocks', structure_kwargs.get('num_mixer_blocks', 0)),
                 ))
-                if structure == 'puzzle_tokens' and slot.get('block') == 'mlp_mixer' else None
+                if structure == 'puzzle_tokens' and block_type in ('mlp_mixer', 'entity_mlp') else None
             ),
             'iterations_K': (
                 1 if topology == 'feedforward' else
@@ -340,6 +360,14 @@ def _computation_runtime_extras(config):
             'action_semantics': descriptor.action_semantics,
             'credit': slot.get('credit', 'direct'),
         }
+        if structure == 'puzzle_tokens' and block_type == 'entity_mlp':
+            common.update({
+                'block_type': 'entity_mlp',
+                'channel_hidden_dim': int(block_kwargs.get(
+                    'channel_hidden_dim', block_kwargs.get('channel_mlp_hidden_dim', 0),
+                )),
+                'token_interaction': False,
+            })
         extras['slot_descriptors'][slot_name] = common
         topology = slot.get('topology')
         if topology == 'single_state':
@@ -594,6 +622,7 @@ def _computation_slot_accounting(agent, config):
             structure=structure,
             structure_kwargs=spec.get('structure_kwargs', {}),
             block_kwargs=spec.get('block_kwargs', {}),
+            block_type=spec.get('block', 'plain'),
         )
         report[slot_name].update({
             'role': descriptor.role,
