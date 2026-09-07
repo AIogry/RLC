@@ -12,7 +12,8 @@ from .blocks.mlp_mixer import MLPMixerStack
 from .blocks.residual_mlp import ResidualMLPStack
 from .interfaces import ComputationCore
 from .primitives.mlp import MLP
-from .readouts import MeanContextReadout
+from .readouts import HybridContextQueryReadout, MeanContextReadout
+from .relation import RelationAugmenter
 from .topologies.feedforward import FeedForward
 from .topologies.single_state import SingleState
 from .topologies.two_state import TwoState
@@ -35,6 +36,16 @@ class ComputationSpec:
     action_semantics: str = 'none'
     readout: str = 'mean_context'
     readout_kwargs: Mapping = field(default_factory=dict)
+    # Relations are first-class computation configuration rather than hidden
+    # structure kwargs.  The defaults preserve every historical study.
+    relation_mode: str = 'legacy_none'
+    relation_kwargs: Mapping = field(default_factory=dict)
+    relation_augmenter: str = 'none'
+    relation_augmenter_kwargs: Mapping = field(default_factory=dict)
+    # Set only by mainline Study resolution for a non-executable M20A Phase-2
+    # skeleton.  It permits configuration inspection, never forward training
+    # with unresolved Cube geometry.
+    relation_phase2_blocked: bool = False
 
     @classmethod
     def from_mapping(cls, value: Optional[Mapping] = None):
@@ -61,6 +72,11 @@ class ComputationSpec:
             # first-class readout choice.
             readout=value.get('readout', structure_kwargs.get('readout', 'mean_context')),
             readout_kwargs=dict(value.get('readout_kwargs', {})),
+            relation_mode=value.get('relation_mode', 'legacy_none'),
+            relation_kwargs=dict(value.get('relation_kwargs', {})),
+            relation_augmenter=value.get('relation_augmenter', 'none'),
+            relation_augmenter_kwargs=dict(value.get('relation_augmenter_kwargs', {})),
+            relation_phase2_blocked=bool(value.get('relation_phase2_blocked', False)),
         )
 
 
@@ -245,6 +261,227 @@ def _make_entity_mlp_puzzle_core(spec, *, hidden_dims, activate_final, layer_nor
     )
 
 
+_M20_RELATION_STRUCTURES = frozenset({'puzzle_tokens', 'cube_tokens', 'scene_tokens'})
+_M20_RELATION_MODES = frozenset({'zero', 'correct', 'shuffled'})
+
+
+def _require_exact(name, actual, expected):
+    if actual != expected:
+        raise ValueError(f'M20A requires {name}={expected!r}, got {actual!r}')
+    return actual
+
+
+def _m20_positive_int(mapping, name):
+    if name not in mapping:
+        raise ValueError(f'M20A requires {name}')
+    value = mapping[name]
+    if isinstance(value, bool) or not isinstance(value, Integral) or value <= 0:
+        raise ValueError(f'M20A {name} must be a positive integer, got {value!r}')
+    return int(value)
+
+
+def _make_m20_relation_core(spec, *, hidden_dims, activate_final, layer_norm):
+    """Construct the frozen M20A adapter -> relation -> Mixer -> readout path.
+
+    This is deliberately separate from the historical Puzzle Mixer branch so
+    M15--M19 parameter naming, initialization ordering, and numerical forward
+    path remain untouched whenever ``relation_mode=legacy_none``.
+    """
+
+    if spec.structure not in _M20_RELATION_STRUCTURES:
+        raise ValueError(f'Unsupported M20A relation structure: {spec.structure!r}')
+    if spec.relation_mode not in _M20_RELATION_MODES:
+        raise ValueError(
+            'M20A relation treatments require relation_mode in '
+            f'{sorted(_M20_RELATION_MODES)!r}, got {spec.relation_mode!r}'
+        )
+    _require_exact('credit', spec.credit, DirectCredit.name)
+    _require_exact('topology', spec.topology, 'feedforward')
+    _require_exact('block', spec.block, 'mlp_mixer')
+    if spec.primitive not in ('mlp', 'original_mlp'):
+        raise ValueError(f'Unsupported M20A primitive: {spec.primitive!r}')
+    if spec.topology_kwargs:
+        raise ValueError('M20A feedforward relation computation does not accept topology_kwargs')
+    _require_exact('relation_augmenter', spec.relation_augmenter, 'relation_mlp')
+
+    structure_kwargs = dict(spec.structure_kwargs)
+    block_kwargs = dict(spec.block_kwargs)
+    relation_kwargs = dict(spec.relation_kwargs)
+    augmenter_kwargs = dict(spec.relation_augmenter_kwargs)
+    readout_kwargs = dict(spec.readout_kwargs)
+
+    token_dim = _m20_positive_int(structure_kwargs, 'token_dim')
+    _require_exact('structure_kwargs.token_dim', token_dim, 128)
+    robot_hidden_dim = _m20_positive_int(structure_kwargs, 'robot_hidden_dim')
+    _require_exact('structure_kwargs.robot_hidden_dim', robot_hidden_dim, 128)
+    num_blocks = _m20_positive_int(block_kwargs, 'num_blocks')
+    token_hidden_dim = _m20_positive_int(block_kwargs, 'token_hidden_dim')
+    channel_hidden_dim = _m20_positive_int(block_kwargs, 'channel_hidden_dim')
+    _require_exact('block_kwargs.num_blocks', num_blocks, 2)
+    _require_exact('block_kwargs.token_hidden_dim', token_hidden_dim, 64)
+    _require_exact('block_kwargs.channel_hidden_dim', channel_hidden_dim, 256)
+    _require_exact('block_kwargs.tm_mode', block_kwargs.get('tm_mode'), 'none')
+
+    relation_hidden_dim = _m20_positive_int(augmenter_kwargs, 'relation_hidden_dim')
+    _require_exact('relation_hidden_dim', relation_hidden_dim, 256)
+    _require_exact('relation activation', augmenter_kwargs.get('activation'), 'gelu')
+    _require_exact('relation first_use_bias', augmenter_kwargs.get('first_use_bias'), False)
+    _require_exact('relation second_use_bias', augmenter_kwargs.get('second_use_bias'), False)
+    _require_exact('relation normalization', augmenter_kwargs.get('normalization'), 'none')
+    _require_exact('relation dropout', augmenter_kwargs.get('dropout'), 'none')
+    _require_exact('relation output_dim', augmenter_kwargs.get('output_dim'), 128)
+
+    requested_output_dim = int(readout_kwargs.pop('output_dim', hidden_dims[-1]))
+    if requested_output_dim != hidden_dims[-1]:
+        raise ValueError(
+            'M20A structured readout output_dim must match the algorithm slot width; '
+            f'got {requested_output_dim}, expected {hidden_dims[-1]}'
+        )
+    if spec.readout == 'mean_context':
+        if readout_kwargs:
+            raise ValueError(f'Unsupported M20A mean_context readout kwargs: {sorted(readout_kwargs)!r}')
+        readout = MeanContextReadout(
+            output_dim=hidden_dims[-1],
+            layer_norm=layer_norm,
+            activate_final=True if activate_final is None else bool(activate_final),
+        )
+    elif spec.readout == 'hybrid_context_query':
+        query_dim = int(readout_kwargs.pop('query_dim', -1))
+        _require_exact('HybridContextQuery query_dim', query_dim, 128)
+        if readout_kwargs:
+            raise ValueError(
+                'Unsupported M20A hybrid_context_query readout kwargs: '
+                f'{sorted(readout_kwargs)!r}'
+            )
+        readout = HybridContextQueryReadout(
+            output_dim=hidden_dims[-1],
+            token_dim=token_dim,
+            query_dim=query_dim,
+            layer_norm=layer_norm,
+            activate_final=True if activate_final is None else bool(activate_final),
+        )
+    else:
+        raise ValueError(
+            'M20A readout must be mean_context or hybrid_context_query, '
+            f'got {spec.readout!r}'
+        )
+
+    if spec.structure == 'puzzle_tokens':
+        from ..representation.puzzle import PuzzleTokenAdapter
+
+        num_buttons = _m20_positive_int(structure_kwargs, 'num_buttons')
+        rows = _m20_positive_int(relation_kwargs, 'rows')
+        cols = _m20_positive_int(relation_kwargs, 'cols')
+        if rows * cols != num_buttons:
+            raise ValueError(
+                'M20A Puzzle relation grid must match num_buttons; '
+                f'rows*cols={rows * cols}, num_buttons={num_buttons}'
+            )
+        _require_exact('Puzzle num_relation_types', relation_kwargs.get('num_relation_types'), 1)
+        if 'shuffle_permutation' not in relation_kwargs:
+            raise ValueError('M20A Puzzle relation config requires a fixed shuffle_permutation')
+        adapter = PuzzleTokenAdapter(
+            num_buttons=num_buttons,
+            robot_dim=_m20_positive_int(structure_kwargs, 'robot_dim'),
+            button_feature_dim=_m20_positive_int(structure_kwargs, 'button_feature_dim'),
+            token_dim=token_dim,
+            robot_hidden_dim=robot_hidden_dim,
+            index_embedding=bool(structure_kwargs.get('index_embedding', True)),
+            input_semantics=spec.input_semantics,
+            action_semantics=spec.action_semantics,
+            layer_norm=layer_norm,
+            relation_mode=spec.relation_mode,
+            relation_kwargs=relation_kwargs,
+        )
+        num_tokens = num_buttons
+    elif spec.structure == 'cube_tokens':
+        from ..representation.manipulation import CubeTokenAdapter
+
+        num_cubes = _m20_positive_int(structure_kwargs, 'num_cubes')
+        _require_exact('Cube num_cubes', num_cubes, 3)
+        _require_exact('Cube cube_feature_dim', _m20_positive_int(structure_kwargs, 'cube_feature_dim'), 9)
+        _require_exact(
+            'Cube slot_identity_embedding',
+            structure_kwargs.get('slot_identity_embedding'),
+            False,
+        )
+        _require_exact('Cube num_relation_types', relation_kwargs.get('num_relation_types'), 3)
+        _require_exact('Cube shuffle_derangement', tuple(relation_kwargs.get('shuffle_derangement', ())), (1, 2, 0))
+        if spec.relation_mode in ('correct', 'shuffled'):
+            missing = [
+                key for key in (
+                    'current_support_epsilon_xy', 'current_support_epsilon_z',
+                    'goal_support_epsilon_xy', 'goal_support_epsilon_z',
+                    'goal_conflict_radius',
+                ) if relation_kwargs.get(key) is None
+            ]
+            if missing and not spec.relation_phase2_blocked:
+                raise ValueError(
+                    'M20A executable Cube Correct/Shuffled computation requires frozen thresholds; '
+                    f'missing={missing!r}'
+                )
+        adapter = CubeTokenAdapter(
+            num_cubes=num_cubes,
+            robot_dim=_m20_positive_int(structure_kwargs, 'robot_dim'),
+            cube_feature_dim=_m20_positive_int(structure_kwargs, 'cube_feature_dim'),
+            token_dim=token_dim,
+            robot_hidden_dim=robot_hidden_dim,
+            slot_identity_embedding=bool(structure_kwargs.get('slot_identity_embedding', False)),
+            input_semantics=spec.input_semantics,
+            action_semantics=spec.action_semantics,
+            layer_norm=layer_norm,
+            relation_mode=spec.relation_mode,
+            relation_kwargs=relation_kwargs,
+        )
+        num_tokens = num_cubes
+    else:
+        from ..representation.manipulation import SceneTokenAdapter
+
+        _require_exact('Scene num_relation_types', relation_kwargs.get('num_relation_types'), 1)
+        _require_exact(
+            'Scene button_role_embedding',
+            structure_kwargs.get('button_role_embedding'),
+            True,
+        )
+        adapter = SceneTokenAdapter(
+            robot_dim=_m20_positive_int(structure_kwargs, 'robot_dim'),
+            cube_feature_dim=_m20_positive_int(structure_kwargs, 'cube_feature_dim'),
+            button_feature_dim=_m20_positive_int(structure_kwargs, 'button_feature_dim'),
+            drawer_feature_dim=_m20_positive_int(structure_kwargs, 'drawer_feature_dim'),
+            window_feature_dim=_m20_positive_int(structure_kwargs, 'window_feature_dim'),
+            token_dim=token_dim,
+            robot_hidden_dim=robot_hidden_dim,
+            button_role_embedding=bool(structure_kwargs.get('button_role_embedding', True)),
+            input_semantics=spec.input_semantics,
+            action_semantics=spec.action_semantics,
+            layer_norm=layer_norm,
+            relation_mode=spec.relation_mode,
+            relation_kwargs=relation_kwargs,
+        )
+        num_tokens = 5
+
+    from .structured import StructuredComputationBody
+
+    mixer = MLPMixerStack(
+        num_blocks=num_blocks,
+        num_tokens=num_tokens,
+        embed_dim=token_dim,
+        hidden_dim_tokens=token_hidden_dim,
+        hidden_dim_channels=channel_hidden_dim,
+        tm_mode='none',
+    )
+    core = ComputationCore(topology=FeedForward(primitive=mixer))
+    return StructuredComputationBody(
+        adapter=adapter,
+        relation_augmenter=RelationAugmenter(
+            token_dim=token_dim,
+            relation_hidden_dim=relation_hidden_dim,
+        ),
+        core=core,
+        readout=readout,
+    )
+
+
 def make_computation_core(
     spec: ComputationSpec,
     *,
@@ -266,10 +503,25 @@ def make_computation_core(
     if any(isinstance(dim, bool) or not isinstance(dim, Integral) or dim <= 0 for dim in hidden_dims):
         raise ValueError(f'Computation hidden dims must be positive integers, got {hidden_dims!r}')
     hidden_dims = tuple(int(dim) for dim in hidden_dims)
-    if spec.structure not in ('vector', 'puzzle_tokens'):
+    if spec.structure not in ('vector', 'puzzle_tokens', 'cube_tokens', 'scene_tokens'):
         raise ValueError(
             f'Unsupported computation structure: {spec.structure!r}; '
-            "expected 'vector' or 'puzzle_tokens'"
+            "expected 'vector', 'puzzle_tokens', 'cube_tokens', or 'scene_tokens'"
+        )
+    if (
+        spec.structure in _M20_RELATION_STRUCTURES
+        and spec.relation_mode != 'legacy_none'
+    ):
+        return _make_m20_relation_core(
+            spec,
+            hidden_dims=hidden_dims,
+            activate_final=activate_final,
+            layer_norm=layer_norm,
+        )
+    if spec.structure in ('cube_tokens', 'scene_tokens'):
+        raise ValueError(
+            f'{spec.structure} requires an explicit M20A relation treatment; '
+            'relation_mode=legacy_none is not a supported production path'
         )
     if spec.structure == 'puzzle_tokens':
         if spec.block == 'entity_mlp':

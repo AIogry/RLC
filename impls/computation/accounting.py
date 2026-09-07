@@ -447,7 +447,10 @@ def gciql_architecture_accounting(params, config, computation_reports=None):
     for slot_name in ('actor', 'value', 'critic'):
         module = params.get(f'modules_{slot_name}', {})
         spec = config.get('compute', {}).get(slot_name, {})
-        structured = bool(spec.get('enabled', False)) and spec.get('structure', 'vector') == 'puzzle_tokens'
+        structure_name = spec.get('structure', 'vector')
+        structured = bool(spec.get('enabled', False)) and structure_name in (
+            'puzzle_tokens', 'cube_tokens', 'scene_tokens',
+        )
         if structured:
             slot_report = computation_reports.get(slot_name)
             if not slot_report:
@@ -471,6 +474,13 @@ def gciql_architecture_accounting(params, config, computation_reports=None):
                     'channel_mixing_params', 'channel_mixing_dense_macs',
                     'computation_block_params', 'computation_block_dense_macs',
                     'unique_block_dense_layers', 'executed_block_dense_layers',
+                    'entity_family', 'num_entities', 'relation_mode',
+                    'num_relation_types', 'relation_hidden_dim',
+                    'relation_augmenter_params', 'relation_projection_dense_macs',
+                    'relation_aggregation_logical_active_edges',
+                    'executed_dense_relation_aggregation_cost',
+                    'relation_sparsity_not_hardware_saving', 'query_params',
+                    'query_dense_macs', 'attention_tensor_cost',
                 )
             }
             topology_name = slot_report.get('topology', 'feedforward')
@@ -511,7 +521,7 @@ def gciql_architecture_accounting(params, config, computation_reports=None):
         readout_layers = count_dense_layers(readout)
         result[slot_name] = {
             'slot_name': slot_name,
-            'structure': 'puzzle_tokens' if structured else 'vector',
+            'structure': structure_name if structured else 'vector',
             'topology': topology_name,
             'block': block_name,
             'trainable_params': count_parameters(module),
@@ -777,6 +787,207 @@ def _path_get(tree, path):
     return tree
 
 
+def relation_structured_body_accounting(
+    body_params,
+    structure_kwargs=None,
+    *,
+    relation_mode,
+    relation_kwargs=None,
+    relation_augmenter=None,
+    relation_augmenter_kwargs=None,
+    readout='mean_context',
+):
+    """Account the frozen M20A entity/relation/Mixer/readout body.
+
+    Dense kernel products alone undercount structured execution: entity
+    encoders and relation projections execute per token, while the relation
+    reductions materialize dense ``[T, T, K]`` contractions.  The latter are
+    deliberately reported separately from logical active-edge statistics;
+    sparse binary relations do *not* imply sparse hardware execution here.
+    """
+
+    structure_kwargs = structure_kwargs if hasattr(structure_kwargs, 'get') else {}
+    relation_kwargs = relation_kwargs if hasattr(relation_kwargs, 'get') else {}
+    relation_augmenter_kwargs = (
+        relation_augmenter_kwargs
+        if hasattr(relation_augmenter_kwargs, 'get') else {}
+    )
+    body_params = body_params if hasattr(body_params, 'get') else {}
+    if relation_mode not in ('zero', 'correct', 'shuffled'):
+        raise ValueError(f'Unsupported M20A relation_mode for accounting: {relation_mode!r}')
+    if relation_augmenter != 'relation_mlp':
+        raise ValueError(
+            'M20A relation accounting requires relation_augmenter="relation_mlp", '
+            f'got {relation_augmenter!r}'
+        )
+    if readout not in ('mean_context', 'hybrid_context_query'):
+        raise ValueError(f'Unsupported M20A readout for accounting: {readout!r}')
+
+    structure = str(structure_kwargs.get('entity_family', ''))
+    # ``entity_family`` is recorded explicitly by M20A config generation.  A
+    # defensive fallback keeps direct factory/integration callers useful.
+    if not structure:
+        if 'num_buttons' in structure_kwargs:
+            structure = 'puzzle'
+        elif 'num_cubes' in structure_kwargs:
+            structure = 'cube'
+        else:
+            structure = 'scene'
+    token_dim = int(structure_kwargs.get('token_dim', 0))
+    if token_dim <= 0:
+        raise ValueError('M20A relation accounting requires structure_kwargs.token_dim > 0')
+    if structure == 'puzzle':
+        num_tokens = int(structure_kwargs.get('num_buttons', 0))
+        entity_family = 'puzzle_buttons'
+        num_relation_types = int(relation_kwargs.get('num_relation_types', 1))
+    elif structure == 'cube':
+        num_tokens = int(structure_kwargs.get('num_cubes', 0))
+        entity_family = 'cube_triple'
+        num_relation_types = int(relation_kwargs.get('num_relation_types', 3))
+    elif structure == 'scene':
+        num_tokens = 5
+        entity_family = 'scene_control_entities'
+        num_relation_types = int(relation_kwargs.get('num_relation_types', 1))
+    else:
+        raise ValueError(f'Unsupported M20A entity family for accounting: {structure!r}')
+    if num_tokens <= 0 or num_relation_types <= 0:
+        raise ValueError('M20A relation accounting requires positive T and K')
+    relation_hidden_dim = int(relation_augmenter_kwargs.get('relation_hidden_dim', 0))
+    if relation_hidden_dim <= 0:
+        raise ValueError('M20A relation accounting requires relation_hidden_dim > 0')
+
+    adapter = _mapping_get(body_params, 'adapter', {})
+    augmenter = _mapping_get(body_params, 'relation_augmenter', {})
+    readout_params = _mapping_get(body_params, 'readout', {})
+    core = _mapping_get(body_params, 'core', {})
+    topology = _mapping_get(core, 'topology', {})
+    primitive = _mapping_get(topology, 'primitive', {})
+    blocks = _module_subtrees(primitive, 'blocks')
+    expected_blocks = int(structure_kwargs.get(
+        'num_blocks', structure_kwargs.get('num_mixer_blocks', 2)
+    ))
+    if expected_blocks <= 0 or len(blocks) != expected_blocks:
+        raise ValueError(
+            'M20A relation accounting Mixer depth mismatch: '
+            f'config L={expected_blocks}, parameter blocks={len(blocks)}'
+        )
+
+    # Adapter Dense execution factors are architecture facts, not inferred
+    # from edge sparsity.  Parameter counts always come from the actual tree.
+    if structure == 'puzzle':
+        adapter_dense_macs = (
+            _dense_macs(adapter, 'button_projection') * num_tokens
+            + _dense_macs(adapter, 'robot_projection')
+        )
+    elif structure == 'cube':
+        adapter_dense_macs = (
+            _dense_macs(adapter, 'cube_entity_encoder') * num_tokens
+            + _dense_macs(adapter, 'robot_projection')
+        )
+    else:
+        adapter_dense_macs = (
+            _dense_macs(adapter, 'cube_encoder')
+            + 2 * _dense_macs(adapter, 'button_encoder')
+            + _dense_macs(adapter, 'drawer_encoder')
+            + _dense_macs(adapter, 'window_encoder')
+            + _dense_macs(adapter, 'robot_projection')
+        )
+
+    relation_projection_dense_macs = (
+        _dense_macs(augmenter, 'relation_dense1')
+        + _dense_macs(augmenter, 'relation_dense2')
+    ) * num_tokens
+    relation_augmenter_params = count_parameters(augmenter)
+    # Two directional dense contractions: outgoing and incoming.  This is an
+    # operation-count estimate, intentionally not a claim of sparse savings.
+    executed_dense_relation_aggregation_cost = (
+        2 * num_tokens * num_tokens * num_relation_types * token_dim
+    )
+    logical_active_edges = 0 if relation_mode == 'zero' else None
+
+    mixer_dense_macs = 0
+    mixer_params = count_parameters(primitive)
+    for block in blocks.values():
+        mixer_dense_macs += (
+            _dense_macs(block, 'token_dense1') * token_dim
+            + _dense_macs(block, 'token_dense2') * token_dim
+            + _dense_macs(block, 'channel_dense1') * num_tokens
+            + _dense_macs(block, 'channel_dense2') * num_tokens
+        )
+
+    mean_fusion_macs = _dense_macs(readout_params, 'fusion')
+    if readout == 'mean_context':
+        query_params = 0
+        query_dense_macs = 0
+        attention_tensor_cost = 0
+        readout_dense_macs = mean_fusion_macs
+        readout_dense_depth = 1
+    else:
+        query_projection = _dense_macs(readout_params, 'query_projection')
+        key_projection = _dense_macs(readout_params, 'key_projection')
+        value_projection = _dense_macs(readout_params, 'value_projection')
+        query_params = (
+            count_parameters(_mapping_get(readout_params, 'query_projection', {}))
+            + count_parameters(_mapping_get(readout_params, 'key_projection', {}))
+            + count_parameters(_mapping_get(readout_params, 'value_projection', {}))
+        )
+        query_dense_macs = query_projection + num_tokens * (key_projection + value_projection)
+        # score(q, k_i) plus alpha_i * value_i.  This remains a dense readout
+        # cost even where a token mask makes a particular input invalid.
+        query_dim = int(relation_augmenter_kwargs.get('query_dim', 128))
+        attention_tensor_cost = num_tokens * (query_dim + token_dim)
+        readout_dense_macs = query_dense_macs + mean_fusion_macs
+        readout_dense_depth = 2
+
+    total_dense_macs = (
+        adapter_dense_macs
+        + relation_projection_dense_macs
+        + mixer_dense_macs
+        + readout_dense_macs
+    )
+    unique_dense_layers = count_dense_layers(body_params)
+    # Adapter -> relation MLP -> L Mixer blocks -> readout; Q/K/V are
+    # parallel projections, so only one additional sequential stage is added.
+    sequential_depth = 1 + 2 + 4 * expected_blocks + readout_dense_depth
+    return {
+        'entity_family': entity_family,
+        'num_entities': int(num_tokens),
+        'num_tokens': int(num_tokens),
+        'token_dim': int(token_dim),
+        'relation_mode': relation_mode,
+        'num_relation_types': int(num_relation_types),
+        'relation_hidden_dim': int(relation_hidden_dim),
+        'relation_augmenter_params': int(relation_augmenter_params),
+        'relation_projection_dense_macs': int(relation_projection_dense_macs),
+        'relation_aggregation_logical_active_edges': logical_active_edges,
+        'executed_dense_relation_aggregation_cost': int(
+            executed_dense_relation_aggregation_cost
+        ),
+        'relation_sparsity_not_hardware_saving': True,
+        'adapter_params': int(count_parameters(adapter)),
+        'adapter_dense_macs': int(adapter_dense_macs),
+        'mixer_params': int(mixer_params),
+        'mixer_dense_macs': int(mixer_dense_macs),
+        'block_depth_L': int(expected_blocks),
+        'readout': readout,
+        'readout_params': int(count_parameters(readout_params)),
+        'readout_dense_macs': int(readout_dense_macs),
+        'query_params': int(query_params),
+        'query_dense_macs': int(query_dense_macs),
+        'attention_tensor_cost': int(attention_tensor_cost),
+        'structured_body_params': int(count_parameters(body_params)),
+        'total_structured_body_params': int(count_parameters(body_params)),
+        'structured_body_dense_macs': int(total_dense_macs),
+        'structured_dense_macs': int(total_dense_macs),
+        'total_per_sample_dense_macs': int(total_dense_macs),
+        'structured_sequential_depth': int(sequential_depth),
+        'sequential_depth': int(sequential_depth),
+        'unique_dense_layers': int(unique_dense_layers),
+        'executed_dense_layers': int(unique_dense_layers),
+        'actor_body_dense_macs': int(total_dense_macs),
+    }
+
+
 def computation_slot_accounting(
     slot_params,
     buffer_params=None,
@@ -791,6 +1002,11 @@ def computation_slot_accounting(
     structure_kwargs=None,
     block_kwargs=None,
     block_type='mlp_mixer',
+    relation_mode='legacy_none',
+    relation_kwargs=None,
+    relation_augmenter='none',
+    relation_augmenter_kwargs=None,
+    readout='mean_context',
 ):
     """Return generic accounting for any enabled computation slot.
 
@@ -813,22 +1029,84 @@ def computation_slot_accounting(
         if topology == 'feedforward'
         else core
     )
-    if structure == 'puzzle_tokens':
-        structured_metrics = modular_structured_body_accounting(
-            body_core,
-            structure_kwargs,
-            topology=topology,
-            topology_kwargs=topology_kwargs,
-            block_kwargs=block_kwargs,
-            block_type=block_type,
-        )
+    if structure in ('puzzle_tokens', 'cube_tokens', 'scene_tokens'):
+        if relation_mode != 'legacy_none':
+            relation_structure_kwargs = dict(structure_kwargs or {})
+            if structure == 'puzzle_tokens':
+                relation_structure_kwargs.setdefault('entity_family', 'puzzle')
+            elif structure == 'cube_tokens':
+                relation_structure_kwargs.setdefault('entity_family', 'cube')
+            else:
+                relation_structure_kwargs.setdefault('entity_family', 'scene')
+            relation_structure_kwargs.setdefault(
+                'num_blocks', block_kwargs.get('num_blocks', 2)
+            )
+            structured_metrics = relation_structured_body_accounting(
+                body_core,
+                relation_structure_kwargs,
+                relation_mode=relation_mode,
+                relation_kwargs=relation_kwargs,
+                relation_augmenter=relation_augmenter,
+                relation_augmenter_kwargs=relation_augmenter_kwargs,
+                readout=readout,
+            )
+        elif structure == 'puzzle_tokens':
+            structured_metrics = modular_structured_body_accounting(
+                body_core,
+                structure_kwargs,
+                topology=topology,
+                topology_kwargs=topology_kwargs,
+                block_kwargs=block_kwargs,
+                block_type=block_type,
+            )
+        else:
+            raise ValueError(
+                f'{structure} accounting requires an explicit relation treatment'
+            )
     elif structure == 'vector':
         structured_metrics = {}
     else:
         raise ValueError(f'Unsupported computation structure for accounting: {structure!r}')
     is_recurrent = topology in ('single_state', 'two_state')
 
-    if structure == 'puzzle_tokens':
+    if structure in ('puzzle_tokens', 'cube_tokens', 'scene_tokens'):
+        if relation_mode != 'legacy_none':
+            return {
+                'slot_name': str(slot_name),
+                'topology': topology,
+                'primitive': primitive,
+                'structure': structure,
+                'structure_kwargs': dict(structure_kwargs or {}),
+                'block_kwargs': dict(block_kwargs or {}),
+                'credit': credit,
+                'parameter_sharing': None,
+                'block': block_type,
+                'state_dim': None,
+                'update_depth': None,
+                'iterations': None,
+                'residual': None,
+                'h_cycles': None,
+                'l_cycles': None,
+                'total_update_executions': 0,
+                'h_update_executions': 0,
+                'l_update_executions': 0,
+                'state_init': None,
+                'state_init_std': None,
+                'layer_norm': None,
+                'update_activate_final': None,
+                'input_mapping': None,
+                'input_mapping_params': 0,
+                'update_module_params': 0,
+                'h_update_params': 0,
+                'l_update_params': 0,
+                'trainable_params': count_parameters(slot_params),
+                'core_trainable_params': count_parameters(body_core),
+                'buffer_elements': count_non_trainable(buffer_params),
+                'core_buffer_elements': count_non_trainable(buffer_core),
+                'dense_macs': int(structured_metrics['structured_body_dense_macs']),
+                'computation_dense_macs': int(structured_metrics['structured_body_dense_macs']),
+                **structured_metrics,
+            }
         structured_topology = _mapping_get(body_core, 'core', {})
         structured_topology = _mapping_get(structured_topology, 'topology', {})
         state_dim = (

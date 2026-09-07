@@ -1,11 +1,13 @@
 """Strict Puzzle parsing and learned structured-representation adapters."""
 
 from numbers import Integral
+from typing import Mapping
 
 import flax.linen as nn
 import jax.numpy as jnp
 
 from .interfaces import StructuredRepresentation
+from .relations import build_puzzle_relations
 
 
 def _default_init(scale=1.0):
@@ -73,6 +75,8 @@ class PuzzleTokenAdapter(nn.Module):
     input_semantics: str = 'goal_pair'
     action_semantics: str = 'none'
     layer_norm: bool = False
+    relation_mode: str = 'legacy_none'
+    relation_kwargs: Mapping | None = None
 
     def setup(self):
         integer_fields = {
@@ -171,4 +175,21 @@ class PuzzleTokenAdapter(nn.Module):
         context = nn.gelu(context)
         if self.robot_layer_norm is not None:
             context = self.robot_layer_norm(context)
-        return StructuredRepresentation(tokens=tokens, context=context)
+        # Keep the historical relation-free execution branch byte-for-byte in
+        # its arithmetic order.  Relation construction is only active for an
+        # explicit M20A treatment and therefore cannot alter M15--M19 output.
+        relations = None
+        if self.relation_mode != 'legacy_none':
+            kwargs = dict(self.relation_kwargs or {})
+            obs_dim = self.robot_dim + self.num_buttons * self.button_feature_dim
+            state = jnp.asarray(x)[..., :obs_dim]
+            goal = jnp.asarray(x)[..., obs_dim:2 * obs_dim]
+            relations = build_puzzle_relations(
+                state,
+                goal,
+                mode=self.relation_mode,
+                rows=kwargs.get('rows'),
+                cols=kwargs.get('cols'),
+                shuffle_permutation=kwargs.get('shuffle_permutation'),
+            )
+        return StructuredRepresentation(tokens=tokens, context=context, relations=relations)

@@ -1,0 +1,105 @@
+study_id: M20A
+config_id: M20A-PUZZLE-S-M
+slug: puzzle_s_m_phase2
+algorithm: gciql
+environment: puzzle-4x4-play-v0
+protocol_stage: phase2_formal
+executable: true
+training_seed: 0
+condition_id: S-M
+semantic_condition: PUZZLE_SHUFFLED_MEAN_CONTEXT
+description: >-
+  Formal M20A Phase-2 screening configuration under the frozen relation,
+  GCIQL, alpha=1.0, evaluation, architecture, and seed protocol.
+factors:
+  task_family: puzzle
+  environment: puzzle-4x4-play-v0
+  relation_mode: shuffled
+  readout: mean_context
+  alpha: 1.0
+  training_seed: 0
+  token_dim: 128
+  topology: feedforward
+  credit: direct
+  mixer: {num_blocks: 2, token_hidden_dim: 64, channel_hidden_dim: 256, tm_mode: none}
+  relation_augmenter: {relation_hidden_dim: 256, activation: gelu, first_use_bias: false, second_use_bias: false, normalization: none, dropout: none, output_dim: 128}
+  hybrid_query_dim: null
+  shuffle_design_seed: 20020
+  num_entities: 16
+  num_relation_types: 1
+  entity_family: puzzle_buttons
+frozen_protocol:
+  train_steps: 1000000
+  batch_size: 1024
+  log_interval: 5000
+  eval_interval: 100000
+  eval_tasks: all
+  eval_episodes: 50
+  eval_temperature: 0.0
+  video_episodes: 0
+  save_interval: 100000
+  save_best_checkpoint: true
+  save_last_checkpoint: true
+  primary_endpoint: final@1M
+  secondary_endpoints: [best_success, best_step, last3_mean, normalized_eval_auc]
+  auc: {checkpoints: [100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000], interval: [100000, 1000000], rule: trapezoidal_area_divided_by_900000}
+  puzzle_toggle_rule: pressed_button_to_self_plus_orthogonal_neighbors
+agent_overrides:
+  actor_loss: ddpgbc
+  alpha: 1.0
+  actor_hidden_dims: [512, 512, 512]
+  value_hidden_dims: [512, 512, 512]
+  layer_norm: true
+  lr: 0.0003
+  batch_size: 1024
+  discount: 0.99
+  expectile: 0.9
+  tau: 0.005
+  const_std: true
+  discrete: false
+  compute:
+    actor:
+      enabled: true
+      primitive: mlp
+      structure: puzzle_tokens
+      structure_kwargs: {num_buttons: 16, robot_dim: 19, button_feature_dim: 4, token_dim: 128, robot_hidden_dim: 128, index_embedding: true}
+      block: mlp_mixer
+      block_kwargs: {num_blocks: 2, token_hidden_dim: 64, channel_hidden_dim: 256, tm_mode: none}
+      topology: feedforward
+      credit: direct
+      relation_mode: shuffled
+      relation_kwargs: {num_relation_types: 1, rows: 4, cols: 4, shuffle_design_seed: 20020, shuffle_permutation: [2, 10, 15, 12, 11, 8, 7, 3, 6, 0, 5, 14, 9, 4, 1, 13]}
+      relation_augmenter: relation_mlp
+      relation_augmenter_kwargs: {relation_hidden_dim: 256, activation: gelu, first_use_bias: false, second_use_bias: false, normalization: none, dropout: none, output_dim: 128}
+      readout: mean_context
+      readout_kwargs: {output_dim: 512}
+    value:
+      enabled: true
+      primitive: mlp
+      structure: puzzle_tokens
+      structure_kwargs: {num_buttons: 16, robot_dim: 19, button_feature_dim: 4, token_dim: 128, robot_hidden_dim: 128, index_embedding: true}
+      block: mlp_mixer
+      block_kwargs: {num_blocks: 2, token_hidden_dim: 64, channel_hidden_dim: 256, tm_mode: none}
+      topology: feedforward
+      credit: direct
+      relation_mode: shuffled
+      relation_kwargs: {num_relation_types: 1, rows: 4, cols: 4, shuffle_design_seed: 20020, shuffle_permutation: [2, 10, 15, 12, 11, 8, 7, 3, 6, 0, 5, 14, 9, 4, 1, 13]}
+      relation_augmenter: relation_mlp
+      relation_augmenter_kwargs: {relation_hidden_dim: 256, activation: gelu, first_use_bias: false, second_use_bias: false, normalization: none, dropout: none, output_dim: 128}
+      readout: mean_context
+      readout_kwargs: {output_dim: 512}
+    critic:
+      enabled: true
+      primitive: mlp
+      structure: puzzle_tokens
+      structure_kwargs: {num_buttons: 16, robot_dim: 19, button_feature_dim: 4, token_dim: 128, robot_hidden_dim: 128, index_embedding: true}
+      block: mlp_mixer
+      block_kwargs: {num_blocks: 2, token_hidden_dim: 64, channel_hidden_dim: 256, tm_mode: none}
+      topology: feedforward
+      credit: direct
+      relation_mode: shuffled
+      relation_kwargs: {num_relation_types: 1, rows: 4, cols: 4, shuffle_design_seed: 20020, shuffle_permutation: [2, 10, 15, 12, 11, 8, 7, 3, 6, 0, 5, 14, 9, 4, 1, 13]}
+      relation_augmenter: relation_mlp
+      relation_augmenter_kwargs: {relation_hidden_dim: 256, activation: gelu, first_use_bias: false, second_use_bias: false, normalization: none, dropout: none, output_dim: 128}
+      readout: mean_context
+      readout_kwargs: {output_dim: 512}

@@ -25,6 +25,7 @@ class StructuredComputationBody(nn.Module):
     adapter: nn.Module
     core: nn.Module
     readout: nn.Module
+    relation_augmenter: nn.Module = None
 
     @staticmethod
     def _normalize(rep):
@@ -72,11 +73,55 @@ class StructuredComputationBody(nn.Module):
                     'Structured mask must match [B, T]; '
                     f'got tokens={tokens.shape}, mask={mask.shape}'
                 )
-        return tokens, context, mask, squeeze_batch
+        relations = rep.relations
+        if relations is not None:
+            relations = jnp.asarray(relations)
+            if squeeze_batch:
+                if relations.ndim != 3:
+                    raise ValueError(
+                        'Unbatched structured relations must be [T, T, K]; '
+                        f'got {relations.shape}'
+                    )
+                relations = relations[None, ...]
+            if relations.ndim != 4 or relations.shape[:3] != (
+                tokens.shape[0], tokens.shape[1], tokens.shape[1]
+            ):
+                raise ValueError(
+                    'Structured relations must be [B, T, T, K] after normalization; '
+                    f'got tokens={tokens.shape}, relations={relations.shape}'
+                )
+        relation_mask = rep.relation_mask
+        if relation_mask is not None:
+            if relations is None:
+                raise ValueError('relation_mask is invalid when relations is None')
+            relation_mask = jnp.asarray(relation_mask)
+            if squeeze_batch:
+                if relation_mask.ndim not in (2, 3):
+                    raise ValueError(
+                        'Unbatched relation_mask must be [T, T] or [T, T, K]; '
+                        f'got {relation_mask.shape}'
+                    )
+                relation_mask = relation_mask[None, ...]
+            valid_pair_shape = (tokens.shape[0], tokens.shape[1], tokens.shape[1])
+            if relation_mask.shape not in (valid_pair_shape, relations.shape):
+                raise ValueError(
+                    'relation_mask must be [B, T, T] or [B, T, T, K] after normalization; '
+                    f'got relation={relations.shape}, relation_mask={relation_mask.shape}'
+                )
+        return tokens, context, mask, relations, relation_mask, squeeze_batch
 
     def __call__(self, x):
         representation = self.adapter(x)
-        tokens, context, mask, squeeze_batch = self._normalize(representation)
+        tokens, context, mask, relations, relation_mask, squeeze_batch = self._normalize(representation)
+        if self.relation_augmenter is not None:
+            if relations is None:
+                raise ValueError('RelationAugmenter requires a non-None relation tensor')
+            tokens = self.relation_augmenter(
+                tokens,
+                relations,
+                mask=mask,
+                relation_mask=relation_mask,
+            )
         computed = self.core(tokens)
         if not isinstance(computed, ComputationOutput):
             computed = ComputationOutput(representation=computed)
@@ -88,6 +133,12 @@ class StructuredComputationBody(nn.Module):
             'adapter_auxiliary': representation.auxiliary,
             'computed_tokens': computed_tokens,
         }
+        if relations is not None:
+            auxiliary['relations'] = relations[0] if squeeze_batch else relations
+            auxiliary['relation_mask'] = (
+                None if relation_mask is None
+                else (relation_mask[0] if squeeze_batch else relation_mask)
+            )
         return ComputationOutput(
             representation=output,
             state=computed.state,
@@ -105,7 +156,16 @@ class StructuredComputationBody(nn.Module):
         """
 
         representation = self.adapter(x)
-        tokens, context, mask, _ = self._normalize(representation)
+        tokens, context, mask, relations, relation_mask, _ = self._normalize(representation)
+        if self.relation_augmenter is not None:
+            if relations is None:
+                raise ValueError('RelationAugmenter requires a non-None relation tensor')
+            tokens = self.relation_augmenter(
+                tokens,
+                relations,
+                mask=mask,
+                relation_mask=relation_mask,
+            )
         topology = getattr(self.core, 'topology', None)
         trace_fn = getattr(topology, 'trace_states', None)
         if trace_fn is None:
@@ -123,6 +183,24 @@ class StructuredComputationBody(nn.Module):
         return {
             'token_states': jnp.stack(states, axis=1),
             'readout_states': jnp.stack(readouts, axis=1),
+        }
+
+    def relation_diagnostic(self, x):
+        """Expose the actual forward-path relation tensor for tests/audits.
+
+        This is diagnostic-only and does not alter the normal forward result,
+        objective, sampling, or optimizer path.  Returned tensors are always
+        in the canonical batched representation.
+        """
+
+        representation = self.adapter(x)
+        _, _, mask, relations, relation_mask, _ = self._normalize(representation)
+        if relations is None:
+            raise ValueError('relation_diagnostic requires an explicit relation treatment')
+        return {
+            'relations': relations,
+            'entity_mask': mask,
+            'relation_mask': relation_mask,
         }
 
 

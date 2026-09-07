@@ -130,9 +130,19 @@ class M17ModularStructuredTest(unittest.TestCase):
             np.testing.assert_allclose(np.asarray(actual), np.asarray(expected), rtol=0.0, atol=atol)
 
     def test_structured_representation_is_parameter_free_and_adapter_owns_only_representation(self):
+        # M20A appends first-class relation fields while preserving the
+        # historical four-field positional prefix used by M15--M19 adapters.
         self.assertEqual(
-            StructuredRepresentation._fields,
+            StructuredRepresentation._fields[:4],
             ('tokens', 'context', 'mask', 'auxiliary'),
+        )
+        self.assertEqual(
+            StructuredRepresentation._fields[4:],
+            ('relations', 'relation_mask'),
+        )
+        self.assertEqual(
+            StructuredRepresentation('t', 'c', 'm', 'a').relations,
+            None,
         )
         adapter = PuzzleTokenAdapter(**_adapter_kwargs())
         variables = adapter.init(jax.random.PRNGKey(0), _input())

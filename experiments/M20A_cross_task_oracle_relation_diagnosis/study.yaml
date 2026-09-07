@@ -1,0 +1,111 @@
+study_id: M20A
+name: "Cross-task oracle relation diagnosis: Phase-2 formal screening"
+question: >-
+  Holding GCIQL, alpha=1.0, entity representations, initialization, sampling,
+  Mixer backbone, and readout fixed within each task, does correct relation
+  semantics differ from edge-count-matched shuffled and zero relation controls?
+primary_factors: [task_family, relation_mode, readout]
+fixed_design:
+  algorithm: gciql
+  actor_hidden_dims: [512, 512, 512]
+  value_hidden_dims: [512, 512, 512]
+  layer_norm: true
+  lr: 0.0003
+  batch_size: 1024
+  train_steps: 1000000
+  discount: 0.99
+  expectile: 0.9
+  tau: 0.005
+  actor_loss: ddpgbc
+  alpha: 1.0
+  const_std: true
+  discrete: false
+  dataset_class: GCDataset
+  value_goal_sampling: {p_curgoal: 0.2, p_trajgoal: 0.5, p_randomgoal: 0.3, geom_sample: true}
+  actor_goal_sampling: {p_curgoal: 0.0, p_trajgoal: 1.0, p_randomgoal: 0.0, geom_sample: false}
+  gc_negative: true
+  p_aug: 0.0
+  frame_stack: null
+  alpha_policy: explicit_fixed_1p0
+  token_dim: 128
+  robot_hidden_dim: 128
+  topology: feedforward
+  credit: direct
+  mixer: {num_blocks: 2, token_hidden_dim: 64, channel_hidden_dim: 256, tm_mode: none}
+  relation_augmenter:
+    {relation_hidden_dim: 256, activation: gelu, first_use_bias: false, second_use_bias: false, normalization: none, dropout: none, output_dim: 128}
+  hybrid_context_query: {query_dim: 128, attention: scaled_dot_product}
+  training_seed: 0
+  shuffle_design_seed: 20020
+  puzzle_shuffle_permutation: [2, 10, 15, 12, 11, 8, 7, 3, 6, 0, 5, 14, 9, 4, 1, 13]
+  cube_shuffle_derangement: [1, 2, 0]
+frozen_user_decisions:
+  cube_relation_thresholds:
+    current_support_epsilon_xy: 0.02
+    current_support_epsilon_z: 0.01
+    goal_support_epsilon_xy: 0.02
+    goal_support_epsilon_z: 0.01
+    goal_conflict_radius: 0.04
+    threshold_status: FROZEN_USER_PHASE2
+    support_geometry_shared_between_current_and_goal: true
+    provenance:
+      current_and_goal_support_epsilon_xy: OGBench_Cube_stack_xy_alignment_source_grounded_constant
+      current_and_goal_support_epsilon_z: Phase1_predetermined_geometry_sensitivity_bracket_conservative_tolerance_for_cube_height_0p04
+      goal_conflict_radius: OGBench_Cube_official_success_position_radius
+      excluded_selection_criteria: [RL_success, loss, Correct_minus_Shuffled_gap, relation_prevalence_attractiveness]
+deferred_factors:
+  - additional_training_seeds
+  - flat_reference_reevaluation_50_episodes
+algorithms: [gciql]
+placements: [actor+value+critic]
+environments: [puzzle-4x4-play-v0, cube-triple-play-v0, scene-play-v0]
+seeds: [0]
+primary_metric: evaluation/overall_success
+alpha_policy:
+  mode: hard_frozen
+  value: 1.0
+  runtime_authority: configuration.agent_overrides.alpha
+  source: "M20A Phase-1 protocol plus audited M16B/M19A alpha=1.0 Puzzle protocol"
+  local_official_reference_status: "No independently located local official GCIQL command grid; not silently substituted."
+protocol:
+  phase2_formal:
+    train_steps: 1000000
+    batch_size: 1024
+    log_interval: 5000
+    eval_interval: 100000
+    eval_tasks: all
+    eval_episodes: 50
+    eval_temperature: 0.0
+    eval_gaussian: null
+    video_episodes: 0
+    save_interval: 100000
+    save_best_checkpoint: true
+    save_last_checkpoint: true
+    selection_metric: evaluation/overall_success
+    selection_rule: strict_greater_than_keep_earlier_tie
+    primary_endpoint: final@1M
+    secondary_endpoints: [best_success, best_step, last3_mean, normalized_eval_auc]
+    auc:
+      checkpoints: [100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000]
+      interval: [100000, 1000000]
+      rule: trapezoidal_area_divided_by_900000
+    formal_training_authorized_by_user: true
+    formal_training_started: false
+phase2_readiness:
+  formal_executable_runs: 18
+  blocked_phase2_skeletons: 0
+  user_phase2_freeze_recorded: true
+  no_phase2_threshold_auto_freeze: true
+comparison_policy:
+  primary_within_task_contrast: Correct_minus_Shuffled
+  secondary_within_task_contrasts: [Correct_minus_Zero, HybridContextQuery_minus_Mean]
+  no_cross_task_raw_success_pooling: true
+  seed0_screening_not_significance: true
+  hybrid_interpretation: readout_package_contrast_not_parameter_or_mac_matched
+  zero_interpretation: parameterized_architecture_and_nominal_compute_matched_but_relation_mlp_may_be_dormant
+acceptance:
+  expected_phase2_formal_configs: 18
+  expected_formal_runs: 18
+  all_configs_executable: true
+  all_configs_alpha_1p0: true
+  cube_thresholds_frozen: true

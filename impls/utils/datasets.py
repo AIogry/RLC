@@ -104,7 +104,23 @@ class GCDataset:
                 stacked_observations = self.get_stacked_observations(np.arange(self.size))
                 self.dataset = Dataset(self.dataset.copy(dict(observations=stacked_observations)))
 
-    def sample(self, batch_size, idxs=None, evaluation=False, rng=None):
+    def sample(
+        self,
+        batch_size,
+        idxs=None,
+        evaluation=False,
+        rng=None,
+        return_sampling_trace=False,
+    ):
+        """Sample canonical GCIQL training pairs, optionally exposing IDs.
+
+        The default return value and RNG draw order are deliberately unchanged.
+        ``return_sampling_trace`` is diagnostic-only: it lets M20A verify that
+        Zero/Correct/Shuffled consume identical transition and relabelled-goal
+        indices without reconstructing OGBench goal sampling outside this
+        production method.
+        """
+
         rng = self.rng if rng is None else rng
         if idxs is None:
             idxs = self.dataset.get_random_idxs(batch_size, rng=rng)
@@ -139,7 +155,13 @@ class GCDataset:
         if self.config['p_aug'] is not None and not evaluation:
             if rng.random() < self.config['p_aug']:
                 self.augment(batch, ['observations', 'next_observations', 'value_goals', 'actor_goals'], rng)
-        return batch
+        if not return_sampling_trace:
+            return batch
+        return batch, {
+            'transition_indices': np.asarray(idxs).copy(),
+            'value_goal_indices': np.asarray(value_goal_idxs).copy(),
+            'actor_goal_indices': np.asarray(actor_goal_idxs).copy(),
+        }
 
     def sample_goals(self, idxs, p_curgoal, p_trajgoal, p_randomgoal, geom_sample, rng):
         del p_randomgoal

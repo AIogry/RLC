@@ -1,0 +1,3468 @@
+{
+  "artifact_schema": "m20a_phase1_relation_audit_v1",
+  "audit_sample_count": 100000,
+  "audit_seed": 20020,
+  "created_utc": "2026-09-07T17:46:09.073763+00:00",
+  "dataset_root": "/data/qijunrong/06-RL/offline-rl/data/raw_ogbench",
+  "source": {
+    "actual_starting_head": "not independently read by Codex; user-only Git policy",
+    "ogbench_distribution_version": "1.2.1",
+    "ogbench_module": "/home/eai/Research/RLC/ogbench/__init__.py",
+    "source_semantics_audited": {
+      "cube": "CubeEnv observation is robot(19)+three cube(9); same slot pairs state and goal after reset role permutation.",
+      "puzzle": "PuzzleEnv.post_step toggles self plus in-bounds cardinal neighbors.",
+      "scene": "Scene order is cube, button_0, button_1, drawer, window; button_0 controls drawer and button_1 controls window."
+    },
+    "source_status": "git_status_not_read_due_to_user_only_git_policy"
+  },
+  "tasks": {
+    "cube": {
+      "configuration_id_for_sampling": "M20A-CUBE-C-M",
+      "cube_geometry_audit": {
+        "audit_reference_candidate_only": {
+          "current_support_epsilon_xy": 0.02,
+          "current_support_epsilon_z": 0.01,
+          "goal_conflict_radius": 0.04,
+          "goal_support_epsilon_xy": 0.02,
+          "goal_support_epsilon_z": 0.01
+        },
+        "candidate_provenance": {
+          "conflict": "0.04 is audited Cube success-radius source constant; 0.02/0.06 are non-performance sensitivity brackets.",
+          "xy": "0.02 is the audited stack-alignment source constant; 0.01/0.03 are non-performance sensitivity brackets.",
+          "z": "0.04 cube height is simulator geometry; 0.005/0.010/0.020 are non-performance vertical-tolerance sensitivity candidates."
+        },
+        "required_statement": "CUBE RELATION THRESHOLDS NOT FROZEN",
+        "sensitivity_by_distribution": {
+          "actor_goal": {
+            "conflict_candidates": [
+              {
+                "goal_conflict": {
+                  "active_edges_per_sample": {
+                    "max": 2.0,
+                    "mean": 0.00948,
+                    "median": 0.0,
+                    "p10": 0.0,
+                    "p25": 0.0,
+                    "p75": 0.0,
+                    "p90": 0.0,
+                    "std": 0.09700582250566199
+                  },
+                  "fraction_samples_with_at_least_one_edge": 0.00947,
+                  "global_activation_density": 0.0010533333333333334,
+                  "per_entity_incoming_degree_mean": [
+                    0.0034,
+                    0.00303,
+                    0.00305
+                  ],
+                  "per_entity_outgoing_degree_mean": [
+                    0.00282,
+                    0.00316,
+                    0.0035
+                  ]
+                },
+                "goal_conflict_radius": 0.02
+              },
+              {
+                "goal_conflict": {
+                  "active_edges_per_sample": {
+                    "max": 3.0,
+                    "mean": 0.07752,
+                    "median": 0.0,
+                    "p10": 0.0,
+                    "p25": 0.0,
+                    "p75": 0.0,
+                    "p90": 0.0,
+                    "std": 0.28349717741099295
+                  },
+                  "fraction_samples_with_at_least_one_edge": 0.07312,
+                  "global_activation_density": 0.008613333333333334,
+                  "per_entity_incoming_degree_mean": [
+                    0.02645,
+                    0.02585,
+                    0.02522
+                  ],
+                  "per_entity_outgoing_degree_mean": [
+                    0.02498,
+                    0.02609,
+                    0.02645
+                  ]
+                },
+                "goal_conflict_radius": 0.04
+              },
+              {
+                "goal_conflict": {
+                  "active_edges_per_sample": {
+                    "max": 6.0,
+                    "mean": 0.64547,
+                    "median": 0.0,
+                    "p10": 0.0,
+                    "p25": 0.0,
+                    "p75": 1.0,
+                    "p90": 2.0,
+                    "std": 0.8725127386462619
+                  },
+                  "fraction_samples_with_at_least_one_edge": 0.43138,
+                  "global_activation_density": 0.07171888888888889,
+                  "per_entity_incoming_degree_mean": [
+                    0.22169,
+                    0.21256,
+                    0.21122
+                  ],
+                  "per_entity_outgoing_degree_mean": [
+                    0.21695,
+                    0.21313,
+                    0.21539
+                  ]
+                },
+                "goal_conflict_radius": 0.06
+              }
+            ],
+            "goal_pair_geometry": {
+              "delta_xy": {
+                "max": 0.6847115700891976,
+                "mean": 0.19874773202628224,
+                "median": 0.17948918014652815,
+                "p10": 0.0073867348067656,
+                "p25": 0.08762073457135994,
+                "p75": 0.29193265708686666,
+                "p90": 0.4067268502978825,
+                "std": 0.14180280589894131
+              },
+              "fraction_upper_pairs": 0.27937666666666666,
+              "ordered_nonself_pair_count": 60000000000,
+              "vertical_delta_z": {
+                "max": 0.3288961291313171,
+                "mean": -2.4528989950312052e-20,
+                "median": 0.0,
+                "p10": -0.05120107531547546,
+                "p25": -3.882199525833199e-05,
+                "p75": 3.882199525833199e-05,
+                "p90": 0.05120107531547546,
+                "std": 0.0810383762777998
+              }
+            },
+            "state_pair_geometry": {
+              "delta_xy": {
+                "max": 0.684711579369657,
+                "mean": 0.2007070491694192,
+                "median": 0.18167768181830818,
+                "p10": 0.008270579878301588,
+                "p25": 0.08919836786408182,
+                "p75": 0.2949568019907922,
+                "p90": 0.4078464844554763,
+                "std": 0.14192073189376136
+              },
+              "fraction_upper_pairs": 0.28188166666666664,
+              "ordered_nonself_pair_count": 60000000000,
+              "vertical_delta_z": {
+                "max": 0.34295309782028194,
+                "mean": 1.3993436039546244e-21,
+                "median": 0.0,
+                "p10": -0.06774710476398468,
+                "p25": -3.8827955722811613e-05,
+                "p75": 3.8827955722811613e-05,
+                "p90": 0.06774710476398461,
+                "std": 0.08458189205034175
+              }
+            },
+            "support_candidates": [
+              {
+                "current_support": {
+                  "active_edges_per_sample": {
+                    "max": 2.0,
+                    "mean": 0.27231,
+                    "median": 0.0,
+                    "p10": 0.0,
+                    "p25": 0.0,
+                    "p75": 1.0,
+                    "p90": 1.0,
+                    "std": 0.481224754039108
+                  },
+                  "fraction_samples_with_at_least_one_edge": 0.2556,
+                  "global_activation_density": 0.030256666666666668,
+                  "per_entity_incoming_degree_mean": [
+                    0.08998,
+                    0.09241,
+                    0.08992
+                  ],
+                  "per_entity_outgoing_degree_mean": [
+                    0.09316,
+                    0.08698,
+                    0.09217
+                  ]
+                },
+                "epsilon_xy": 0.01,
+                "epsilon_z": 0.005,
+                "goal_support": {
+                  "active_edges_per_sample": {
+                    "max": 2.0,
+                    "mean": 0.29171,
+                    "median": 0.0,
+                    "p10": 0.0,
+                    "p25": 0.0,
+                    "p75": 1.0,
+                    "p90": 1.0,
+                    "std": 0.49597910833017955
+                  },
+                  "fraction_samples_with_at_least_one_edge": 0.27202,
+                  "global_activation_density": 0.032412222222222224,
+                  "per_entity_incoming_degree_mean": [
+                    0.09702,
+                    0.09925,
+                    0.09544
+                  ],
+                  "per_entity_outgoing_degree_mean": [
+                    0.09916,
+                    0.09441,
+                    0.09814
+                  ]
+                }
+              },
+              {
+                "current_support": {
+                  "active_edges_per_sample": {
+                    "max": 2.0,
+                    "mean": 0.29296,
+                    "median": 0.0,
+                    "p10": 0.0,
+                    "p25": 0.0,
+                    "p75": 1.0,
+                    "p90": 1.0,
+                    "std": 0.4946457706278302
+                  },
+                  "fraction_samples_with_at_least_one_edge": 0.27419,
+                  "global_activation_density": 0.032551111111111114,
+                  "per_entity_incoming_degree_mean": [
+                    0.0979,
+                    0.09947,
+                    0.09559
+                  ],
+                  "per_entity_outgoing_degree_mean": [
+                    0.09954,
+                    0.0934,
+                    0.10002
+                  ]
+                },
+                "epsilon_xy": 0.02,
+                "epsilon_z": 0.01,
+                "goal_support": {
+                  "active_edges_per_sample": {
+                    "max": 2.0,
+                    "mean": 0.314,
+                    "median": 0.0,
+                    "p10": 0.0,
+                    "p25": 0.0,
+                    "p75": 1.0,
+                    "p90": 1.0,
+                    "std": 0.5100627412387617
+                  },
+                  "fraction_samples_with_at_least_one_edge": 0.29162,
+                  "global_activation_density": 0.034888888888888886,
+                  "per_entity_incoming_degree_mean": [
+                    0.10452,
+                    0.10731,
+                    0.10217
+                  ],
+                  "per_entity_outgoing_degree_mean": [
+                    0.10621,
+                    0.10116,
+                    0.10663
+                  ]
+                }
+              },
+              {
+                "current_support": {
+                  "active_edges_per_sample": {
+                    "max": 2.0,
+                    "mean": 0.30122,
+                    "median": 0.0,
+                    "p10": 0.0,
+                    "p25": 0.0,
+                    "p75": 1.0,
+                    "p90": 1.0,
+                    "std": 0.4999265061986612
+                  },
+                  "fraction_samples_with_at_least_one_edge": 0.2815,
+                  "global_activation_density": 0.03346888888888889,
+                  "per_entity_incoming_degree_mean": [
+                    0.10057,
+                    0.10245,
+                    0.0982
+                  ],
+                  "per_entity_outgoing_degree_mean": [
+                    0.10241,
+                    0.09581,
+                    0.103
+                  ]
+                },
+                "epsilon_xy": 0.03,
+                "epsilon_z": 0.02,
+                "goal_support": {
+                  "active_edges_per_sample": {
+                    "max": 2.0,
+                    "mean": 0.32186,
+                    "median": 0.0,
+                    "p10": 0.0,
+                    "p25": 0.0,
+                    "p75": 1.0,
+                    "p90": 1.0,
+                    "std": 0.5150011071832759
+                  },
+                  "fraction_samples_with_at_least_one_edge": 0.29838,
+                  "global_activation_density": 0.03576222222222222,
+                  "per_entity_incoming_degree_mean": [
+                    0.10745,
+                    0.11002,
+                    0.10439
+                  ],
+                  "per_entity_outgoing_degree_mean": [
+                    0.10837,
+                    0.10394,
+                    0.10955
+                  ]
+                }
+              }
+            ]
+          },
+          "td_next_value_goal": {
+            "conflict_candidates": [
+              {
+                "goal_conflict": {
+                  "active_edges_per_sample": {
+                    "max": 2.0,
+                    "mean": 0.01041,
+                    "median": 0.0,
+                    "p10": 0.0,
+                    "p25": 0.0,
+                    "p75": 0.0,
+                    "p90": 0.0,
+                    "std": 0.10276980052525159
+                  },
+                  "fraction_samples_with_at_least_one_edge": 0.01028,
+                  "global_activation_density": 0.0011566666666666667,
+                  "per_entity_incoming_degree_mean": [
+                    0.00334,
+                    0.00342,
+                    0.00365
+                  ],
+                  "per_entity_outgoing_degree_mean": [
+                    0.00353,
+                    0.00352,
+                    0.00336
+                  ]
+                },
+                "goal_conflict_radius": 0.02
+              },
+              {
+                "goal_conflict": {
+                  "active_edges_per_sample": {
+                    "max": 4.0,
+                    "mean": 0.07189,
+                    "median": 0.0,
+                    "p10": 0.0,
+                    "p25": 0.0,
+                    "p75": 0.0,
+                    "p90": 0.0,
+                    "std": 0.28114378509936866
+                  },
+                  "fraction_samples_with_at_least_one_edge": 0.06582,
+                  "global_activation_density": 0.007987777777777778,
+                  "per_entity_incoming_degree_mean": [
+                    0.02356,
+                    0.02405,
+                    0.02428
+                  ],
+                  "per_entity_outgoing_degree_mean": [
+                    0.02331,
+                    0.02374,
+                    0.02484
+                  ]
+                },
+                "goal_conflict_radius": 0.04
+              },
+              {
+                "goal_conflict": {
+                  "active_edges_per_sample": {
+                    "max": 6.0,
+                    "mean": 0.62478,
+                    "median": 0.0,
+                    "p10": 0.0,
+                    "p25": 0.0,
+                    "p75": 1.0,
+                    "p90": 2.0,
+                    "std": 0.9283802839354142
+                  },
+                  "fraction_samples_with_at_least_one_edge": 0.37284,
+                  "global_activation_density": 0.06942,
+                  "per_entity_incoming_degree_mean": [
+                    0.2116,
+                    0.20534,
+                    0.20784
+                  ],
+                  "per_entity_outgoing_degree_mean": [
+                    0.20973,
+                    0.20606,
+                    0.20899
+                  ]
+                },
+                "goal_conflict_radius": 0.06
+              }
+            ],
+            "goal_pair_geometry": {
+              "delta_xy": {
+                "max": 0.6847115608087389,
+                "mean": 0.20036100480434266,
+                "median": 0.18129655209560808,
+                "p10": 0.00793351856061478,
+                "p25": 0.08903199350204662,
+                "p75": 0.29434944226900506,
+                "p90": 0.4083439578390562,
+                "std": 0.14201061772081253
+              },
+              "fraction_upper_pairs": 0.283455,
+              "ordered_nonself_pair_count": 60000000000,
+              "vertical_delta_z": {
+                "max": 0.6707647264003753,
+                "mean": 5.458596537740353e-21,
+                "median": 0.0,
+                "p10": -0.05835628122091294,
+                "p25": -3.8829445838928917e-05,
+                "p75": 3.8829445838928917e-05,
+                "p90": 0.0583562812209129,
+                "std": 0.08230626329344848
+              }
+            },
+            "state_pair_geometry": {
+              "delta_xy": {
+                "max": 0.684711579369657,
+                "mean": 0.20065937182543406,
+                "median": 0.18171088748577546,
+                "p10": 0.008237632622097016,
+                "p25": 0.08911250950343035,
+                "p75": 0.2949098428521078,
+                "p90": 0.40780777963582077,
+                "std": 0.14192012451592534
+              },
+              "fraction_upper_pairs": 0.28228166666666665,
+              "ordered_nonself_pair_count": 60000000000,
+              "vertical_delta_z": {
+                "max": 0.3318851351737976,
+                "mean": -1.4617936490897896e-20,
+                "median": 0.0,
+                "p10": -0.06768256843090054,
+                "p25": -3.8827955722811613e-05,
+                "p75": 3.8827955722811613e-05,
+                "p90": 0.06768256843090012,
+                "std": 0.08464067502310073
+              }
+            },
+            "support_candidates": [
+              {
+                "current_support": {
+                  "active_edges_per_sample": {
+                    "max": 2.0,
+                    "mean": 0.27282,
+                    "median": 0.0,
+                    "p10": 0.0,
+                    "p25": 0.0,
+                    "p75": 1.0,
+                    "p90": 1.0,
+                    "std": 0.48136186762143923
+                  },
+                  "fraction_samples_with_at_least_one_edge": 0.25616,
+                  "global_activation_density": 0.030313333333333334,
+                  "per_entity_incoming_degree_mean": [
+                    0.09019,
+                    0.0926,
+                    0.09003
+                  ],
+                  "per_entity_outgoing_degree_mean": [
+                    0.09342,
+                    0.08694,
+                    0.09246
+                  ]
+                },
+                "epsilon_xy": 0.01,
+                "epsilon_z": 0.005,
+                "goal_support": {
+                  "active_edges_per_sample": {
+                    "max": 2.0,
+                    "mean": 0.27859,
+                    "median": 0.0,
+                    "p10": 0.0,
+                    "p25": 0.0,
+                    "p75": 1.0,
+                    "p90": 1.0,
+                    "std": 0.4859605044651263
+                  },
+                  "fraction_samples_with_at_least_one_edge": 0.261,
+                  "global_activation_density": 0.030954444444444444,
+                  "per_entity_incoming_degree_mean": [
+                    0.09187,
+                    0.09364,
+                    0.09308
+                  ],
+                  "per_entity_outgoing_degree_mean": [
+                    0.09497,
+                    0.08975,
+                    0.09387
+                  ]
+                }
+              },
+              {
+                "current_support": {
+                  "active_edges_per_sample": {
+                    "max": 2.0,
+                    "mean": 0.29337,
+                    "median": 0.0,
+                    "p10": 0.0,
+                    "p25": 0.0,
+                    "p75": 1.0,
+                    "p90": 1.0,
+                    "std": 0.4949384235437778
+                  },
+                  "fraction_samples_with_at_least_one_edge": 0.27454,
+                  "global_activation_density": 0.03259666666666667,
+                  "per_entity_incoming_degree_mean": [
+                    0.09807,
+                    0.09964,
+                    0.09566
+                  ],
+                  "per_entity_outgoing_degree_mean": [
+                    0.09968,
+                    0.09352,
+                    0.10017
+                  ]
+                },
+                "epsilon_xy": 0.02,
+                "epsilon_z": 0.01,
+                "goal_support": {
+                  "active_edges_per_sample": {
+                    "max": 2.0,
+                    "mean": 0.30072,
+                    "median": 0.0,
+                    "p10": 0.0,
+                    "p25": 0.0,
+                    "p75": 1.0,
+                    "p90": 1.0,
+                    "std": 0.4994671977217323
+                  },
+                  "fraction_samples_with_at_least_one_edge": 0.28113,
+                  "global_activation_density": 0.03341333333333334,
+                  "per_entity_incoming_degree_mean": [
+                    0.1,
+                    0.10134,
+                    0.09938
+                  ],
+                  "per_entity_outgoing_degree_mean": [
+                    0.10191,
+                    0.0964,
+                    0.10241
+                  ]
+                }
+              },
+              {
+                "current_support": {
+                  "active_edges_per_sample": {
+                    "max": 2.0,
+                    "mean": 0.3014,
+                    "median": 0.0,
+                    "p10": 0.0,
+                    "p25": 0.0,
+                    "p75": 1.0,
+                    "p90": 1.0,
+                    "std": 0.5003778971937111
+                  },
+                  "fraction_samples_with_at_least_one_edge": 0.28149,
+                  "global_activation_density": 0.03348888888888889,
+                  "per_entity_incoming_degree_mean": [
+                    0.10064,
+                    0.10255,
+                    0.09821
+                  ],
+                  "per_entity_outgoing_degree_mean": [
+                    0.10238,
+                    0.0959,
+                    0.10312
+                  ]
+                },
+                "epsilon_xy": 0.03,
+                "epsilon_z": 0.02,
+                "goal_support": {
+                  "active_edges_per_sample": {
+                    "max": 2.0,
+                    "mean": 0.30863,
+                    "median": 0.0,
+                    "p10": 0.0,
+                    "p25": 0.0,
+                    "p75": 1.0,
+                    "p90": 1.0,
+                    "std": 0.5047152891482485
+                  },
+                  "fraction_samples_with_at_least_one_edge": 0.28795,
+                  "global_activation_density": 0.034292222222222224,
+                  "per_entity_incoming_degree_mean": [
+                    0.10275,
+                    0.10419,
+                    0.10169
+                  ],
+                  "per_entity_outgoing_degree_mean": [
+                    0.10444,
+                    0.09884,
+                    0.10535
+                  ]
+                }
+              }
+            ]
+          },
+          "value_goal": {
+            "conflict_candidates": [
+              {
+                "goal_conflict": {
+                  "active_edges_per_sample": {
+                    "max": 2.0,
+                    "mean": 0.01037,
+                    "median": 0.0,
+                    "p10": 0.0,
+                    "p25": 0.0,
+                    "p75": 0.0,
+                    "p90": 0.0,
+                    "std": 0.10257905780421266
+                  },
+                  "fraction_samples_with_at_least_one_edge": 0.01024,
+                  "global_activation_density": 0.0011522222222222222,
+                  "per_entity_incoming_degree_mean": [
+                    0.00331,
+                    0.00348,
+                    0.00358
+                  ],
+                  "per_entity_outgoing_degree_mean": [
+                    0.0035,
+                    0.00345,
+                    0.00342
+                  ]
+                },
+                "goal_conflict_radius": 0.02
+              },
+              {
+                "goal_conflict": {
+                  "active_edges_per_sample": {
+                    "max": 4.0,
+                    "mean": 0.07027,
+                    "median": 0.0,
+                    "p10": 0.0,
+                    "p25": 0.0,
+                    "p75": 0.0,
+                    "p90": 0.0,
+                    "std": 0.2798430401135608
+                  },
+                  "fraction_samples_with_at_least_one_edge": 0.06393,
+                  "global_activation_density": 0.007807777777777778,
+                  "per_entity_incoming_degree_mean": [
+                    0.02317,
+                    0.02348,
+                    0.02362
+                  ],
+                  "per_entity_outgoing_degree_mean": [
+                    0.0228,
+                    0.02316,
+                    0.02431
+                  ]
+                },
+                "goal_conflict_radius": 0.04
+              },
+              {
+                "goal_conflict": {
+                  "active_edges_per_sample": {
+                    "max": 6.0,
+                    "mean": 0.62481,
+                    "median": 0.0,
+                    "p10": 0.0,
+                    "p25": 0.0,
+                    "p75": 1.0,
+                    "p90": 2.0,
+                    "std": 0.9280638253374603
+                  },
+                  "fraction_samples_with_at_least_one_edge": 0.37295,
+                  "global_activation_density": 0.06942333333333334,
+                  "per_entity_incoming_degree_mean": [
+                    0.21184,
+                    0.20523,
+                    0.20774
+                  ],
+                  "per_entity_outgoing_degree_mean": [
+                    0.20964,
+                    0.20624,
+                    0.20893
+                  ]
+                },
+                "goal_conflict_radius": 0.06
+              }
+            ],
+            "goal_pair_geometry": {
+              "delta_xy": {
+                "max": 0.6847115608087389,
+                "mean": 0.20036100480434266,
+                "median": 0.18129655209560808,
+                "p10": 0.00793351856061478,
+                "p25": 0.08903199350204662,
+                "p75": 0.29434944226900506,
+                "p90": 0.4083439578390562,
+                "std": 0.14201061772081253
+              },
+              "fraction_upper_pairs": 0.283455,
+              "ordered_nonself_pair_count": 60000000000,
+              "vertical_delta_z": {
+                "max": 0.6707647264003753,
+                "mean": 5.458596537740353e-21,
+                "median": 0.0,
+                "p10": -0.05835628122091294,
+                "p25": -3.8829445838928917e-05,
+                "p75": 3.8829445838928917e-05,
+                "p90": 0.0583562812209129,
+                "std": 0.08230626329344848
+              }
+            },
+            "state_pair_geometry": {
+              "delta_xy": {
+                "max": 0.684711579369657,
+                "mean": 0.2007070491694192,
+                "median": 0.18167768181830818,
+                "p10": 0.008270579878301588,
+                "p25": 0.08919836786408182,
+                "p75": 0.2949568019907922,
+                "p90": 0.4078464844554763,
+                "std": 0.14192073189376136
+              },
+              "fraction_upper_pairs": 0.28188166666666664,
+              "ordered_nonself_pair_count": 60000000000,
+              "vertical_delta_z": {
+                "max": 0.34295309782028194,
+                "mean": 1.3993436039546244e-21,
+                "median": 0.0,
+                "p10": -0.06774710476398468,
+                "p25": -3.8827955722811613e-05,
+                "p75": 3.8827955722811613e-05,
+                "p90": 0.06774710476398461,
+                "std": 0.08458189205034175
+              }
+            },
+            "support_candidates": [
+              {
+                "current_support": {
+                  "active_edges_per_sample": {
+                    "max": 2.0,
+                    "mean": 0.27231,
+                    "median": 0.0,
+                    "p10": 0.0,
+                    "p25": 0.0,
+                    "p75": 1.0,
+                    "p90": 1.0,
+                    "std": 0.481224754039108
+                  },
+                  "fraction_samples_with_at_least_one_edge": 0.2556,
+                  "global_activation_density": 0.030256666666666668,
+                  "per_entity_incoming_degree_mean": [
+                    0.08998,
+                    0.09241,
+                    0.08992
+                  ],
+                  "per_entity_outgoing_degree_mean": [
+                    0.09316,
+                    0.08698,
+                    0.09217
+                  ]
+                },
+                "epsilon_xy": 0.01,
+                "epsilon_z": 0.005,
+                "goal_support": {
+                  "active_edges_per_sample": {
+                    "max": 2.0,
+                    "mean": 0.27859,
+                    "median": 0.0,
+                    "p10": 0.0,
+                    "p25": 0.0,
+                    "p75": 1.0,
+                    "p90": 1.0,
+                    "std": 0.4859605044651263
+                  },
+                  "fraction_samples_with_at_least_one_edge": 0.261,
+                  "global_activation_density": 0.030954444444444444,
+                  "per_entity_incoming_degree_mean": [
+                    0.09187,
+                    0.09364,
+                    0.09308
+                  ],
+                  "per_entity_outgoing_degree_mean": [
+                    0.09497,
+                    0.08975,
+                    0.09387
+                  ]
+                }
+              },
+              {
+                "current_support": {
+                  "active_edges_per_sample": {
+                    "max": 2.0,
+                    "mean": 0.29296,
+                    "median": 0.0,
+                    "p10": 0.0,
+                    "p25": 0.0,
+                    "p75": 1.0,
+                    "p90": 1.0,
+                    "std": 0.4946457706278302
+                  },
+                  "fraction_samples_with_at_least_one_edge": 0.27419,
+                  "global_activation_density": 0.032551111111111114,
+                  "per_entity_incoming_degree_mean": [
+                    0.0979,
+                    0.09947,
+                    0.09559
+                  ],
+                  "per_entity_outgoing_degree_mean": [
+                    0.09954,
+                    0.0934,
+                    0.10002
+                  ]
+                },
+                "epsilon_xy": 0.02,
+                "epsilon_z": 0.01,
+                "goal_support": {
+                  "active_edges_per_sample": {
+                    "max": 2.0,
+                    "mean": 0.30072,
+                    "median": 0.0,
+                    "p10": 0.0,
+                    "p25": 0.0,
+                    "p75": 1.0,
+                    "p90": 1.0,
+                    "std": 0.4994671977217323
+                  },
+                  "fraction_samples_with_at_least_one_edge": 0.28113,
+                  "global_activation_density": 0.03341333333333334,
+                  "per_entity_incoming_degree_mean": [
+                    0.1,
+                    0.10134,
+                    0.09938
+                  ],
+                  "per_entity_outgoing_degree_mean": [
+                    0.10191,
+                    0.0964,
+                    0.10241
+                  ]
+                }
+              },
+              {
+                "current_support": {
+                  "active_edges_per_sample": {
+                    "max": 2.0,
+                    "mean": 0.30122,
+                    "median": 0.0,
+                    "p10": 0.0,
+                    "p25": 0.0,
+                    "p75": 1.0,
+                    "p90": 1.0,
+                    "std": 0.4999265061986612
+                  },
+                  "fraction_samples_with_at_least_one_edge": 0.2815,
+                  "global_activation_density": 0.03346888888888889,
+                  "per_entity_incoming_degree_mean": [
+                    0.10057,
+                    0.10245,
+                    0.0982
+                  ],
+                  "per_entity_outgoing_degree_mean": [
+                    0.10241,
+                    0.09581,
+                    0.103
+                  ]
+                },
+                "epsilon_xy": 0.03,
+                "epsilon_z": 0.02,
+                "goal_support": {
+                  "active_edges_per_sample": {
+                    "max": 2.0,
+                    "mean": 0.30863,
+                    "median": 0.0,
+                    "p10": 0.0,
+                    "p25": 0.0,
+                    "p75": 1.0,
+                    "p90": 1.0,
+                    "std": 0.5047152891482485
+                  },
+                  "fraction_samples_with_at_least_one_edge": 0.28795,
+                  "global_activation_density": 0.034292222222222224,
+                  "per_entity_incoming_degree_mean": [
+                    0.10275,
+                    0.10419,
+                    0.10169
+                  ],
+                  "per_entity_outgoing_degree_mean": [
+                    0.10444,
+                    0.09884,
+                    0.10535
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "shuffle_semantic_validity": {
+          "endpoint_derangement": [
+            1,
+            2,
+            0
+          ],
+          "real_batch_fraction": 0.40781,
+          "semantic_alignment_gate": "valid_if_real_batch_correct_vs_shuffled_tensor_different_fraction_gt_zero",
+          "slot_identity_embedding": false,
+          "token_features_not_permuted": true
+        },
+        "threshold_status": "UNFROZEN_PHASE1"
+      },
+      "dataset_identity": {
+        "identity_kind": "full_file_sha256_plus_stat",
+        "mtime_ns": 1784201892864327003,
+        "path": "/data/qijunrong/06-RL/offline-rl/data/raw_ogbench/cube-triple-play-v0.npz",
+        "sha256": "4e09a9f5ba7eaba59350dbef7e85887b9a2746490c69eaa83af34a3f9029202b",
+        "size_bytes": 1003544255
+      },
+      "distributions": {
+        "actor_goal": {
+          "controls": {
+            "correct_vs_shuffled_tensor_different_any": true,
+            "correct_vs_shuffled_tensor_different_fraction": 0.44019,
+            "per_type": {
+              "current_support": {
+                "correct_shuffled_edge_count_equal_all_samples": true,
+                "correct_shuffled_edge_count_equal_fraction": 1.0,
+                "zero_edge_count_all_zero": true
+              },
+              "goal_conflict": {
+                "correct_shuffled_edge_count_equal_all_samples": true,
+                "correct_shuffled_edge_count_equal_fraction": 1.0,
+                "zero_edge_count_all_zero": true
+              },
+              "goal_support": {
+                "correct_shuffled_edge_count_equal_all_samples": true,
+                "correct_shuffled_edge_count_equal_fraction": 1.0,
+                "zero_edge_count_all_zero": true
+              }
+            },
+            "zero_tensor_all_zero": true
+          },
+          "correct": {
+            "batch_size": 100000,
+            "global_activation_density": 0.025351111111111112,
+            "num_entities": 3,
+            "num_relation_types": 3,
+            "per_type": {
+              "current_support": {
+                "active_edges_per_sample": {
+                  "max": 2.0,
+                  "mean": 0.29296,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 1.0,
+                  "p90": 1.0,
+                  "std": 0.4946457706278302
+                },
+                "fraction_samples_with_at_least_one_edge": 0.27419,
+                "global_activation_density": 0.032551111111111114,
+                "per_entity_incoming_degree_mean": [
+                  0.0979,
+                  0.09947,
+                  0.09559
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.09954,
+                  0.0934,
+                  0.10002
+                ]
+              },
+              "goal_conflict": {
+                "active_edges_per_sample": {
+                  "max": 3.0,
+                  "mean": 0.07752,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "std": 0.28349717741099295
+                },
+                "fraction_samples_with_at_least_one_edge": 0.07312,
+                "global_activation_density": 0.008613333333333334,
+                "per_entity_incoming_degree_mean": [
+                  0.02645,
+                  0.02585,
+                  0.02522
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.02498,
+                  0.02609,
+                  0.02645
+                ]
+              },
+              "goal_support": {
+                "active_edges_per_sample": {
+                  "max": 2.0,
+                  "mean": 0.314,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 1.0,
+                  "p90": 1.0,
+                  "std": 0.5100627412387617
+                },
+                "fraction_samples_with_at_least_one_edge": 0.29162,
+                "global_activation_density": 0.034888888888888886,
+                "per_entity_incoming_degree_mean": [
+                  0.10452,
+                  0.10731,
+                  0.10217
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.10621,
+                  0.10116,
+                  0.10663
+                ]
+              }
+            }
+          },
+          "shuffled": {
+            "batch_size": 100000,
+            "global_activation_density": 0.025351111111111112,
+            "num_entities": 3,
+            "num_relation_types": 3,
+            "per_type": {
+              "current_support": {
+                "active_edges_per_sample": {
+                  "max": 2.0,
+                  "mean": 0.29296,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 1.0,
+                  "p90": 1.0,
+                  "std": 0.4946457706278302
+                },
+                "fraction_samples_with_at_least_one_edge": 0.27419,
+                "global_activation_density": 0.032551111111111114,
+                "per_entity_incoming_degree_mean": [
+                  0.09947,
+                  0.09559,
+                  0.0979
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.0934,
+                  0.10002,
+                  0.09954
+                ]
+              },
+              "goal_conflict": {
+                "active_edges_per_sample": {
+                  "max": 3.0,
+                  "mean": 0.07752,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "std": 0.28349717741099295
+                },
+                "fraction_samples_with_at_least_one_edge": 0.07312,
+                "global_activation_density": 0.008613333333333334,
+                "per_entity_incoming_degree_mean": [
+                  0.02585,
+                  0.02522,
+                  0.02645
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.02609,
+                  0.02645,
+                  0.02498
+                ]
+              },
+              "goal_support": {
+                "active_edges_per_sample": {
+                  "max": 2.0,
+                  "mean": 0.314,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 1.0,
+                  "p90": 1.0,
+                  "std": 0.5100627412387617
+                },
+                "fraction_samples_with_at_least_one_edge": 0.29162,
+                "global_activation_density": 0.034888888888888886,
+                "per_entity_incoming_degree_mean": [
+                  0.10731,
+                  0.10217,
+                  0.10452
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.10116,
+                  0.10663,
+                  0.10621
+                ]
+              }
+            }
+          },
+          "zero": {
+            "batch_size": 100000,
+            "global_activation_density": 0.0,
+            "num_entities": 3,
+            "num_relation_types": 3,
+            "per_type": {
+              "current_support": {
+                "active_edges_per_sample": {
+                  "max": 0.0,
+                  "mean": 0.0,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "std": 0.0
+                },
+                "fraction_samples_with_at_least_one_edge": 0.0,
+                "global_activation_density": 0.0,
+                "per_entity_incoming_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "goal_conflict": {
+                "active_edges_per_sample": {
+                  "max": 0.0,
+                  "mean": 0.0,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "std": 0.0
+                },
+                "fraction_samples_with_at_least_one_edge": 0.0,
+                "global_activation_density": 0.0,
+                "per_entity_incoming_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "goal_support": {
+                "active_edges_per_sample": {
+                  "max": 0.0,
+                  "mean": 0.0,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "std": 0.0
+                },
+                "fraction_samples_with_at_least_one_edge": 0.0,
+                "global_activation_density": 0.0,
+                "per_entity_incoming_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              }
+            }
+          }
+        },
+        "td_next_value_goal": {
+          "controls": {
+            "correct_vs_shuffled_tensor_different_any": true,
+            "correct_vs_shuffled_tensor_different_fraction": 0.40808,
+            "per_type": {
+              "current_support": {
+                "correct_shuffled_edge_count_equal_all_samples": true,
+                "correct_shuffled_edge_count_equal_fraction": 1.0,
+                "zero_edge_count_all_zero": true
+              },
+              "goal_conflict": {
+                "correct_shuffled_edge_count_equal_all_samples": true,
+                "correct_shuffled_edge_count_equal_fraction": 1.0,
+                "zero_edge_count_all_zero": true
+              },
+              "goal_support": {
+                "correct_shuffled_edge_count_equal_all_samples": true,
+                "correct_shuffled_edge_count_equal_fraction": 1.0,
+                "zero_edge_count_all_zero": true
+              }
+            },
+            "zero_tensor_all_zero": true
+          },
+          "correct": {
+            "batch_size": 100000,
+            "global_activation_density": 0.024665925925925924,
+            "num_entities": 3,
+            "num_relation_types": 3,
+            "per_type": {
+              "current_support": {
+                "active_edges_per_sample": {
+                  "max": 2.0,
+                  "mean": 0.29337,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 1.0,
+                  "p90": 1.0,
+                  "std": 0.4949384235437778
+                },
+                "fraction_samples_with_at_least_one_edge": 0.27454,
+                "global_activation_density": 0.03259666666666667,
+                "per_entity_incoming_degree_mean": [
+                  0.09807,
+                  0.09964,
+                  0.09566
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.09968,
+                  0.09352,
+                  0.10017
+                ]
+              },
+              "goal_conflict": {
+                "active_edges_per_sample": {
+                  "max": 4.0,
+                  "mean": 0.07189,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "std": 0.28114378509936866
+                },
+                "fraction_samples_with_at_least_one_edge": 0.06582,
+                "global_activation_density": 0.007987777777777778,
+                "per_entity_incoming_degree_mean": [
+                  0.02356,
+                  0.02405,
+                  0.02428
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.02331,
+                  0.02374,
+                  0.02484
+                ]
+              },
+              "goal_support": {
+                "active_edges_per_sample": {
+                  "max": 2.0,
+                  "mean": 0.30072,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 1.0,
+                  "p90": 1.0,
+                  "std": 0.4994671977217323
+                },
+                "fraction_samples_with_at_least_one_edge": 0.28113,
+                "global_activation_density": 0.03341333333333334,
+                "per_entity_incoming_degree_mean": [
+                  0.1,
+                  0.10134,
+                  0.09938
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.10191,
+                  0.0964,
+                  0.10241
+                ]
+              }
+            }
+          },
+          "shuffled": {
+            "batch_size": 100000,
+            "global_activation_density": 0.024665925925925924,
+            "num_entities": 3,
+            "num_relation_types": 3,
+            "per_type": {
+              "current_support": {
+                "active_edges_per_sample": {
+                  "max": 2.0,
+                  "mean": 0.29337,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 1.0,
+                  "p90": 1.0,
+                  "std": 0.4949384235437778
+                },
+                "fraction_samples_with_at_least_one_edge": 0.27454,
+                "global_activation_density": 0.03259666666666667,
+                "per_entity_incoming_degree_mean": [
+                  0.09964,
+                  0.09566,
+                  0.09807
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.09352,
+                  0.10017,
+                  0.09968
+                ]
+              },
+              "goal_conflict": {
+                "active_edges_per_sample": {
+                  "max": 4.0,
+                  "mean": 0.07189,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "std": 0.28114378509936866
+                },
+                "fraction_samples_with_at_least_one_edge": 0.06582,
+                "global_activation_density": 0.007987777777777778,
+                "per_entity_incoming_degree_mean": [
+                  0.02405,
+                  0.02428,
+                  0.02356
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.02374,
+                  0.02484,
+                  0.02331
+                ]
+              },
+              "goal_support": {
+                "active_edges_per_sample": {
+                  "max": 2.0,
+                  "mean": 0.30072,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 1.0,
+                  "p90": 1.0,
+                  "std": 0.4994671977217323
+                },
+                "fraction_samples_with_at_least_one_edge": 0.28113,
+                "global_activation_density": 0.03341333333333334,
+                "per_entity_incoming_degree_mean": [
+                  0.10134,
+                  0.09938,
+                  0.1
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.0964,
+                  0.10241,
+                  0.10191
+                ]
+              }
+            }
+          },
+          "zero": {
+            "batch_size": 100000,
+            "global_activation_density": 0.0,
+            "num_entities": 3,
+            "num_relation_types": 3,
+            "per_type": {
+              "current_support": {
+                "active_edges_per_sample": {
+                  "max": 0.0,
+                  "mean": 0.0,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "std": 0.0
+                },
+                "fraction_samples_with_at_least_one_edge": 0.0,
+                "global_activation_density": 0.0,
+                "per_entity_incoming_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "goal_conflict": {
+                "active_edges_per_sample": {
+                  "max": 0.0,
+                  "mean": 0.0,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "std": 0.0
+                },
+                "fraction_samples_with_at_least_one_edge": 0.0,
+                "global_activation_density": 0.0,
+                "per_entity_incoming_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "goal_support": {
+                "active_edges_per_sample": {
+                  "max": 0.0,
+                  "mean": 0.0,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "std": 0.0
+                },
+                "fraction_samples_with_at_least_one_edge": 0.0,
+                "global_activation_density": 0.0,
+                "per_entity_incoming_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              }
+            }
+          }
+        },
+        "value_goal": {
+          "controls": {
+            "correct_vs_shuffled_tensor_different_any": true,
+            "correct_vs_shuffled_tensor_different_fraction": 0.40781,
+            "per_type": {
+              "current_support": {
+                "correct_shuffled_edge_count_equal_all_samples": true,
+                "correct_shuffled_edge_count_equal_fraction": 1.0,
+                "zero_edge_count_all_zero": true
+              },
+              "goal_conflict": {
+                "correct_shuffled_edge_count_equal_all_samples": true,
+                "correct_shuffled_edge_count_equal_fraction": 1.0,
+                "zero_edge_count_all_zero": true
+              },
+              "goal_support": {
+                "correct_shuffled_edge_count_equal_all_samples": true,
+                "correct_shuffled_edge_count_equal_fraction": 1.0,
+                "zero_edge_count_all_zero": true
+              }
+            },
+            "zero_tensor_all_zero": true
+          },
+          "correct": {
+            "batch_size": 100000,
+            "global_activation_density": 0.02459074074074074,
+            "num_entities": 3,
+            "num_relation_types": 3,
+            "per_type": {
+              "current_support": {
+                "active_edges_per_sample": {
+                  "max": 2.0,
+                  "mean": 0.29296,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 1.0,
+                  "p90": 1.0,
+                  "std": 0.4946457706278302
+                },
+                "fraction_samples_with_at_least_one_edge": 0.27419,
+                "global_activation_density": 0.032551111111111114,
+                "per_entity_incoming_degree_mean": [
+                  0.0979,
+                  0.09947,
+                  0.09559
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.09954,
+                  0.0934,
+                  0.10002
+                ]
+              },
+              "goal_conflict": {
+                "active_edges_per_sample": {
+                  "max": 4.0,
+                  "mean": 0.07027,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "std": 0.2798430401135608
+                },
+                "fraction_samples_with_at_least_one_edge": 0.06393,
+                "global_activation_density": 0.007807777777777778,
+                "per_entity_incoming_degree_mean": [
+                  0.02317,
+                  0.02348,
+                  0.02362
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.0228,
+                  0.02316,
+                  0.02431
+                ]
+              },
+              "goal_support": {
+                "active_edges_per_sample": {
+                  "max": 2.0,
+                  "mean": 0.30072,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 1.0,
+                  "p90": 1.0,
+                  "std": 0.4994671977217323
+                },
+                "fraction_samples_with_at_least_one_edge": 0.28113,
+                "global_activation_density": 0.03341333333333334,
+                "per_entity_incoming_degree_mean": [
+                  0.1,
+                  0.10134,
+                  0.09938
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.10191,
+                  0.0964,
+                  0.10241
+                ]
+              }
+            }
+          },
+          "shuffled": {
+            "batch_size": 100000,
+            "global_activation_density": 0.02459074074074074,
+            "num_entities": 3,
+            "num_relation_types": 3,
+            "per_type": {
+              "current_support": {
+                "active_edges_per_sample": {
+                  "max": 2.0,
+                  "mean": 0.29296,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 1.0,
+                  "p90": 1.0,
+                  "std": 0.4946457706278302
+                },
+                "fraction_samples_with_at_least_one_edge": 0.27419,
+                "global_activation_density": 0.032551111111111114,
+                "per_entity_incoming_degree_mean": [
+                  0.09947,
+                  0.09559,
+                  0.0979
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.0934,
+                  0.10002,
+                  0.09954
+                ]
+              },
+              "goal_conflict": {
+                "active_edges_per_sample": {
+                  "max": 4.0,
+                  "mean": 0.07027,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "std": 0.2798430401135608
+                },
+                "fraction_samples_with_at_least_one_edge": 0.06393,
+                "global_activation_density": 0.007807777777777778,
+                "per_entity_incoming_degree_mean": [
+                  0.02348,
+                  0.02362,
+                  0.02317
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.02316,
+                  0.02431,
+                  0.0228
+                ]
+              },
+              "goal_support": {
+                "active_edges_per_sample": {
+                  "max": 2.0,
+                  "mean": 0.30072,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 1.0,
+                  "p90": 1.0,
+                  "std": 0.4994671977217323
+                },
+                "fraction_samples_with_at_least_one_edge": 0.28113,
+                "global_activation_density": 0.03341333333333334,
+                "per_entity_incoming_degree_mean": [
+                  0.10134,
+                  0.09938,
+                  0.1
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.0964,
+                  0.10241,
+                  0.10191
+                ]
+              }
+            }
+          },
+          "zero": {
+            "batch_size": 100000,
+            "global_activation_density": 0.0,
+            "num_entities": 3,
+            "num_relation_types": 3,
+            "per_type": {
+              "current_support": {
+                "active_edges_per_sample": {
+                  "max": 0.0,
+                  "mean": 0.0,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "std": 0.0
+                },
+                "fraction_samples_with_at_least_one_edge": 0.0,
+                "global_activation_density": 0.0,
+                "per_entity_incoming_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "goal_conflict": {
+                "active_edges_per_sample": {
+                  "max": 0.0,
+                  "mean": 0.0,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "std": 0.0
+                },
+                "fraction_samples_with_at_least_one_edge": 0.0,
+                "global_activation_density": 0.0,
+                "per_entity_incoming_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "goal_support": {
+                "active_edges_per_sample": {
+                  "max": 0.0,
+                  "mean": 0.0,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "std": 0.0
+                },
+                "fraction_samples_with_at_least_one_edge": 0.0,
+                "global_activation_density": 0.0,
+                "per_entity_incoming_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              }
+            }
+          }
+        }
+      },
+      "environment": "cube-triple-play-v0",
+      "gcdataset_sampling": {
+        "audit_seed": 20020,
+        "method": "GCDataset.sample(batch_size=100000, return_sampling_trace=True)",
+        "resolved_gciql_goal_sampling": {
+          "actor_geom_sample": false,
+          "actor_p_curgoal": 0.0,
+          "actor_p_randomgoal": 0.0,
+          "actor_p_trajgoal": 1.0,
+          "alpha": 1.0,
+          "dataset_class": "GCDataset",
+          "discount": 0.99,
+          "frame_stack": null,
+          "gc_negative": true,
+          "p_aug": 0.0,
+          "value_geom_sample": true,
+          "value_p_curgoal": 0.2,
+          "value_p_randomgoal": 0.3,
+          "value_p_trajgoal": 0.5
+        },
+        "same_seed_mode_paired_sampling": {
+          "all_goal_arrays_equal": true,
+          "all_trace_equal": true,
+          "zero_vs_correct_batch_fields": {
+            "actor_goals": true,
+            "next_observations": true,
+            "observations": true,
+            "value_goals": true
+          },
+          "zero_vs_correct_trace": {
+            "actor_goal_indices": true,
+            "transition_indices": true,
+            "value_goal_indices": true
+          },
+          "zero_vs_shuffled_batch_fields": {
+            "actor_goals": true,
+            "next_observations": true,
+            "observations": true,
+            "value_goals": true
+          },
+          "zero_vs_shuffled_trace": {
+            "actor_goal_indices": true,
+            "transition_indices": true,
+            "value_goal_indices": true
+          }
+        },
+        "sample_count": 100000,
+        "trace_fingerprint": {
+          "actor_goal_indices": "edb8766ac96c2bf4d3ae86f76a91b90d97277fa225c1e397a953bc3f4a937b37",
+          "transition_indices": "33ad0f8ab6cd7af2e7b18fc9b3062effe2fda6ea51229974462c3ee00e10a364",
+          "value_goal_indices": "c09fa7df2a26140242390f0effcdabfb0d497f981dd45ee4e2fb6e7e2296ff7d"
+        }
+      }
+    },
+    "puzzle": {
+      "configuration_id_for_sampling": "M20A-PUZZLE-C-M",
+      "dataset_identity": {
+        "identity_kind": "full_file_sha256_plus_stat",
+        "mtime_ns": 1784204216289192320,
+        "path": "/data/qijunrong/06-RL/offline-rl/data/raw_ogbench/puzzle-4x4-play-v0.npz",
+        "sha256": "396a029c4c347498eed3e21cd85f99c72c56f786e84c29787715808f27cdfe8a",
+        "size_bytes": 262414247
+      },
+      "distributions": {
+        "actor_goal": {
+          "controls": {
+            "correct_vs_shuffled_tensor_different_any": true,
+            "correct_vs_shuffled_tensor_different_fraction": 1.0,
+            "per_type": {
+              "toggle": {
+                "correct_shuffled_edge_count_equal_all_samples": true,
+                "correct_shuffled_edge_count_equal_fraction": 1.0,
+                "zero_edge_count_all_zero": true
+              }
+            },
+            "zero_tensor_all_zero": true
+          },
+          "correct": {
+            "batch_size": 100000,
+            "global_activation_density": 0.25,
+            "num_entities": 16,
+            "num_relation_types": 1,
+            "per_type": {
+              "toggle": {
+                "active_edges_per_sample": {
+                  "max": 64.0,
+                  "mean": 64.0,
+                  "median": 64.0,
+                  "p10": 64.0,
+                  "p25": 64.0,
+                  "p75": 64.0,
+                  "p90": 64.0,
+                  "std": 0.0
+                },
+                "fraction_samples_with_at_least_one_edge": 1.0,
+                "global_activation_density": 0.25,
+                "per_entity_incoming_degree_mean": [
+                  3.0,
+                  4.0,
+                  4.0,
+                  3.0,
+                  4.0,
+                  5.0,
+                  5.0,
+                  4.0,
+                  4.0,
+                  5.0,
+                  5.0,
+                  4.0,
+                  3.0,
+                  4.0,
+                  4.0,
+                  3.0
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  3.0,
+                  4.0,
+                  4.0,
+                  3.0,
+                  4.0,
+                  5.0,
+                  5.0,
+                  4.0,
+                  4.0,
+                  5.0,
+                  5.0,
+                  4.0,
+                  3.0,
+                  4.0,
+                  4.0,
+                  3.0
+                ]
+              }
+            }
+          },
+          "shuffled": {
+            "batch_size": 100000,
+            "global_activation_density": 0.25,
+            "num_entities": 16,
+            "num_relation_types": 1,
+            "per_type": {
+              "toggle": {
+                "active_edges_per_sample": {
+                  "max": 64.0,
+                  "mean": 64.0,
+                  "median": 64.0,
+                  "p10": 64.0,
+                  "p25": 64.0,
+                  "p75": 64.0,
+                  "p90": 64.0,
+                  "std": 0.0
+                },
+                "fraction_samples_with_at_least_one_edge": 1.0,
+                "global_activation_density": 0.25,
+                "per_entity_incoming_degree_mean": [
+                  4.0,
+                  5.0,
+                  3.0,
+                  3.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  3.0,
+                  5.0,
+                  3.0,
+                  5.0,
+                  4.0,
+                  5.0,
+                  4.0,
+                  4.0,
+                  4.0
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  4.0,
+                  5.0,
+                  3.0,
+                  3.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  3.0,
+                  5.0,
+                  3.0,
+                  5.0,
+                  4.0,
+                  5.0,
+                  4.0,
+                  4.0,
+                  4.0
+                ]
+              }
+            }
+          },
+          "zero": {
+            "batch_size": 100000,
+            "global_activation_density": 0.0,
+            "num_entities": 16,
+            "num_relation_types": 1,
+            "per_type": {
+              "toggle": {
+                "active_edges_per_sample": {
+                  "max": 0.0,
+                  "mean": 0.0,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "std": 0.0
+                },
+                "fraction_samples_with_at_least_one_edge": 0.0,
+                "global_activation_density": 0.0,
+                "per_entity_incoming_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              }
+            }
+          }
+        },
+        "td_next_value_goal": {
+          "controls": {
+            "correct_vs_shuffled_tensor_different_any": true,
+            "correct_vs_shuffled_tensor_different_fraction": 1.0,
+            "per_type": {
+              "toggle": {
+                "correct_shuffled_edge_count_equal_all_samples": true,
+                "correct_shuffled_edge_count_equal_fraction": 1.0,
+                "zero_edge_count_all_zero": true
+              }
+            },
+            "zero_tensor_all_zero": true
+          },
+          "correct": {
+            "batch_size": 100000,
+            "global_activation_density": 0.25,
+            "num_entities": 16,
+            "num_relation_types": 1,
+            "per_type": {
+              "toggle": {
+                "active_edges_per_sample": {
+                  "max": 64.0,
+                  "mean": 64.0,
+                  "median": 64.0,
+                  "p10": 64.0,
+                  "p25": 64.0,
+                  "p75": 64.0,
+                  "p90": 64.0,
+                  "std": 0.0
+                },
+                "fraction_samples_with_at_least_one_edge": 1.0,
+                "global_activation_density": 0.25,
+                "per_entity_incoming_degree_mean": [
+                  3.0,
+                  4.0,
+                  4.0,
+                  3.0,
+                  4.0,
+                  5.0,
+                  5.0,
+                  4.0,
+                  4.0,
+                  5.0,
+                  5.0,
+                  4.0,
+                  3.0,
+                  4.0,
+                  4.0,
+                  3.0
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  3.0,
+                  4.0,
+                  4.0,
+                  3.0,
+                  4.0,
+                  5.0,
+                  5.0,
+                  4.0,
+                  4.0,
+                  5.0,
+                  5.0,
+                  4.0,
+                  3.0,
+                  4.0,
+                  4.0,
+                  3.0
+                ]
+              }
+            }
+          },
+          "shuffled": {
+            "batch_size": 100000,
+            "global_activation_density": 0.25,
+            "num_entities": 16,
+            "num_relation_types": 1,
+            "per_type": {
+              "toggle": {
+                "active_edges_per_sample": {
+                  "max": 64.0,
+                  "mean": 64.0,
+                  "median": 64.0,
+                  "p10": 64.0,
+                  "p25": 64.0,
+                  "p75": 64.0,
+                  "p90": 64.0,
+                  "std": 0.0
+                },
+                "fraction_samples_with_at_least_one_edge": 1.0,
+                "global_activation_density": 0.25,
+                "per_entity_incoming_degree_mean": [
+                  4.0,
+                  5.0,
+                  3.0,
+                  3.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  3.0,
+                  5.0,
+                  3.0,
+                  5.0,
+                  4.0,
+                  5.0,
+                  4.0,
+                  4.0,
+                  4.0
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  4.0,
+                  5.0,
+                  3.0,
+                  3.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  3.0,
+                  5.0,
+                  3.0,
+                  5.0,
+                  4.0,
+                  5.0,
+                  4.0,
+                  4.0,
+                  4.0
+                ]
+              }
+            }
+          },
+          "zero": {
+            "batch_size": 100000,
+            "global_activation_density": 0.0,
+            "num_entities": 16,
+            "num_relation_types": 1,
+            "per_type": {
+              "toggle": {
+                "active_edges_per_sample": {
+                  "max": 0.0,
+                  "mean": 0.0,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "std": 0.0
+                },
+                "fraction_samples_with_at_least_one_edge": 0.0,
+                "global_activation_density": 0.0,
+                "per_entity_incoming_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              }
+            }
+          }
+        },
+        "value_goal": {
+          "controls": {
+            "correct_vs_shuffled_tensor_different_any": true,
+            "correct_vs_shuffled_tensor_different_fraction": 1.0,
+            "per_type": {
+              "toggle": {
+                "correct_shuffled_edge_count_equal_all_samples": true,
+                "correct_shuffled_edge_count_equal_fraction": 1.0,
+                "zero_edge_count_all_zero": true
+              }
+            },
+            "zero_tensor_all_zero": true
+          },
+          "correct": {
+            "batch_size": 100000,
+            "global_activation_density": 0.25,
+            "num_entities": 16,
+            "num_relation_types": 1,
+            "per_type": {
+              "toggle": {
+                "active_edges_per_sample": {
+                  "max": 64.0,
+                  "mean": 64.0,
+                  "median": 64.0,
+                  "p10": 64.0,
+                  "p25": 64.0,
+                  "p75": 64.0,
+                  "p90": 64.0,
+                  "std": 0.0
+                },
+                "fraction_samples_with_at_least_one_edge": 1.0,
+                "global_activation_density": 0.25,
+                "per_entity_incoming_degree_mean": [
+                  3.0,
+                  4.0,
+                  4.0,
+                  3.0,
+                  4.0,
+                  5.0,
+                  5.0,
+                  4.0,
+                  4.0,
+                  5.0,
+                  5.0,
+                  4.0,
+                  3.0,
+                  4.0,
+                  4.0,
+                  3.0
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  3.0,
+                  4.0,
+                  4.0,
+                  3.0,
+                  4.0,
+                  5.0,
+                  5.0,
+                  4.0,
+                  4.0,
+                  5.0,
+                  5.0,
+                  4.0,
+                  3.0,
+                  4.0,
+                  4.0,
+                  3.0
+                ]
+              }
+            }
+          },
+          "shuffled": {
+            "batch_size": 100000,
+            "global_activation_density": 0.25,
+            "num_entities": 16,
+            "num_relation_types": 1,
+            "per_type": {
+              "toggle": {
+                "active_edges_per_sample": {
+                  "max": 64.0,
+                  "mean": 64.0,
+                  "median": 64.0,
+                  "p10": 64.0,
+                  "p25": 64.0,
+                  "p75": 64.0,
+                  "p90": 64.0,
+                  "std": 0.0
+                },
+                "fraction_samples_with_at_least_one_edge": 1.0,
+                "global_activation_density": 0.25,
+                "per_entity_incoming_degree_mean": [
+                  4.0,
+                  5.0,
+                  3.0,
+                  3.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  3.0,
+                  5.0,
+                  3.0,
+                  5.0,
+                  4.0,
+                  5.0,
+                  4.0,
+                  4.0,
+                  4.0
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  4.0,
+                  5.0,
+                  3.0,
+                  3.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  3.0,
+                  5.0,
+                  3.0,
+                  5.0,
+                  4.0,
+                  5.0,
+                  4.0,
+                  4.0,
+                  4.0
+                ]
+              }
+            }
+          },
+          "zero": {
+            "batch_size": 100000,
+            "global_activation_density": 0.0,
+            "num_entities": 16,
+            "num_relation_types": 1,
+            "per_type": {
+              "toggle": {
+                "active_edges_per_sample": {
+                  "max": 0.0,
+                  "mean": 0.0,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "std": 0.0
+                },
+                "fraction_samples_with_at_least_one_edge": 0.0,
+                "global_activation_density": 0.0,
+                "per_entity_incoming_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              }
+            }
+          }
+        }
+      },
+      "environment": "puzzle-4x4-play-v0",
+      "gcdataset_sampling": {
+        "audit_seed": 20020,
+        "method": "GCDataset.sample(batch_size=100000, return_sampling_trace=True)",
+        "resolved_gciql_goal_sampling": {
+          "actor_geom_sample": false,
+          "actor_p_curgoal": 0.0,
+          "actor_p_randomgoal": 0.0,
+          "actor_p_trajgoal": 1.0,
+          "alpha": 1.0,
+          "dataset_class": "GCDataset",
+          "discount": 0.99,
+          "frame_stack": null,
+          "gc_negative": true,
+          "p_aug": 0.0,
+          "value_geom_sample": true,
+          "value_p_curgoal": 0.2,
+          "value_p_randomgoal": 0.3,
+          "value_p_trajgoal": 0.5
+        },
+        "same_seed_mode_paired_sampling": {
+          "all_goal_arrays_equal": true,
+          "all_trace_equal": true,
+          "zero_vs_correct_batch_fields": {
+            "actor_goals": true,
+            "next_observations": true,
+            "observations": true,
+            "value_goals": true
+          },
+          "zero_vs_correct_trace": {
+            "actor_goal_indices": true,
+            "transition_indices": true,
+            "value_goal_indices": true
+          },
+          "zero_vs_shuffled_batch_fields": {
+            "actor_goals": true,
+            "next_observations": true,
+            "observations": true,
+            "value_goals": true
+          },
+          "zero_vs_shuffled_trace": {
+            "actor_goal_indices": true,
+            "transition_indices": true,
+            "value_goal_indices": true
+          }
+        },
+        "sample_count": 100000,
+        "trace_fingerprint": {
+          "actor_goal_indices": "e996584b1a53c4d10b3a4c56b291a1253d9a0ee79fb0004356ac8e00ab25ba94",
+          "transition_indices": "9900d0d392686bf2ecaae4944a0f6c5b4015fadaef7f8b67505a8a0fd9faff28",
+          "value_goal_indices": "9cc092d0eafbc6714318dba3a55c6cd353e8071ce83fb4a6faac9d346d99e846"
+        }
+      },
+      "puzzle_topology": {
+        "correct_relation_matrix": [
+          [
+            1,
+            1,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            1,
+            1,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            1,
+            1,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            1,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            0,
+            0,
+            0,
+            1,
+            1,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0,
+            0,
+            1,
+            1,
+            1,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            1,
+            1,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            1,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            1,
+            1,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            1,
+            1,
+            0,
+            0,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            1,
+            1,
+            0,
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            1,
+            0,
+            0,
+            0,
+            1
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            1,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            1,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            1,
+            1
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            1
+          ]
+        ],
+        "edge_list_source_to_target": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            4
+          ],
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            5
+          ],
+          [
+            2,
+            1
+          ],
+          [
+            2,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            2,
+            6
+          ],
+          [
+            3,
+            2
+          ],
+          [
+            3,
+            3
+          ],
+          [
+            3,
+            7
+          ],
+          [
+            4,
+            0
+          ],
+          [
+            4,
+            4
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            4,
+            8
+          ],
+          [
+            5,
+            1
+          ],
+          [
+            5,
+            4
+          ],
+          [
+            5,
+            5
+          ],
+          [
+            5,
+            6
+          ],
+          [
+            5,
+            9
+          ],
+          [
+            6,
+            2
+          ],
+          [
+            6,
+            5
+          ],
+          [
+            6,
+            6
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            6,
+            10
+          ],
+          [
+            7,
+            3
+          ],
+          [
+            7,
+            6
+          ],
+          [
+            7,
+            7
+          ],
+          [
+            7,
+            11
+          ],
+          [
+            8,
+            4
+          ],
+          [
+            8,
+            8
+          ],
+          [
+            8,
+            9
+          ],
+          [
+            8,
+            12
+          ],
+          [
+            9,
+            5
+          ],
+          [
+            9,
+            8
+          ],
+          [
+            9,
+            9
+          ],
+          [
+            9,
+            10
+          ],
+          [
+            9,
+            13
+          ],
+          [
+            10,
+            6
+          ],
+          [
+            10,
+            9
+          ],
+          [
+            10,
+            10
+          ],
+          [
+            10,
+            11
+          ],
+          [
+            10,
+            14
+          ],
+          [
+            11,
+            7
+          ],
+          [
+            11,
+            10
+          ],
+          [
+            11,
+            11
+          ],
+          [
+            11,
+            15
+          ],
+          [
+            12,
+            8
+          ],
+          [
+            12,
+            12
+          ],
+          [
+            12,
+            13
+          ],
+          [
+            13,
+            9
+          ],
+          [
+            13,
+            12
+          ],
+          [
+            13,
+            13
+          ],
+          [
+            13,
+            14
+          ],
+          [
+            14,
+            10
+          ],
+          [
+            14,
+            13
+          ],
+          [
+            14,
+            14
+          ],
+          [
+            14,
+            15
+          ],
+          [
+            15,
+            11
+          ],
+          [
+            15,
+            14
+          ],
+          [
+            15,
+            15
+          ]
+        ],
+        "expected_degree_classes": {
+          "corner": 3,
+          "edge_noncorner": 4,
+          "interior": 5
+        },
+        "outgoing_toggle_degree_vector": [
+          3,
+          4,
+          4,
+          3,
+          4,
+          5,
+          5,
+          4,
+          4,
+          5,
+          5,
+          4,
+          3,
+          4,
+          4,
+          3
+        ],
+        "shuffle": {
+          "cols": 4,
+          "correct_edge_count": 64,
+          "differing_adjacency_entries": 80,
+          "is_non_identity_control": true,
+          "permutation": [
+            2,
+            10,
+            15,
+            12,
+            11,
+            8,
+            7,
+            3,
+            6,
+            0,
+            5,
+            14,
+            9,
+            4,
+            1,
+            13
+          ],
+          "rows": 4,
+          "shuffled_edge_count": 64
+        }
+      }
+    },
+    "scene": {
+      "configuration_id_for_sampling": "M20A-SCENE-C-M",
+      "dataset_identity": {
+        "identity_kind": "full_file_sha256_plus_stat",
+        "mtime_ns": 1784221026896439184,
+        "path": "/data/qijunrong/06-RL/offline-rl/data/raw_ogbench/scene-play-v0.npz",
+        "sha256": "66625e0cd9f2fcf92f5988f4d1bedeb2aa8b1e748316e507e89f4a9afb87c341",
+        "size_bytes": 267055508
+      },
+      "distributions": {
+        "actor_goal": {
+          "controls": {
+            "correct_vs_shuffled_tensor_different_any": true,
+            "correct_vs_shuffled_tensor_different_fraction": 1.0,
+            "per_type": {
+              "controls": {
+                "correct_shuffled_edge_count_equal_all_samples": true,
+                "correct_shuffled_edge_count_equal_fraction": 1.0,
+                "zero_edge_count_all_zero": true
+              }
+            },
+            "zero_tensor_all_zero": true
+          },
+          "correct": {
+            "batch_size": 100000,
+            "global_activation_density": 0.08,
+            "num_entities": 5,
+            "num_relation_types": 1,
+            "per_type": {
+              "controls": {
+                "active_edges_per_sample": {
+                  "max": 2.0,
+                  "mean": 2.0,
+                  "median": 2.0,
+                  "p10": 2.0,
+                  "p25": 2.0,
+                  "p75": 2.0,
+                  "p90": 2.0,
+                  "std": 0.0
+                },
+                "fraction_samples_with_at_least_one_edge": 1.0,
+                "global_activation_density": 0.08,
+                "per_entity_incoming_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.0,
+                  1.0,
+                  1.0,
+                  0.0,
+                  0.0
+                ]
+              }
+            }
+          },
+          "shuffled": {
+            "batch_size": 100000,
+            "global_activation_density": 0.08,
+            "num_entities": 5,
+            "num_relation_types": 1,
+            "per_type": {
+              "controls": {
+                "active_edges_per_sample": {
+                  "max": 2.0,
+                  "mean": 2.0,
+                  "median": 2.0,
+                  "p10": 2.0,
+                  "p25": 2.0,
+                  "p75": 2.0,
+                  "p90": 2.0,
+                  "std": 0.0
+                },
+                "fraction_samples_with_at_least_one_edge": 1.0,
+                "global_activation_density": 0.08,
+                "per_entity_incoming_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.0,
+                  1.0,
+                  1.0,
+                  0.0,
+                  0.0
+                ]
+              }
+            }
+          },
+          "zero": {
+            "batch_size": 100000,
+            "global_activation_density": 0.0,
+            "num_entities": 5,
+            "num_relation_types": 1,
+            "per_type": {
+              "controls": {
+                "active_edges_per_sample": {
+                  "max": 0.0,
+                  "mean": 0.0,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "std": 0.0
+                },
+                "fraction_samples_with_at_least_one_edge": 0.0,
+                "global_activation_density": 0.0,
+                "per_entity_incoming_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              }
+            }
+          }
+        },
+        "td_next_value_goal": {
+          "controls": {
+            "correct_vs_shuffled_tensor_different_any": true,
+            "correct_vs_shuffled_tensor_different_fraction": 1.0,
+            "per_type": {
+              "controls": {
+                "correct_shuffled_edge_count_equal_all_samples": true,
+                "correct_shuffled_edge_count_equal_fraction": 1.0,
+                "zero_edge_count_all_zero": true
+              }
+            },
+            "zero_tensor_all_zero": true
+          },
+          "correct": {
+            "batch_size": 100000,
+            "global_activation_density": 0.08,
+            "num_entities": 5,
+            "num_relation_types": 1,
+            "per_type": {
+              "controls": {
+                "active_edges_per_sample": {
+                  "max": 2.0,
+                  "mean": 2.0,
+                  "median": 2.0,
+                  "p10": 2.0,
+                  "p25": 2.0,
+                  "p75": 2.0,
+                  "p90": 2.0,
+                  "std": 0.0
+                },
+                "fraction_samples_with_at_least_one_edge": 1.0,
+                "global_activation_density": 0.08,
+                "per_entity_incoming_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.0,
+                  1.0,
+                  1.0,
+                  0.0,
+                  0.0
+                ]
+              }
+            }
+          },
+          "shuffled": {
+            "batch_size": 100000,
+            "global_activation_density": 0.08,
+            "num_entities": 5,
+            "num_relation_types": 1,
+            "per_type": {
+              "controls": {
+                "active_edges_per_sample": {
+                  "max": 2.0,
+                  "mean": 2.0,
+                  "median": 2.0,
+                  "p10": 2.0,
+                  "p25": 2.0,
+                  "p75": 2.0,
+                  "p90": 2.0,
+                  "std": 0.0
+                },
+                "fraction_samples_with_at_least_one_edge": 1.0,
+                "global_activation_density": 0.08,
+                "per_entity_incoming_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.0,
+                  1.0,
+                  1.0,
+                  0.0,
+                  0.0
+                ]
+              }
+            }
+          },
+          "zero": {
+            "batch_size": 100000,
+            "global_activation_density": 0.0,
+            "num_entities": 5,
+            "num_relation_types": 1,
+            "per_type": {
+              "controls": {
+                "active_edges_per_sample": {
+                  "max": 0.0,
+                  "mean": 0.0,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "std": 0.0
+                },
+                "fraction_samples_with_at_least_one_edge": 0.0,
+                "global_activation_density": 0.0,
+                "per_entity_incoming_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              }
+            }
+          }
+        },
+        "value_goal": {
+          "controls": {
+            "correct_vs_shuffled_tensor_different_any": true,
+            "correct_vs_shuffled_tensor_different_fraction": 1.0,
+            "per_type": {
+              "controls": {
+                "correct_shuffled_edge_count_equal_all_samples": true,
+                "correct_shuffled_edge_count_equal_fraction": 1.0,
+                "zero_edge_count_all_zero": true
+              }
+            },
+            "zero_tensor_all_zero": true
+          },
+          "correct": {
+            "batch_size": 100000,
+            "global_activation_density": 0.08,
+            "num_entities": 5,
+            "num_relation_types": 1,
+            "per_type": {
+              "controls": {
+                "active_edges_per_sample": {
+                  "max": 2.0,
+                  "mean": 2.0,
+                  "median": 2.0,
+                  "p10": 2.0,
+                  "p25": 2.0,
+                  "p75": 2.0,
+                  "p90": 2.0,
+                  "std": 0.0
+                },
+                "fraction_samples_with_at_least_one_edge": 1.0,
+                "global_activation_density": 0.08,
+                "per_entity_incoming_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.0,
+                  1.0,
+                  1.0,
+                  0.0,
+                  0.0
+                ]
+              }
+            }
+          },
+          "shuffled": {
+            "batch_size": 100000,
+            "global_activation_density": 0.08,
+            "num_entities": 5,
+            "num_relation_types": 1,
+            "per_type": {
+              "controls": {
+                "active_edges_per_sample": {
+                  "max": 2.0,
+                  "mean": 2.0,
+                  "median": 2.0,
+                  "p10": 2.0,
+                  "p25": 2.0,
+                  "p75": 2.0,
+                  "p90": 2.0,
+                  "std": 0.0
+                },
+                "fraction_samples_with_at_least_one_edge": 1.0,
+                "global_activation_density": 0.08,
+                "per_entity_incoming_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.0,
+                  1.0,
+                  1.0,
+                  0.0,
+                  0.0
+                ]
+              }
+            }
+          },
+          "zero": {
+            "batch_size": 100000,
+            "global_activation_density": 0.0,
+            "num_entities": 5,
+            "num_relation_types": 1,
+            "per_type": {
+              "controls": {
+                "active_edges_per_sample": {
+                  "max": 0.0,
+                  "mean": 0.0,
+                  "median": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "std": 0.0
+                },
+                "fraction_samples_with_at_least_one_edge": 0.0,
+                "global_activation_density": 0.0,
+                "per_entity_incoming_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "per_entity_outgoing_degree_mean": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              }
+            }
+          }
+        }
+      },
+      "environment": "scene-play-v0",
+      "gcdataset_sampling": {
+        "audit_seed": 20020,
+        "method": "GCDataset.sample(batch_size=100000, return_sampling_trace=True)",
+        "resolved_gciql_goal_sampling": {
+          "actor_geom_sample": false,
+          "actor_p_curgoal": 0.0,
+          "actor_p_randomgoal": 0.0,
+          "actor_p_trajgoal": 1.0,
+          "alpha": 1.0,
+          "dataset_class": "GCDataset",
+          "discount": 0.99,
+          "frame_stack": null,
+          "gc_negative": true,
+          "p_aug": 0.0,
+          "value_geom_sample": true,
+          "value_p_curgoal": 0.2,
+          "value_p_randomgoal": 0.3,
+          "value_p_trajgoal": 0.5
+        },
+        "same_seed_mode_paired_sampling": {
+          "all_goal_arrays_equal": true,
+          "all_trace_equal": true,
+          "zero_vs_correct_batch_fields": {
+            "actor_goals": true,
+            "next_observations": true,
+            "observations": true,
+            "value_goals": true
+          },
+          "zero_vs_correct_trace": {
+            "actor_goal_indices": true,
+            "transition_indices": true,
+            "value_goal_indices": true
+          },
+          "zero_vs_shuffled_batch_fields": {
+            "actor_goals": true,
+            "next_observations": true,
+            "observations": true,
+            "value_goals": true
+          },
+          "zero_vs_shuffled_trace": {
+            "actor_goal_indices": true,
+            "transition_indices": true,
+            "value_goal_indices": true
+          }
+        },
+        "sample_count": 100000,
+        "trace_fingerprint": {
+          "actor_goal_indices": "e996584b1a53c4d10b3a4c56b291a1253d9a0ee79fb0004356ac8e00ab25ba94",
+          "transition_indices": "9900d0d392686bf2ecaae4944a0f6c5b4015fadaef7f8b67505a8a0fd9faff28",
+          "value_goal_indices": "9cc092d0eafbc6714318dba3a55c6cd353e8071ce83fb4a6faac9d346d99e846"
+        }
+      },
+      "scene_topology": {
+        "correct_edges_source_to_target": [
+          [
+            "button_0",
+            "drawer"
+          ],
+          [
+            "button_1",
+            "window"
+          ]
+        ],
+        "entity_order": [
+          "cube",
+          "button_0",
+          "button_1",
+          "drawer",
+          "window"
+        ],
+        "shuffled_edges_source_to_target": [
+          [
+            "button_0",
+            "window"
+          ],
+          [
+            "button_1",
+            "drawer"
+          ]
+        ],
+        "source_audit_evidence": "SceneEnv._apply_button_states: button_0 lock/unlock drawer; button_1 lock/unlock window."
+      }
+    }
+  }
+}

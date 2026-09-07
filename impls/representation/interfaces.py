@@ -20,3 +20,8 @@ class StructuredRepresentation(NamedTuple):
     context: Any = None
     mask: Any = None
     auxiliary: Any = None
+    # Appended fields preserve the four-field positional constructor used by
+    # historical M15--M19 adapters and tests.  ``None`` is the explicit
+    # relation-free legacy bypass; M20A Zero is instead a real all-zero tensor.
+    relations: Any = None
+    relation_mask: Any = None

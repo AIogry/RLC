@@ -179,6 +179,140 @@ def descriptor_for(agent_name: str, slot_name: str):
     return descriptors[slot_name]
 
 
+def _validate_m20_relation_slot(
+    agent_name,
+    slot_name,
+    slot,
+    *,
+    allow_unfrozen_cube=False,
+):
+    """Validate frozen M20A relation schema without materializing a network.
+
+    Cube skeletons deliberately retain null threshold fields during Phase 1;
+    construction of an executable Correct/Shuffled Cube body rejects them in
+    the factory.  Keeping schema validation separate lets the doctor inspect
+    all blocked skeletons without silently inventing a threshold.
+    """
+
+    structure = slot.get('structure')
+    if slot.get('topology') != 'feedforward' or slot.get('credit', 'direct') != 'direct':
+        raise ValueError(
+            f'M20A relation computation for {agent_name}.{slot_name} requires '
+            'topology=feedforward and credit=direct'
+        )
+    if slot.get('block') != 'mlp_mixer':
+        raise ValueError(
+            f'M20A relation computation for {agent_name}.{slot_name} requires block=mlp_mixer'
+        )
+    if slot.get('relation_mode') not in ('zero', 'correct', 'shuffled'):
+        raise ValueError(
+            f'M20A relation computation for {agent_name}.{slot_name} requires '
+            'relation_mode in {zero, correct, shuffled}'
+        )
+    if slot.get('relation_augmenter') != 'relation_mlp':
+        raise ValueError(
+            f'M20A relation computation for {agent_name}.{slot_name} requires '
+            'relation_augmenter=relation_mlp'
+        )
+    structure_kwargs = slot.get('structure_kwargs', {})
+    block_kwargs = slot.get('block_kwargs', {})
+    relation_kwargs = slot.get('relation_kwargs', {})
+    augmenter_kwargs = slot.get('relation_augmenter_kwargs', {})
+    readout_kwargs = slot.get('readout_kwargs', {})
+    for name, value in (
+        ('structure_kwargs', structure_kwargs),
+        ('block_kwargs', block_kwargs),
+        ('relation_kwargs', relation_kwargs),
+        ('relation_augmenter_kwargs', augmenter_kwargs),
+        ('readout_kwargs', readout_kwargs),
+    ):
+        if not hasattr(value, 'get'):
+            raise ValueError(f'M20A {name} for {agent_name}.{slot_name} must be a mapping')
+    if structure_kwargs.get('token_dim') != 128 or structure_kwargs.get('robot_hidden_dim') != 128:
+        raise ValueError(f'M20A {agent_name}.{slot_name} requires token_dim=robot_hidden_dim=128')
+    if (
+        block_kwargs.get('num_blocks') != 2
+        or block_kwargs.get('token_hidden_dim') != 64
+        or block_kwargs.get('channel_hidden_dim') != 256
+        or block_kwargs.get('tm_mode') != 'none'
+    ):
+        raise ValueError(
+            f'M20A {agent_name}.{slot_name} requires Mixer L2/64/256 with tm_mode=none'
+        )
+    required_augmenter = {
+        'relation_hidden_dim': 256,
+        'activation': 'gelu',
+        'first_use_bias': False,
+        'second_use_bias': False,
+        'normalization': 'none',
+        'dropout': 'none',
+        'output_dim': 128,
+    }
+    for key, expected in required_augmenter.items():
+        if augmenter_kwargs.get(key) != expected:
+            raise ValueError(
+                f'M20A {agent_name}.{slot_name} relation augmenter requires '
+                f'{key}={expected!r}, got {augmenter_kwargs.get(key)!r}'
+            )
+    if slot.get('readout') not in ('mean_context', 'hybrid_context_query'):
+        raise ValueError(f'M20A {agent_name}.{slot_name} has unsupported readout')
+    if slot.get('readout') == 'hybrid_context_query' and readout_kwargs.get('query_dim') != 128:
+        raise ValueError(f'M20A {agent_name}.{slot_name} Hybrid readout requires query_dim=128')
+    if structure == 'puzzle_tokens':
+        if (
+            structure_kwargs.get('num_buttons') != 16
+            or structure_kwargs.get('robot_dim') != 19
+            or structure_kwargs.get('button_feature_dim') != 4
+            or relation_kwargs.get('num_relation_types') != 1
+            or relation_kwargs.get('rows') != 4
+            or relation_kwargs.get('cols') != 4
+            or not relation_kwargs.get('shuffle_permutation')
+        ):
+            raise ValueError(f'M20A Puzzle schema mismatch for {agent_name}.{slot_name}')
+    elif structure == 'cube_tokens':
+        if (
+            structure_kwargs.get('num_cubes') != 3
+            or structure_kwargs.get('robot_dim') != 19
+            or structure_kwargs.get('cube_feature_dim') != 9
+            or structure_kwargs.get('slot_identity_embedding') is not False
+            or relation_kwargs.get('num_relation_types') != 3
+            or list(relation_kwargs.get('shuffle_derangement', ())) != [1, 2, 0]
+        ):
+            raise ValueError(f'M20A Cube schema mismatch for {agent_name}.{slot_name}')
+        threshold_keys = (
+            'current_support_epsilon_xy',
+            'current_support_epsilon_z',
+            'goal_support_epsilon_xy',
+            'goal_support_epsilon_z',
+            'goal_conflict_radius',
+        )
+        unresolved = [key for key in threshold_keys if relation_kwargs.get(key) is None]
+        if unresolved:
+            if not allow_unfrozen_cube:
+                raise ValueError(
+                    f'M20A executable Cube relation slot {agent_name}.{slot_name} '
+                    f'has unresolved thresholds {unresolved!r}'
+                )
+            if len(unresolved) != len(threshold_keys) or relation_kwargs.get('threshold_status') != 'UNFROZEN_PHASE1':
+                raise ValueError(
+                    f'M20A blocked Cube skeleton {agent_name}.{slot_name} must keep every '
+                    'threshold null with threshold_status=UNFROZEN_PHASE1'
+                )
+    elif structure == 'scene_tokens':
+        if (
+            structure_kwargs.get('robot_dim') != 19
+            or structure_kwargs.get('cube_feature_dim') != 9
+            or structure_kwargs.get('button_feature_dim') != 4
+            or structure_kwargs.get('drawer_feature_dim') != 2
+            or structure_kwargs.get('window_feature_dim') != 2
+            or structure_kwargs.get('button_role_embedding') is not True
+            or relation_kwargs.get('num_relation_types') != 1
+        ):
+            raise ValueError(f'M20A Scene schema mismatch for {agent_name}.{slot_name}')
+    else:  # pragma: no cover - caller checks the structure set first.
+        raise ValueError(f'Unsupported M20A relation structure: {structure!r}')
+
+
 def validate_compute_slots(agent_name: str, config: Mapping):
     """Validate every configured slot before an agent resolves any module.
 
@@ -208,11 +342,27 @@ def validate_compute_slots(agent_name: str, config: Mapping):
             )
         if slot.get('enabled', False):
             structure = slot.get('structure', 'vector')
-            if structure not in ('vector', 'puzzle_tokens'):
+            if structure not in ('vector', 'puzzle_tokens', 'cube_tokens', 'scene_tokens'):
                 raise ValueError(
                     f'Unsupported computation structure {structure!r} for '
                     f'{agent_name}.{slot_name}'
                 )
+            if (
+                structure in ('cube_tokens', 'scene_tokens')
+                or (
+                    structure == 'puzzle_tokens'
+                    and slot.get('relation_mode', 'legacy_none') != 'legacy_none'
+                )
+            ):
+                _validate_m20_relation_slot(
+                    agent_name,
+                    slot_name,
+                    slot,
+                    allow_unfrozen_cube=bool(
+                        config.get('m20a_phase2_blocked_skeleton', False)
+                    ),
+                )
+                continue
             if structure == 'puzzle_tokens':
                 block = slot.get('block', 'plain')
                 if block == 'entity_mlp':

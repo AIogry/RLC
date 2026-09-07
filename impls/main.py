@@ -124,7 +124,9 @@ def _normalize_structured_compute_defaults(config):
     for slot in compute.values():
         if not hasattr(slot, 'get') or not slot.get('enabled', False):
             continue
-        if slot.get('structure', 'vector') != 'puzzle_tokens':
+        if slot.get('structure', 'vector') not in (
+            'puzzle_tokens', 'cube_tokens', 'scene_tokens',
+        ):
             continue
         structure_kwargs = slot.get('structure_kwargs', {})
         if not hasattr(structure_kwargs, 'get'):
@@ -153,6 +155,12 @@ def _normalize_structured_compute_defaults(config):
             slot['token_interaction'] = False
             # EntityMLP does not support a structured recurrent topology, so
             # never materialize SingleState defaults for an invalid request.
+            continue
+        # M20A's relation paths are fully explicit and feed-forward only.
+        # Do not inject historical Puzzle SingleState defaults into a frozen
+        # relation configuration, even if a malformed config tries to omit a
+        # required field; schema validation will reject it instead.
+        if slot.get('relation_mode', 'legacy_none') != 'legacy_none':
             continue
         if slot.get('topology') != 'single_state':
             continue
@@ -230,6 +238,19 @@ def _make_config(args, configuration=None):
         else:
             overrides = configuration.data.get('agent_overrides', {})
         config = _merge_config(config, overrides)
+        if (
+            configuration.data.get('protocol_stage') == 'phase2_skeleton'
+            and configuration.data.get('executable') is False
+        ):
+            # Preserve the Phase-1 Cube ``null`` threshold contract while a
+            # user is reviewing a non-executable Study skeleton.  This marker
+            # is injected from immutable Study metadata rather than trusted
+            # from arbitrary agent overrides, and the normal run gate still
+            # rejects the configuration before any artifact or agent exists.
+            config['m20a_phase2_blocked_skeleton'] = True
+            for slot in config.get('compute', {}).values():
+                if hasattr(slot, 'get') and slot.get('relation_mode', 'legacy_none') != 'legacy_none':
+                    slot['relation_phase2_blocked'] = True
         hidden_dims = tuple(config['actor_hidden_dims'])
         if (
             hidden_dims != (512, 512, 512)
@@ -345,7 +366,8 @@ def _computation_runtime_extras(config):
                     'num_blocks',
                     block_kwargs.get('num_mixer_blocks', structure_kwargs.get('num_mixer_blocks', 0)),
                 ))
-                if structure == 'puzzle_tokens' and block_type in ('mlp_mixer', 'entity_mlp') else None
+                if structure in ('puzzle_tokens', 'cube_tokens', 'scene_tokens')
+                and block_type in ('mlp_mixer', 'entity_mlp') else None
             ),
             'iterations_K': (
                 1 if topology == 'feedforward' else
@@ -353,9 +375,15 @@ def _computation_runtime_extras(config):
             ),
             'readout': (
                 slot.get('readout', structure_kwargs.get('readout', 'mean_context'))
-                if structure == 'puzzle_tokens' else None
+                if structure in ('puzzle_tokens', 'cube_tokens', 'scene_tokens') else None
             ),
             'readout_kwargs': _jsonable(slot.get('readout_kwargs', {})),
+            'relation_mode': slot.get('relation_mode', 'legacy_none'),
+            'relation_kwargs': _jsonable(slot.get('relation_kwargs', {})),
+            'relation_augmenter': slot.get('relation_augmenter', 'none'),
+            'relation_augmenter_kwargs': _jsonable(
+                slot.get('relation_augmenter_kwargs', {})
+            ),
             'input_semantics': descriptor.input_semantics,
             'action_semantics': descriptor.action_semantics,
             'credit': slot.get('credit', 'direct'),
@@ -579,7 +607,9 @@ def _computation_slot_accounting(agent, config):
         kwargs.setdefault('block', spec.get('block', 'plain'))
         hidden_dims = _slot_hidden_dims(config, descriptor)
         hidden_dim = int(_slot_state_dim(config, descriptor))
-        if topology in ('single_state', 'two_state') and structure != 'puzzle_tokens':
+        if topology in ('single_state', 'two_state') and structure not in (
+            'puzzle_tokens', 'cube_tokens', 'scene_tokens',
+        ):
             kwargs.setdefault('state_dim', hidden_dim)
             kwargs.setdefault('update_depth', 2)
             kwargs.setdefault(
@@ -605,7 +635,7 @@ def _computation_slot_accounting(agent, config):
         module = path_get(params, module_path)
         buffer_module = path_get(buffers, module_path) if buffers else {}
         core_path = descriptor.core_path
-        if structure == 'puzzle_tokens' and core_path and core_path[-1] == 'topology':
+        if structure in ('puzzle_tokens', 'cube_tokens', 'scene_tokens') and core_path and core_path[-1] == 'topology':
             # M17 structured bodies own an inner generic topology rather than
             # pretending that the whole raw-input body is a FeedForward
             # primitive.  The descriptor still names the legacy vector path.
@@ -623,6 +653,11 @@ def _computation_slot_accounting(agent, config):
             structure_kwargs=spec.get('structure_kwargs', {}),
             block_kwargs=spec.get('block_kwargs', {}),
             block_type=spec.get('block', 'plain'),
+            relation_mode=spec.get('relation_mode', 'legacy_none'),
+            relation_kwargs=spec.get('relation_kwargs', {}),
+            relation_augmenter=spec.get('relation_augmenter', 'none'),
+            relation_augmenter_kwargs=spec.get('relation_augmenter_kwargs', {}),
+            readout=spec.get('readout', 'mean_context'),
         )
         report[slot_name].update({
             'role': descriptor.role,

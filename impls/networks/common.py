@@ -12,6 +12,9 @@ from ..computation.interfaces import ComputationOutput
 from ..computation.primitives.mlp import MLP, default_init
 
 
+_TOKEN_STRUCTURES = frozenset({'puzzle_tokens', 'cube_tokens', 'scene_tokens'})
+
+
 def ensemblize(cls, num_qs, out_axes=0, in_axes=None, methods=None, **kwargs):
     # Computationized CRL branches may own non-trainable recurrent state
     # buffers.  Map and split the buffer collection exactly like parameters so
@@ -59,6 +62,12 @@ class _ComputationValueBody(nn.Module):
                 f'got {type(self.core)!r}'
             )
         return trace_fn(x, max_iterations)
+
+    def relation_diagnostic(self, x):
+        diagnostic = getattr(self.core, 'relation_diagnostic', None)
+        if diagnostic is None:
+            raise ValueError('Computation value body does not expose relation_diagnostic')
+        return diagnostic(x)
 
 
 class ComputationVectorBody(nn.Module):
@@ -144,8 +153,8 @@ class GCActor(nn.Module):
     computation_spec: Optional[ComputationSpec] = None
 
     def setup(self):
-        if self.computation_spec is not None and self.computation_spec.structure == 'puzzle_tokens' and self.gc_encoder is not None:
-            raise ValueError('Puzzle structured computation requires raw standard Puzzle observations; encoder is unsupported')
+        if self.computation_spec is not None and self.computation_spec.structure in _TOKEN_STRUCTURES and self.gc_encoder is not None:
+            raise ValueError('Structured token computation requires raw standard observations; encoder is unsupported')
         if self.computation_spec is None:
             self.actor_net = MLP(self.hidden_dims, activate_final=True)
         else:
@@ -208,6 +217,23 @@ class GCActor(nn.Module):
             'action_means': self.mean_net(trace['readout_states']),
         }
 
+    def relation_diagnostic(self, observations, goals=None, goal_encoded=False):
+        """Return the relation tensor used by this actor's actual forward path."""
+
+        if self.computation_spec is None or self.computation_spec.relation_mode == 'legacy_none':
+            raise ValueError('GCActor relation_diagnostic requires an explicit relation treatment')
+        if self.gc_encoder is not None:
+            inputs = self.gc_encoder(observations, goals, goal_encoded=goal_encoded)
+        else:
+            inputs = [observations]
+            if goals is not None:
+                inputs.append(goals)
+            inputs = jnp.concatenate(inputs, axis=-1)
+        diagnostic = getattr(self.actor_net, 'relation_diagnostic', None)
+        if diagnostic is None:
+            raise ValueError('GCActor structured body does not expose relation_diagnostic')
+        return diagnostic(inputs)
+
 
 class GCDiscreteActor(nn.Module):
     """Goal-conditioned categorical actor with an optional replaceable body."""
@@ -219,8 +245,8 @@ class GCDiscreteActor(nn.Module):
     computation_spec: Optional[ComputationSpec] = None
 
     def setup(self):
-        if self.computation_spec is not None and self.computation_spec.structure == 'puzzle_tokens' and self.gc_encoder is not None:
-            raise ValueError('Puzzle structured computation requires raw standard Puzzle observations; encoder is unsupported')
+        if self.computation_spec is not None and self.computation_spec.structure in _TOKEN_STRUCTURES and self.gc_encoder is not None:
+            raise ValueError('Structured token computation requires raw standard observations; encoder is unsupported')
         if self.computation_spec is None:
             self.actor_net = MLP(self.hidden_dims, activate_final=True)
         else:
@@ -252,8 +278,8 @@ class GCValue(nn.Module):
     computation_spec: Optional[ComputationSpec] = None
 
     def setup(self):
-        if self.computation_spec is not None and self.computation_spec.structure == 'puzzle_tokens' and self.gc_encoder is not None:
-            raise ValueError('Puzzle structured computation requires raw standard Puzzle observations; encoder is unsupported')
+        if self.computation_spec is not None and self.computation_spec.structure in _TOKEN_STRUCTURES and self.gc_encoder is not None:
+            raise ValueError('Structured token computation requires raw standard observations; encoder is unsupported')
         if self.computation_spec is None:
             # Preserve the complete legacy MLP, including its final Dense(1)
             # path, for checkpoint and baseline compatibility.
@@ -273,7 +299,7 @@ class GCValue(nn.Module):
             body_module = ensemblize(
                 _ComputationValueBody,
                 2,
-                methods=('__call__', 'trace_tokens'),
+                methods=('__call__', 'trace_tokens', 'relation_diagnostic'),
             )
             readout_module = ensemblize(nn.Dense, 2, in_axes=0)
             self.value_net = body_module(
@@ -327,6 +353,21 @@ class GCValue(nn.Module):
             'values': self.value_readout(trace['readout_states']).squeeze(-1),
         }
 
+    def relation_diagnostic(self, observations, goals=None, actions=None):
+        """Return the relation tensor used by this value/critic forward path."""
+
+        if self.computation_spec is None or self.computation_spec.relation_mode == 'legacy_none':
+            raise ValueError('GCValue relation_diagnostic requires an explicit relation treatment')
+        inputs = [observations]
+        if goals is not None:
+            inputs.append(goals)
+        if actions is not None:
+            inputs.append(actions)
+        diagnostic = getattr(self.value_net, 'relation_diagnostic', None)
+        if diagnostic is None:
+            raise ValueError('GCValue structured body does not expose relation_diagnostic')
+        return diagnostic(jnp.concatenate(inputs, axis=-1))
+
 
 class GCDiscreteCritic(GCValue):
     """Goal-conditioned critic for discrete actions."""
@@ -372,8 +413,8 @@ class GCMRNValue(nn.Module):
     computation_spec: Optional[ComputationSpec] = None
 
     def setup(self):
-        if self.computation_spec is not None and self.computation_spec.structure == 'puzzle_tokens' and self.encoder is not None:
-            raise ValueError('Puzzle structured computation requires raw standard Puzzle observations; encoder is unsupported')
+        if self.computation_spec is not None and self.computation_spec.structure in _TOKEN_STRUCTURES and self.encoder is not None:
+            raise ValueError('Structured token computation requires raw standard observations; encoder is unsupported')
         phi_dims = (*self.hidden_dims, self.latent_dim)
         if self.computation_spec is None:
             self.phi = MLP(
@@ -425,8 +466,8 @@ class GCIQEValue(nn.Module):
     computation_spec: Optional[ComputationSpec] = None
 
     def setup(self):
-        if self.computation_spec is not None and self.computation_spec.structure == 'puzzle_tokens' and self.encoder is not None:
-            raise ValueError('Puzzle structured computation requires raw standard Puzzle observations; encoder is unsupported')
+        if self.computation_spec is not None and self.computation_spec.structure in _TOKEN_STRUCTURES and self.encoder is not None:
+            raise ValueError('Structured token computation requires raw standard observations; encoder is unsupported')
         phi_dims = (*self.hidden_dims, self.latent_dim)
         if self.computation_spec is None:
             self.phi = MLP(

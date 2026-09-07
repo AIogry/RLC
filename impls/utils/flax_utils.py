@@ -63,6 +63,16 @@ class ModuleDict(nn.Module):
             raise ValueError(f'Module {name!r} does not expose diagnostic_trace')
         return trace_fn(*args, **kwargs)
 
+    def relation_diagnostic(self, *args, name=None, **kwargs):
+        """Route a diagnostic-only actual-forward relation inspection."""
+
+        if name is None or name not in self.modules:
+            raise ValueError(f'Unknown relation diagnostic module name: {name!r}')
+        diagnostic = getattr(self.modules[name], 'relation_diagnostic', None)
+        if diagnostic is None:
+            raise ValueError(f'Module {name!r} does not expose relation_diagnostic')
+        return diagnostic(*args, **kwargs)
+
 
 class TrainState(flax.struct.PyTreeNode):
     step: int

@@ -122,9 +122,14 @@ def _jobs(study_path, run_root, include_configs=None, exclude_configs=None, run_
                     seed,
                     run_attempt=run_attempt,
                 )
-                status = 'planned'
+                # Phase-1 studies may intentionally publish a complete
+                # future factorial design while withholding permission to run
+                # it.  Such a skeleton is never a pending job, even if no
+                # runtime artifact exists at its deterministic path.
+                executable = bool(configuration.data.get('executable', True))
+                status = 'planned' if executable else 'blocked'
                 metadata_path = run_dir / 'runtime_metadata.json'
-                if metadata_path.exists():
+                if executable and metadata_path.exists():
                     try:
                         import json
 
@@ -140,6 +145,8 @@ def _jobs(study_path, run_root, include_configs=None, exclude_configs=None, run_
                     'run_attempt': int(run_attempt),
                     'run_dir': run_dir,
                     'status': status,
+                    'executable': executable,
+                    'blocked_by': configuration.data.get('blocked_by'),
                 })
     return jobs
 
@@ -310,6 +317,7 @@ def main(argv=None):
         'failed': 0,
         'aborted': 0,
         'invalid': 0,
+        'blocked': 0,
     }
     for job in jobs:
         status_counts[job['status']] = status_counts.get(job['status'], 0) + 1
@@ -320,6 +328,20 @@ def main(argv=None):
         f'running={status_counts["running"]} retained={len(retained)} '
         f'remaining={len(pending)} statuses: {status_text}'
     )
+    phase2_blocked = [
+        job for job in jobs
+        if (
+            job['configuration'].data.get('protocol_stage') == 'phase2_skeleton'
+            and not job['executable']
+        )
+    ]
+    if phase2_blocked:
+        # Exact, deliberately boring safety summary for M20A-style studies.
+        # It is printed before any plan listing so a mistaken --execute is
+        # visibly unable to create a formal training job.
+        formal_executable = sum(1 for job in jobs if job['executable'])
+        print(f'formal executable runs = {formal_executable}')
+        print(f'blocked phase2 skeletons = {len(phase2_blocked)}')
     if not args.summary_only:
         for job in pending:
             semantic = job['configuration'].data.get('semantic_condition', job['configuration'].slug)
@@ -332,6 +354,10 @@ def main(argv=None):
     if args.summary_only or args.dry_run or not args.execute:
         if not args.dry_run:
             print('Execution disabled. Re-run with --execute after confirming the training protocol.')
+        return 0
+
+    if not pending:
+        print('No executable planned jobs; blocked configurations were not dispatched.')
         return 0
 
     gpus = _parse_gpus(args.gpus)
