@@ -1,0 +1,69 @@
+study_id: M20B
+config_id: M20B-triple-B000
+slug: cube_triple_flat_b000_seed0
+algorithm: gciql
+environment: cube-triple-play-v0
+protocol_stage: formal
+placement: actor+value+critic
+executable: true
+training_seed: 0
+condition_id: B000
+semantic_condition: CANONICAL_FLAT_GCIQL_B000
+description: >-
+  Canonical flat GCIQL baseline on cube-triple-play-v0. All computation slots
+  are disabled; no structured preprocessing is enabled.
+factors:
+  environment: cube-triple-play-v0
+  package_condition: B000
+  structure: vector
+  topology: feedforward
+  block: plain
+  num_cubes: 3
+  alpha: 1.0
+  relation_study: false
+frozen_protocol:
+  train_steps: 1000000
+  batch_size: 1024
+  log_interval: 5000
+  eval_interval: 100000
+  eval_tasks: all
+  eval_episodes: 50
+  eval_temperature: 0.0
+  eval_gaussian: null
+  video_episodes: 0
+  save_interval: 100000
+  save_best_checkpoint: true
+  save_last_checkpoint: true
+  primary_endpoint: final@1M
+  secondary_endpoints: [best_success, best_step, last3_mean, normalized_eval_auc]
+  auc: {checkpoints: [100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000], interval: [100000, 1000000], rule: trapezoidal_area_divided_by_900000}
+agent_overrides:
+  actor_loss: ddpgbc
+  alpha: 1.0
+  actor_hidden_dims: [512, 512, 512]
+  value_hidden_dims: [512, 512, 512]
+  layer_norm: true
+  lr: 0.0003
+  batch_size: 1024
+  discount: 0.99
+  expectile: 0.9
+  tau: 0.005
+  const_std: true
+  discrete: false
+  encoder: null
+  dataset_class: GCDataset
+  value_p_curgoal: 0.2
+  value_p_trajgoal: 0.5
+  value_p_randomgoal: 0.3
+  value_geom_sample: true
+  actor_p_curgoal: 0.0
+  actor_p_trajgoal: 1.0
+  actor_p_randomgoal: 0.0
+  actor_geom_sample: false
+  gc_negative: true
+  p_aug: 0.0
+  frame_stack: null
+  compute:
+    actor: {enabled: false, primitive: mlp, structure: vector, block: plain, topology: feedforward, credit: direct}
+    value: {enabled: false, primitive: mlp, structure: vector, block: plain, topology: feedforward, credit: direct}
+    critic: {enabled: false, primitive: mlp, structure: vector, block: plain, topology: feedforward, credit: direct}

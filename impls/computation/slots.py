@@ -313,6 +313,132 @@ def _validate_m20_relation_slot(
         raise ValueError(f'Unsupported M20A relation structure: {structure!r}')
 
 
+def _validate_relation_free_cube_slot(agent_name, slot_name, slot):
+    """Validate the reusable relation-free Cube Mixer schema.
+
+    This is intentionally separate from the relation treatment validator:
+    ``legacy_none`` must mean that relation configuration is empty and that
+    the production module can be built without a relation augmenter.
+    """
+
+    def require_mapping(name):
+        value = slot.get(name, {})
+        if not hasattr(value, 'get'):
+            raise ValueError(
+                f'Relation-free Cube {name} for {agent_name}.{slot_name} must be a mapping'
+            )
+        return value
+
+    if slot.get('topology') != 'feedforward' or slot.get('credit', 'direct') != 'direct':
+        raise ValueError(
+            f'Relation-free Cube computation for {agent_name}.{slot_name} requires '
+            'topology=feedforward and credit=direct'
+        )
+    if slot.get('block') != 'mlp_mixer':
+        raise ValueError(
+            f'Relation-free Cube computation for {agent_name}.{slot_name} requires '
+            'block=mlp_mixer'
+        )
+    if slot.get('primitive', 'mlp') not in ('mlp', 'original_mlp'):
+        raise ValueError(
+            f'Relation-free Cube computation for {agent_name}.{slot_name} requires '
+            "primitive in {'mlp', 'original_mlp'}"
+        )
+    if slot.get('relation_mode', 'legacy_none') != 'legacy_none':
+        raise ValueError(
+            f'Relation-free Cube computation for {agent_name}.{slot_name} requires '
+            'relation_mode=legacy_none'
+        )
+    if slot.get('relation_augmenter', 'none') != 'none':
+        raise ValueError(
+            f'Relation-free Cube computation for {agent_name}.{slot_name} requires '
+            'relation_augmenter=none'
+        )
+    if slot.get('readout', 'mean_context') != 'mean_context':
+        raise ValueError(
+            f'Relation-free Cube computation for {agent_name}.{slot_name} requires '
+            'readout=mean_context'
+        )
+    if slot.get('topology_kwargs', {}):
+        raise ValueError(
+            f'Relation-free Cube computation for {agent_name}.{slot_name} does not '
+            'accept topology_kwargs'
+        )
+    if slot.get('parameter_sharing', 'shared') != 'shared':
+        raise ValueError(
+            f'Relation-free Cube computation for {agent_name}.{slot_name} requires '
+            'parameter_sharing=shared'
+        )
+
+    structure_kwargs = require_mapping('structure_kwargs')
+    block_kwargs = require_mapping('block_kwargs')
+    relation_kwargs = require_mapping('relation_kwargs')
+    augmenter_kwargs = require_mapping('relation_augmenter_kwargs')
+    readout_kwargs = require_mapping('readout_kwargs')
+    if relation_kwargs or augmenter_kwargs:
+        raise ValueError(
+            f'Relation-free Cube computation for {agent_name}.{slot_name} must have '
+            'empty relation_kwargs and relation_augmenter_kwargs'
+        )
+
+    expected_structure = {
+        'num_cubes', 'robot_dim', 'cube_feature_dim', 'token_dim',
+        'robot_hidden_dim', 'slot_identity_embedding',
+    }
+    unexpected_structure = set(structure_kwargs) - expected_structure
+    if unexpected_structure:
+        raise ValueError(
+            f'Relation-free Cube structure_kwargs for {agent_name}.{slot_name} '
+            f'contain unsupported keys {sorted(unexpected_structure)!r}'
+        )
+    if (
+        isinstance(structure_kwargs.get('num_cubes'), bool)
+        or structure_kwargs.get('num_cubes') not in (1, 2, 3)
+        or structure_kwargs.get('robot_dim') != 19
+        or structure_kwargs.get('cube_feature_dim') != 9
+        or structure_kwargs.get('token_dim') != 128
+        or structure_kwargs.get('robot_hidden_dim') != 128
+        or structure_kwargs.get('slot_identity_embedding') is not False
+    ):
+        raise ValueError(
+            f'Relation-free Cube schema mismatch for {agent_name}.{slot_name}; '
+            'expected N in {1,2,3}, robot=19, cube=9, token=128, '
+            'robot_hidden=128, slot_identity_embedding=false'
+        )
+
+    expected_block = {'num_blocks', 'token_hidden_dim', 'channel_hidden_dim', 'tm_mode'}
+    unexpected_block = set(block_kwargs) - expected_block
+    if unexpected_block:
+        raise ValueError(
+            f'Relation-free Cube block_kwargs for {agent_name}.{slot_name} '
+            f'contain unsupported keys {sorted(unexpected_block)!r}'
+        )
+    if (
+        block_kwargs.get('num_blocks') != 2
+        or block_kwargs.get('token_hidden_dim') != 64
+        or block_kwargs.get('channel_hidden_dim') != 256
+        or block_kwargs.get('tm_mode') != 'none'
+    ):
+        raise ValueError(
+            f'Relation-free Cube {agent_name}.{slot_name} requires Mixer L2/64/256 '
+            'with tm_mode=none'
+        )
+
+    unexpected_readout = set(readout_kwargs) - {'output_dim'}
+    if unexpected_readout:
+        raise ValueError(
+            f'Relation-free Cube readout_kwargs for {agent_name}.{slot_name} '
+            f'contain unsupported keys {sorted(unexpected_readout)!r}'
+        )
+    if 'output_dim' in readout_kwargs:
+        value = readout_kwargs['output_dim']
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            raise ValueError(
+                f'Relation-free Cube readout output_dim for {agent_name}.{slot_name} '
+                f'must be a positive integer, got {value!r}'
+            )
+
+
 def validate_compute_slots(agent_name: str, config: Mapping):
     """Validate every configured slot before an agent resolves any module.
 
@@ -347,6 +473,9 @@ def validate_compute_slots(agent_name: str, config: Mapping):
                     f'Unsupported computation structure {structure!r} for '
                     f'{agent_name}.{slot_name}'
                 )
+            if structure == 'cube_tokens' and slot.get('relation_mode', 'legacy_none') == 'legacy_none':
+                _validate_relation_free_cube_slot(agent_name, slot_name, slot)
+                continue
             if (
                 structure in ('cube_tokens', 'scene_tokens')
                 or (

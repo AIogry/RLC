@@ -1,0 +1,119 @@
+study_id: M20B
+name: "Cube Entity-Structured Mixer Transfer Screen"
+study_type: seed0_screening
+question: >-
+  Under the canonical GCIQL protocol, does the Cube Entity Tokens +
+  feed-forward MLP-Mixer L2 + MeanContextReadout package transfer relative to
+  the canonical Flat GCIQL baseline on cube-single, cube-double, and
+  cube-triple play environments?
+primary_factors: [environment, package_condition]
+fixed_design:
+  algorithm: gciql
+  actor_hidden_dims: [512, 512, 512]
+  value_hidden_dims: [512, 512, 512]
+  layer_norm: true
+  lr: 0.0003
+  batch_size: 1024
+  train_steps: 1000000
+  discount: 0.99
+  expectile: 0.9
+  tau: 0.005
+  actor_loss: ddpgbc
+  alpha: 1.0
+  const_std: true
+  discrete: false
+  encoder: null
+  dataset_class: GCDataset
+  value_goal_sampling: {p_curgoal: 0.2, p_trajgoal: 0.5, p_randomgoal: 0.3, geom_sample: true}
+  actor_goal_sampling: {p_curgoal: 0.0, p_trajgoal: 1.0, p_randomgoal: 0.0, geom_sample: false}
+  gc_negative: true
+  p_aug: 0.0
+  frame_stack: null
+  training_seed: 0
+  topology: feedforward
+  credit: direct
+  mixer: {num_blocks: 2, token_dim: 128, robot_hidden_dim: 128, token_hidden_dim: 64, channel_hidden_dim: 256, tm_mode: none}
+  readout: mean_context
+  slot_identity_embedding: false
+  relation_study: false
+  relation_mode: legacy_none
+  relation_augmenter: none
+  cube_entity_feature_layout: {robot_dim: 19, cube_feature_dim: 9}
+deferred_factors:
+  - additional_training_seeds
+  - parameter_matched_control
+  - permutation_invariant_architecture
+  - quadruple_cube
+  - scene_or_puzzle_reruns
+algorithms: [gciql]
+placements: [actor+value+critic]
+environments: [cube-single-play-v0, cube-double-play-v0, cube-triple-play-v0]
+seeds: [0]
+primary_metric: evaluation/overall_success
+metadata:
+  primary_contrast: cube-double S002 minus B000
+  secondary_descriptive_contrasts: [single, triple]
+  relation_study: false
+  parameter_matched: false
+  entity_count_causal_scaling: false
+  no_cross_environment_pooling: true
+  no_entity_count_gap_regression: true
+  no_seed0_significance: true
+  source_audit: docs/9-8/M20B_source_audit.json
+  formal_training_started: false
+  formal_training_authorized_by_codex: false
+protocol:
+  train_steps: 1000000
+  batch_size: 1024
+  log_interval: 5000
+  eval_interval: 100000
+  eval_tasks: all
+  eval_task_count: 5
+  eval_episodes: 50
+  eval_temperature: 0.0
+  eval_gaussian: null
+  video_episodes: 0
+  save_interval: 100000
+  save_best_checkpoint: true
+  save_last_checkpoint: true
+  selection_metric: evaluation/overall_success
+  selection_rule: strict_greater_than_keep_earlier_tie
+  primary_endpoint: final@1M
+  secondary_endpoints: [best_success, best_step, last3_mean, normalized_eval_auc]
+  auc:
+    checkpoints: [100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000]
+    interval: [100000, 1000000]
+    rule: trapezoidal_area_divided_by_900000
+  formal_training_started: false
+comparison_policy:
+  primary_within_environment_contrast: J(S002) - J(B000)
+  primary_environment: cube-double-play-v0
+  secondary_within_environment_contrasts: [cube-single-play-v0, cube-triple-play-v0]
+  b000_definition: canonical_flat_gciql_all_compute_slots_disabled
+  s002_definition: cube_entity_tokens_mlp_mixer_l2_mean_context_relation_free
+  package_comparison: true
+  token_mixing_attribution: false
+  relation_reasoning_attribution: false
+  cross_environment_raw_success_pooling: false
+  entity_count_causal_scaling_claim: false
+  seed0_significance: false
+source_decisions:
+  cube_reset_permutation: >-
+    init_xyzs and goal_xyzs are indexed by the same reset permutation, so
+    cube_i/goal_cube_i pairing is preserved; no slot identity embedding is used.
+  mixer_symmetry: >-
+    Standard MLP-Mixer token-axis Dense layers are retained. The architecture
+    is not claimed to be permutation-equivariant.
+  relation_semantics: >-
+    Relation-free means legacy_none with empty relation configuration and no
+    relation augmenter, relation loss, relation readout, or message passing.
+  checkpoint_policy: no_pretrained_checkpoint_reused
+acceptance:
+  expected_configs: 6
+  expected_formal_runs: 6
+  all_configs_seed0: true
+  all_configs_alpha_1p0: true
+  all_configs_train_steps_1m: true
+  all_configs_eval_episodes_50: true
+  no_automatic_formal_launch: true
+  no_git_writes_by_agent: true

@@ -1,0 +1,292 @@
+{
+  "analysis_scope": {
+    "cross_environment_raw_success_pooling": "prohibited",
+    "entity_count_gap_regression": "prohibited",
+    "interpretation": "full structured package contrast; no token-mixing or relation attribution",
+    "primary_endpoint": "final@1M",
+    "primary_environment": "cube-double-play-v0",
+    "secondary_endpoints": [
+      "best",
+      "best_step",
+      "last3_mean",
+      "normalized_auc",
+      "per_task_final@1M"
+    ],
+    "seed0_significance": "prohibited",
+    "within_environment_contrast": "S002 - B000"
+  },
+  "cells": [
+    {
+      "auc_status": "incomplete_curve",
+      "authoritative_task_names": [
+        "task1_single_pnp",
+        "task2_double_pnp1",
+        "task3_double_pnp2",
+        "task4_swap",
+        "task5_stack"
+      ],
+      "best": null,
+      "best_step": null,
+      "condition": "B000",
+      "config_id": "M20B-double-B000",
+      "curve_status": "missing",
+      "environment": "cube-double-play-v0",
+      "eval_file_status": "missing",
+      "final_at_1m": null,
+      "flat_headroom": null,
+      "formal_executable": true,
+      "last3_mean": null,
+      "last3_status": "incomplete_curve",
+      "normalized_auc": null,
+      "num_cubes": 2,
+      "observed_steps": [],
+      "per_task_final_at_1m": {
+        "evaluation/task1_single_pnp_success": null,
+        "evaluation/task2_double_pnp1_success": null,
+        "evaluation/task3_double_pnp2_success": null,
+        "evaluation/task4_swap_success": null,
+        "evaluation/task5_stack_success": null
+      },
+      "run_dir": "/data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M20B/M20B-double-B000__cube_double_flat_b000_seed0/cube-double-play-v0/seed_000",
+      "task_columns_observed": []
+    },
+    {
+      "auc_status": "incomplete_curve",
+      "authoritative_task_names": [
+        "task1_single_pnp",
+        "task2_double_pnp1",
+        "task3_double_pnp2",
+        "task4_swap",
+        "task5_stack"
+      ],
+      "best": null,
+      "best_step": null,
+      "condition": "S002",
+      "config_id": "M20B-double-S002",
+      "curve_status": "missing",
+      "environment": "cube-double-play-v0",
+      "eval_file_status": "missing",
+      "final_at_1m": null,
+      "flat_headroom": null,
+      "formal_executable": true,
+      "last3_mean": null,
+      "last3_status": "incomplete_curve",
+      "normalized_auc": null,
+      "num_cubes": 2,
+      "observed_steps": [],
+      "per_task_final_at_1m": {
+        "evaluation/task1_single_pnp_success": null,
+        "evaluation/task2_double_pnp1_success": null,
+        "evaluation/task3_double_pnp2_success": null,
+        "evaluation/task4_swap_success": null,
+        "evaluation/task5_stack_success": null
+      },
+      "run_dir": "/data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M20B/M20B-double-S002__cube_double_entity_mixer_l2_s002_seed0/cube-double-play-v0/seed_000",
+      "task_columns_observed": []
+    },
+    {
+      "auc_status": "incomplete_curve",
+      "authoritative_task_names": [
+        "task1_horizontal",
+        "task2_vertical1",
+        "task3_vertical2",
+        "task4_diagonal1",
+        "task5_diagonal2"
+      ],
+      "best": null,
+      "best_step": null,
+      "condition": "B000",
+      "config_id": "M20B-single-B000",
+      "curve_status": "missing",
+      "environment": "cube-single-play-v0",
+      "eval_file_status": "missing",
+      "final_at_1m": null,
+      "flat_headroom": null,
+      "formal_executable": true,
+      "last3_mean": null,
+      "last3_status": "incomplete_curve",
+      "normalized_auc": null,
+      "num_cubes": 1,
+      "observed_steps": [],
+      "per_task_final_at_1m": {
+        "evaluation/task1_horizontal_success": null,
+        "evaluation/task2_vertical1_success": null,
+        "evaluation/task3_vertical2_success": null,
+        "evaluation/task4_diagonal1_success": null,
+        "evaluation/task5_diagonal2_success": null
+      },
+      "run_dir": "/data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M20B/M20B-single-B000__cube_single_flat_b000_seed0/cube-single-play-v0/seed_000",
+      "task_columns_observed": []
+    },
+    {
+      "auc_status": "incomplete_curve",
+      "authoritative_task_names": [
+        "task1_horizontal",
+        "task2_vertical1",
+        "task3_vertical2",
+        "task4_diagonal1",
+        "task5_diagonal2"
+      ],
+      "best": null,
+      "best_step": null,
+      "condition": "S002",
+      "config_id": "M20B-single-S002",
+      "curve_status": "missing",
+      "environment": "cube-single-play-v0",
+      "eval_file_status": "missing",
+      "final_at_1m": null,
+      "flat_headroom": null,
+      "formal_executable": true,
+      "last3_mean": null,
+      "last3_status": "incomplete_curve",
+      "normalized_auc": null,
+      "num_cubes": 1,
+      "observed_steps": [],
+      "per_task_final_at_1m": {
+        "evaluation/task1_horizontal_success": null,
+        "evaluation/task2_vertical1_success": null,
+        "evaluation/task3_vertical2_success": null,
+        "evaluation/task4_diagonal1_success": null,
+        "evaluation/task5_diagonal2_success": null
+      },
+      "run_dir": "/data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M20B/M20B-single-S002__cube_single_entity_mixer_l2_s002_seed0/cube-single-play-v0/seed_000",
+      "task_columns_observed": []
+    },
+    {
+      "auc_status": "incomplete_curve",
+      "authoritative_task_names": [
+        "task1_single_pnp",
+        "task2_triple_pnp",
+        "task3_pnp_from_stack",
+        "task4_cycle",
+        "task5_stack"
+      ],
+      "best": null,
+      "best_step": null,
+      "condition": "B000",
+      "config_id": "M20B-triple-B000",
+      "curve_status": "missing",
+      "environment": "cube-triple-play-v0",
+      "eval_file_status": "missing",
+      "final_at_1m": null,
+      "flat_headroom": null,
+      "formal_executable": true,
+      "last3_mean": null,
+      "last3_status": "incomplete_curve",
+      "normalized_auc": null,
+      "num_cubes": 3,
+      "observed_steps": [],
+      "per_task_final_at_1m": {
+        "evaluation/task1_single_pnp_success": null,
+        "evaluation/task2_triple_pnp_success": null,
+        "evaluation/task3_pnp_from_stack_success": null,
+        "evaluation/task4_cycle_success": null,
+        "evaluation/task5_stack_success": null
+      },
+      "run_dir": "/data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M20B/M20B-triple-B000__cube_triple_flat_b000_seed0/cube-triple-play-v0/seed_000",
+      "task_columns_observed": []
+    },
+    {
+      "auc_status": "incomplete_curve",
+      "authoritative_task_names": [
+        "task1_single_pnp",
+        "task2_triple_pnp",
+        "task3_pnp_from_stack",
+        "task4_cycle",
+        "task5_stack"
+      ],
+      "best": null,
+      "best_step": null,
+      "condition": "S002",
+      "config_id": "M20B-triple-S002",
+      "curve_status": "missing",
+      "environment": "cube-triple-play-v0",
+      "eval_file_status": "missing",
+      "final_at_1m": null,
+      "flat_headroom": null,
+      "formal_executable": true,
+      "last3_mean": null,
+      "last3_status": "incomplete_curve",
+      "normalized_auc": null,
+      "num_cubes": 3,
+      "observed_steps": [],
+      "per_task_final_at_1m": {
+        "evaluation/task1_single_pnp_success": null,
+        "evaluation/task2_triple_pnp_success": null,
+        "evaluation/task3_pnp_from_stack_success": null,
+        "evaluation/task4_cycle_success": null,
+        "evaluation/task5_stack_success": null
+      },
+      "run_dir": "/data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M20B/M20B-triple-S002__cube_triple_entity_mixer_l2_s002_seed0/cube-triple-play-v0/seed_000",
+      "task_columns_observed": []
+    }
+  ],
+  "delta_double": null,
+  "delta_single": null,
+  "delta_triple": null,
+  "formal_results_present": false,
+  "schema": "m20b_within_environment_transfer_v1",
+  "study_id": "M20B",
+  "within_environment_contrasts": {
+    "cube-double-play-v0": {
+      "delta_best": null,
+      "delta_best_step": null,
+      "delta_last3_mean": null,
+      "delta_normalized_auc": null,
+      "flat_config_id": "M20B-double-B000",
+      "flat_final": null,
+      "flat_headroom": null,
+      "mixer_config_id": "M20B-double-S002",
+      "mixer_final": null,
+      "mixer_headroom": null,
+      "per_task_final_delta": {
+        "evaluation/task1_single_pnp_success": null,
+        "evaluation/task2_double_pnp1_success": null,
+        "evaluation/task3_double_pnp2_success": null,
+        "evaluation/task4_swap_success": null,
+        "evaluation/task5_stack_success": null
+      },
+      "raw_delta": null
+    },
+    "cube-single-play-v0": {
+      "delta_best": null,
+      "delta_best_step": null,
+      "delta_last3_mean": null,
+      "delta_normalized_auc": null,
+      "flat_config_id": "M20B-single-B000",
+      "flat_final": null,
+      "flat_headroom": null,
+      "mixer_config_id": "M20B-single-S002",
+      "mixer_final": null,
+      "mixer_headroom": null,
+      "per_task_final_delta": {
+        "evaluation/task1_horizontal_success": null,
+        "evaluation/task2_vertical1_success": null,
+        "evaluation/task3_vertical2_success": null,
+        "evaluation/task4_diagonal1_success": null,
+        "evaluation/task5_diagonal2_success": null
+      },
+      "raw_delta": null
+    },
+    "cube-triple-play-v0": {
+      "delta_best": null,
+      "delta_best_step": null,
+      "delta_last3_mean": null,
+      "delta_normalized_auc": null,
+      "flat_config_id": "M20B-triple-B000",
+      "flat_final": null,
+      "flat_headroom": null,
+      "mixer_config_id": "M20B-triple-S002",
+      "mixer_final": null,
+      "mixer_headroom": null,
+      "per_task_final_delta": {
+        "evaluation/task1_single_pnp_success": null,
+        "evaluation/task2_triple_pnp_success": null,
+        "evaluation/task3_pnp_from_stack_success": null,
+        "evaluation/task4_cycle_success": null,
+        "evaluation/task5_stack_success": null
+      },
+      "raw_delta": null
+    }
+  }
+}

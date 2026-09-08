@@ -1,0 +1,1571 @@
+{
+  "doctor": "M20B_cube_entity_mixer_transfer_screen",
+  "formal_artifact_preflight": {
+    "checked_study_root": "/data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M20B",
+    "completed": 0,
+    "failed": 0,
+    "formal_study_root_absent": true,
+    "planned_run_count": 6,
+    "planned_run_paths": [
+      "/data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M20B/M20B-double-B000__cube_double_flat_b000_seed0/cube-double-play-v0/seed_000",
+      "/data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M20B/M20B-double-S002__cube_double_entity_mixer_l2_s002_seed0/cube-double-play-v0/seed_000",
+      "/data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M20B/M20B-single-B000__cube_single_flat_b000_seed0/cube-single-play-v0/seed_000",
+      "/data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M20B/M20B-single-S002__cube_single_entity_mixer_l2_s002_seed0/cube-single-play-v0/seed_000",
+      "/data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M20B/M20B-triple-B000__cube_triple_flat_b000_seed0/cube-triple-play-v0/seed_000",
+      "/data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M20B/M20B-triple-S002__cube_triple_entity_mixer_l2_s002_seed0/cube-triple-play-v0/seed_000"
+    ],
+    "remaining": 6,
+    "running": 0
+  },
+  "formal_training_started": false,
+  "paired_sampling": {
+    "cube-double-play-v0": {
+      "batch_arrays_equal": true,
+      "compared_batch_keys": [
+        "actions",
+        "actor_goals",
+        "masks",
+        "next_observations",
+        "observations",
+        "rewards",
+        "terminals",
+        "value_goals"
+      ],
+      "dataset_identity_same_by_path": true,
+      "sample_count": 1024,
+      "seed": 20020,
+      "trace_ids_equal": true,
+      "trace_keys": [
+        "actor_goal_indices",
+        "transition_indices",
+        "value_goal_indices"
+      ]
+    },
+    "cube-single-play-v0": {
+      "batch_arrays_equal": true,
+      "compared_batch_keys": [
+        "actions",
+        "actor_goals",
+        "masks",
+        "next_observations",
+        "observations",
+        "rewards",
+        "terminals",
+        "value_goals"
+      ],
+      "dataset_identity_same_by_path": true,
+      "sample_count": 1024,
+      "seed": 20020,
+      "trace_ids_equal": true,
+      "trace_keys": [
+        "actor_goal_indices",
+        "transition_indices",
+        "value_goal_indices"
+      ]
+    },
+    "cube-triple-play-v0": {
+      "batch_arrays_equal": true,
+      "compared_batch_keys": [
+        "actions",
+        "actor_goals",
+        "masks",
+        "next_observations",
+        "observations",
+        "rewards",
+        "terminals",
+        "value_goals"
+      ],
+      "dataset_identity_same_by_path": true,
+      "sample_count": 1024,
+      "seed": 20020,
+      "trace_ids_equal": true,
+      "trace_keys": [
+        "actor_goal_indices",
+        "transition_indices",
+        "value_goal_indices"
+      ]
+    }
+  },
+  "runtime_initialize": {
+    "M20B-double-B000": {
+      "architecture": {
+        "algorithm": "gciql",
+        "slots": {
+          "actor": {
+            "block": "plain",
+            "channel_hidden_dim": null,
+            "computation_body_dense_macs": 562176,
+            "computation_body_params": 563712,
+            "computation_body_sequential_depth": 3,
+            "executed_dense_layers": 4,
+            "index_embedding": false,
+            "num_mixer_blocks": null,
+            "num_tokens": null,
+            "readout": null,
+            "readout_dense_macs": 2560,
+            "readout_params": 2565,
+            "sequential_depth": 4,
+            "slot_name": "actor",
+            "structure": "vector",
+            "tm_mode": null,
+            "token_dim": null,
+            "token_hidden_dim": null,
+            "topology": "feedforward",
+            "total_dense_macs": 564736,
+            "trainable_params": 566277,
+            "unique_dense_layers": 4
+          },
+          "critic": {
+            "block": "plain",
+            "channel_hidden_dim": null,
+            "computation_body_dense_macs": 1129472,
+            "computation_body_params": 1138688,
+            "computation_body_sequential_depth": 3,
+            "executed_dense_layers": 8,
+            "index_embedding": false,
+            "num_mixer_blocks": null,
+            "num_tokens": null,
+            "readout": null,
+            "readout_dense_macs": 1024,
+            "readout_params": 1026,
+            "sequential_depth": 4,
+            "slot_name": "critic",
+            "structure": "vector",
+            "tm_mode": null,
+            "token_dim": null,
+            "token_hidden_dim": null,
+            "topology": "feedforward",
+            "total_dense_macs": 1130496,
+            "trainable_params": 1139714,
+            "unique_dense_layers": 8
+          },
+          "value": {
+            "block": "plain",
+            "channel_hidden_dim": null,
+            "computation_body_dense_macs": 562176,
+            "computation_body_params": 566784,
+            "computation_body_sequential_depth": 3,
+            "executed_dense_layers": 4,
+            "index_embedding": false,
+            "num_mixer_blocks": null,
+            "num_tokens": null,
+            "readout": null,
+            "readout_dense_macs": 512,
+            "readout_params": 513,
+            "sequential_depth": 4,
+            "slot_name": "value",
+            "structure": "vector",
+            "tm_mode": null,
+            "token_dim": null,
+            "token_hidden_dim": null,
+            "topology": "feedforward",
+            "total_dense_macs": 562688,
+            "trainable_params": 567297,
+            "unique_dense_layers": 4
+          }
+        },
+        "total_dense_macs": 2257920,
+        "total_trainable_params": 2273288
+      },
+      "condition": "B000",
+      "forward_finite": true,
+      "relation_absent": true,
+      "structured_slots": {},
+      "unbatched_action_shape": [
+        5
+      ]
+    },
+    "M20B-double-S002": {
+      "adapter_relation_contract": {
+        "actor": {
+          "context_shape": [
+            2,
+            128
+          ],
+          "relations_is_none": true,
+          "tokens_shape": [
+            2,
+            2,
+            128
+          ]
+        },
+        "critic": {
+          "context_shape": [
+            2,
+            128
+          ],
+          "relations_is_none": true,
+          "tokens_shape": [
+            2,
+            2,
+            128
+          ]
+        },
+        "value": {
+          "context_shape": [
+            2,
+            128
+          ],
+          "relations_is_none": true,
+          "tokens_shape": [
+            2,
+            2,
+            128
+          ]
+        }
+      },
+      "architecture": {
+        "algorithm": "gciql",
+        "slots": {
+          "actor": {
+            "adapter_dense_macs": 9472,
+            "adapter_params": 7424,
+            "attention_tensor_cost": 0,
+            "block": "mlp_mixer",
+            "block_depth_L": 2,
+            "block_type": "mlp_mixer",
+            "channel_hidden_dim": 256,
+            "channel_mixing_dense_macs": 262144,
+            "channel_mixing_params": 131840,
+            "computation_block_dense_macs": 327680,
+            "computation_block_params": 132484,
+            "computation_body_dense_macs": 468224,
+            "computation_body_params": 271492,
+            "computation_body_sequential_depth": 10,
+            "cross_entity_interaction": true,
+            "entity_family": "cube_entities",
+            "executed_block_dense_layers": 8,
+            "executed_dense_layers": 12,
+            "executed_dense_relation_aggregation_cost": 0,
+            "executed_mixer_layers": 2,
+            "fusion_dense_macs": 131072,
+            "fusion_params": 131584,
+            "index_embedding": false,
+            "iterations_K": 1,
+            "mixer_dense_macs": 327680,
+            "mixer_params": 132484,
+            "num_cubes": 2,
+            "num_entities": 2,
+            "num_mixer_blocks": 2,
+            "num_relation_types": 0,
+            "num_tokens": 2,
+            "query_dense_macs": 0,
+            "query_params": 0,
+            "readout": "mean_context",
+            "readout_dense_macs": 131072,
+            "readout_params": 131584,
+            "relation_aggregation_logical_active_edges": 0,
+            "relation_augmenter": "none",
+            "relation_augmenter_params": 0,
+            "relation_hidden_dim": null,
+            "relation_macs": 0,
+            "relation_mode": "legacy_none",
+            "relation_parameters": 0,
+            "relation_params": 0,
+            "relation_projection_dense_macs": 0,
+            "relation_sparsity_not_hardware_saving": false,
+            "robot_projection_dense_macs": 4864,
+            "robot_projection_params": 4992,
+            "sequential_depth": 11,
+            "slot_name": "actor",
+            "structure": "cube_tokens",
+            "tm_mode": "none",
+            "token_dim": 128,
+            "token_hidden_dim": 64,
+            "token_interaction": true,
+            "token_mixing_dense_macs": 65536,
+            "token_mixing_params": 644,
+            "token_projection_dense_macs": 4608,
+            "token_projection_params": 2432,
+            "topology": "feedforward",
+            "total_dense_macs": 470784,
+            "trainable_params": 274057,
+            "unique_block_dense_layers": 8,
+            "unique_dense_layers": 12,
+            "unique_mixer_layers": 2
+          },
+          "critic": {
+            "adapter_dense_macs": 20224,
+            "adapter_params": 16640,
+            "attention_tensor_cost": 0,
+            "block": "mlp_mixer",
+            "block_depth_L": 2,
+            "block_type": "mlp_mixer",
+            "channel_hidden_dim": 256,
+            "channel_mixing_dense_macs": 524288,
+            "channel_mixing_params": 263680,
+            "computation_block_dense_macs": 655360,
+            "computation_block_params": 264968,
+            "computation_body_dense_macs": 937728,
+            "computation_body_params": 546824,
+            "computation_body_sequential_depth": 10,
+            "cross_entity_interaction": true,
+            "entity_family": "cube_entities",
+            "executed_block_dense_layers": 16,
+            "executed_dense_layers": 24,
+            "executed_dense_relation_aggregation_cost": 0,
+            "executed_mixer_layers": 4,
+            "fusion_dense_macs": 262144,
+            "fusion_params": 263168,
+            "index_embedding": false,
+            "iterations_K": 1,
+            "mixer_dense_macs": 655360,
+            "mixer_params": 264968,
+            "num_cubes": 2,
+            "num_entities": 2,
+            "num_mixer_blocks": 2,
+            "num_relation_types": 0,
+            "num_tokens": 2,
+            "query_dense_macs": 0,
+            "query_params": 0,
+            "readout": "mean_context",
+            "readout_dense_macs": 262144,
+            "readout_params": 265216,
+            "relation_aggregation_logical_active_edges": 0,
+            "relation_augmenter": "none",
+            "relation_augmenter_params": 0,
+            "relation_hidden_dim": null,
+            "relation_macs": 0,
+            "relation_mode": "legacy_none",
+            "relation_parameters": 0,
+            "relation_params": 0,
+            "relation_projection_dense_macs": 0,
+            "relation_sparsity_not_hardware_saving": false,
+            "robot_projection_dense_macs": 11008,
+            "robot_projection_params": 11264,
+            "sequential_depth": 11,
+            "slot_name": "critic",
+            "structure": "cube_tokens",
+            "tm_mode": "none",
+            "token_dim": 128,
+            "token_hidden_dim": 64,
+            "token_interaction": true,
+            "token_mixing_dense_macs": 131072,
+            "token_mixing_params": 1288,
+            "token_projection_dense_macs": 9216,
+            "token_projection_params": 4864,
+            "topology": "feedforward",
+            "total_dense_macs": 938752,
+            "trainable_params": 547850,
+            "unique_block_dense_layers": 16,
+            "unique_dense_layers": 24,
+            "unique_mixer_layers": 4
+          },
+          "value": {
+            "adapter_dense_macs": 9472,
+            "adapter_params": 7680,
+            "attention_tensor_cost": 0,
+            "block": "mlp_mixer",
+            "block_depth_L": 2,
+            "block_type": "mlp_mixer",
+            "channel_hidden_dim": 256,
+            "channel_mixing_dense_macs": 262144,
+            "channel_mixing_params": 131840,
+            "computation_block_dense_macs": 327680,
+            "computation_block_params": 132484,
+            "computation_body_dense_macs": 468224,
+            "computation_body_params": 272772,
+            "computation_body_sequential_depth": 10,
+            "cross_entity_interaction": true,
+            "entity_family": "cube_entities",
+            "executed_block_dense_layers": 8,
+            "executed_dense_layers": 12,
+            "executed_dense_relation_aggregation_cost": 0,
+            "executed_mixer_layers": 2,
+            "fusion_dense_macs": 131072,
+            "fusion_params": 131584,
+            "index_embedding": false,
+            "iterations_K": 1,
+            "mixer_dense_macs": 327680,
+            "mixer_params": 132484,
+            "num_cubes": 2,
+            "num_entities": 2,
+            "num_mixer_blocks": 2,
+            "num_relation_types": 0,
+            "num_tokens": 2,
+            "query_dense_macs": 0,
+            "query_params": 0,
+            "readout": "mean_context",
+            "readout_dense_macs": 131072,
+            "readout_params": 132608,
+            "relation_aggregation_logical_active_edges": 0,
+            "relation_augmenter": "none",
+            "relation_augmenter_params": 0,
+            "relation_hidden_dim": null,
+            "relation_macs": 0,
+            "relation_mode": "legacy_none",
+            "relation_parameters": 0,
+            "relation_params": 0,
+            "relation_projection_dense_macs": 0,
+            "relation_sparsity_not_hardware_saving": false,
+            "robot_projection_dense_macs": 4864,
+            "robot_projection_params": 4992,
+            "sequential_depth": 11,
+            "slot_name": "value",
+            "structure": "cube_tokens",
+            "tm_mode": "none",
+            "token_dim": 128,
+            "token_hidden_dim": 64,
+            "token_interaction": true,
+            "token_mixing_dense_macs": 65536,
+            "token_mixing_params": 644,
+            "token_projection_dense_macs": 4608,
+            "token_projection_params": 2432,
+            "topology": "feedforward",
+            "total_dense_macs": 468736,
+            "trainable_params": 273285,
+            "unique_block_dense_layers": 8,
+            "unique_dense_layers": 12,
+            "unique_mixer_layers": 2
+          }
+        },
+        "total_dense_macs": 1878272,
+        "total_trainable_params": 1095192
+      },
+      "condition": "S002",
+      "forward_finite": true,
+      "relation_absent": {
+        "cube_slot_embedding": true,
+        "relation_augmenter": true,
+        "relations": true,
+        "tm_weights": true
+      },
+      "structured_slots": {
+        "actor": {
+          "forward_finite": true,
+          "mixer_token_dense2_kernel_shape": [
+            64,
+            2
+          ],
+          "num_tokens": 2,
+          "relation_augmenter_absent": true,
+          "relation_macs": 0,
+          "relation_params": 0,
+          "slot_identity_embedding_absent": true
+        },
+        "critic": {
+          "forward_finite": true,
+          "mixer_token_dense2_kernel_shape": [
+            2,
+            64,
+            2
+          ],
+          "num_tokens": 2,
+          "relation_augmenter_absent": true,
+          "relation_macs": 0,
+          "relation_params": 0,
+          "slot_identity_embedding_absent": true
+        },
+        "value": {
+          "forward_finite": true,
+          "mixer_token_dense2_kernel_shape": [
+            64,
+            2
+          ],
+          "num_tokens": 2,
+          "relation_augmenter_absent": true,
+          "relation_macs": 0,
+          "relation_params": 0,
+          "slot_identity_embedding_absent": true
+        }
+      },
+      "unbatched_action_shape": [
+        5
+      ]
+    },
+    "M20B-single-B000": {
+      "architecture": {
+        "algorithm": "gciql",
+        "slots": {
+          "actor": {
+            "block": "plain",
+            "channel_hidden_dim": null,
+            "computation_body_dense_macs": 552960,
+            "computation_body_params": 554496,
+            "computation_body_sequential_depth": 3,
+            "executed_dense_layers": 4,
+            "index_embedding": false,
+            "num_mixer_blocks": null,
+            "num_tokens": null,
+            "readout": null,
+            "readout_dense_macs": 2560,
+            "readout_params": 2565,
+            "sequential_depth": 4,
+            "slot_name": "actor",
+            "structure": "vector",
+            "tm_mode": null,
+            "token_dim": null,
+            "token_hidden_dim": null,
+            "topology": "feedforward",
+            "total_dense_macs": 555520,
+            "trainable_params": 557061,
+            "unique_dense_layers": 4
+          },
+          "critic": {
+            "block": "plain",
+            "channel_hidden_dim": null,
+            "computation_body_dense_macs": 1111040,
+            "computation_body_params": 1120256,
+            "computation_body_sequential_depth": 3,
+            "executed_dense_layers": 8,
+            "index_embedding": false,
+            "num_mixer_blocks": null,
+            "num_tokens": null,
+            "readout": null,
+            "readout_dense_macs": 1024,
+            "readout_params": 1026,
+            "sequential_depth": 4,
+            "slot_name": "critic",
+            "structure": "vector",
+            "tm_mode": null,
+            "token_dim": null,
+            "token_hidden_dim": null,
+            "topology": "feedforward",
+            "total_dense_macs": 1112064,
+            "trainable_params": 1121282,
+            "unique_dense_layers": 8
+          },
+          "value": {
+            "block": "plain",
+            "channel_hidden_dim": null,
+            "computation_body_dense_macs": 552960,
+            "computation_body_params": 557568,
+            "computation_body_sequential_depth": 3,
+            "executed_dense_layers": 4,
+            "index_embedding": false,
+            "num_mixer_blocks": null,
+            "num_tokens": null,
+            "readout": null,
+            "readout_dense_macs": 512,
+            "readout_params": 513,
+            "sequential_depth": 4,
+            "slot_name": "value",
+            "structure": "vector",
+            "tm_mode": null,
+            "token_dim": null,
+            "token_hidden_dim": null,
+            "topology": "feedforward",
+            "total_dense_macs": 553472,
+            "trainable_params": 558081,
+            "unique_dense_layers": 4
+          }
+        },
+        "total_dense_macs": 2221056,
+        "total_trainable_params": 2236424
+      },
+      "condition": "B000",
+      "forward_finite": true,
+      "relation_absent": true,
+      "structured_slots": {},
+      "unbatched_action_shape": [
+        5
+      ]
+    },
+    "M20B-single-S002": {
+      "adapter_relation_contract": {
+        "actor": {
+          "context_shape": [
+            2,
+            128
+          ],
+          "relations_is_none": true,
+          "tokens_shape": [
+            2,
+            1,
+            128
+          ]
+        },
+        "critic": {
+          "context_shape": [
+            2,
+            128
+          ],
+          "relations_is_none": true,
+          "tokens_shape": [
+            2,
+            1,
+            128
+          ]
+        },
+        "value": {
+          "context_shape": [
+            2,
+            128
+          ],
+          "relations_is_none": true,
+          "tokens_shape": [
+            2,
+            1,
+            128
+          ]
+        }
+      },
+      "architecture": {
+        "algorithm": "gciql",
+        "slots": {
+          "actor": {
+            "adapter_dense_macs": 7168,
+            "adapter_params": 7424,
+            "attention_tensor_cost": 0,
+            "block": "mlp_mixer",
+            "block_depth_L": 2,
+            "block_type": "mlp_mixer",
+            "channel_hidden_dim": 256,
+            "channel_mixing_dense_macs": 131072,
+            "channel_mixing_params": 131840,
+            "computation_block_dense_macs": 163840,
+            "computation_block_params": 132226,
+            "computation_body_dense_macs": 302080,
+            "computation_body_params": 271234,
+            "computation_body_sequential_depth": 10,
+            "cross_entity_interaction": false,
+            "entity_family": "cube_entities",
+            "executed_block_dense_layers": 8,
+            "executed_dense_layers": 12,
+            "executed_dense_relation_aggregation_cost": 0,
+            "executed_mixer_layers": 2,
+            "fusion_dense_macs": 131072,
+            "fusion_params": 131584,
+            "index_embedding": false,
+            "iterations_K": 1,
+            "mixer_dense_macs": 163840,
+            "mixer_params": 132226,
+            "num_cubes": 1,
+            "num_entities": 1,
+            "num_mixer_blocks": 2,
+            "num_relation_types": 0,
+            "num_tokens": 1,
+            "query_dense_macs": 0,
+            "query_params": 0,
+            "readout": "mean_context",
+            "readout_dense_macs": 131072,
+            "readout_params": 131584,
+            "relation_aggregation_logical_active_edges": 0,
+            "relation_augmenter": "none",
+            "relation_augmenter_params": 0,
+            "relation_hidden_dim": null,
+            "relation_macs": 0,
+            "relation_mode": "legacy_none",
+            "relation_parameters": 0,
+            "relation_params": 0,
+            "relation_projection_dense_macs": 0,
+            "relation_sparsity_not_hardware_saving": false,
+            "robot_projection_dense_macs": 4864,
+            "robot_projection_params": 4992,
+            "sequential_depth": 11,
+            "slot_name": "actor",
+            "structure": "cube_tokens",
+            "tm_mode": "none",
+            "token_dim": 128,
+            "token_hidden_dim": 64,
+            "token_interaction": true,
+            "token_mixing_dense_macs": 32768,
+            "token_mixing_params": 386,
+            "token_projection_dense_macs": 2304,
+            "token_projection_params": 2432,
+            "topology": "feedforward",
+            "total_dense_macs": 304640,
+            "trainable_params": 273799,
+            "unique_block_dense_layers": 8,
+            "unique_dense_layers": 12,
+            "unique_mixer_layers": 2
+          },
+          "critic": {
+            "adapter_dense_macs": 15616,
+            "adapter_params": 16640,
+            "attention_tensor_cost": 0,
+            "block": "mlp_mixer",
+            "block_depth_L": 2,
+            "block_type": "mlp_mixer",
+            "channel_hidden_dim": 256,
+            "channel_mixing_dense_macs": 262144,
+            "channel_mixing_params": 263680,
+            "computation_block_dense_macs": 327680,
+            "computation_block_params": 264452,
+            "computation_body_dense_macs": 605440,
+            "computation_body_params": 546308,
+            "computation_body_sequential_depth": 10,
+            "cross_entity_interaction": false,
+            "entity_family": "cube_entities",
+            "executed_block_dense_layers": 16,
+            "executed_dense_layers": 24,
+            "executed_dense_relation_aggregation_cost": 0,
+            "executed_mixer_layers": 4,
+            "fusion_dense_macs": 262144,
+            "fusion_params": 263168,
+            "index_embedding": false,
+            "iterations_K": 1,
+            "mixer_dense_macs": 327680,
+            "mixer_params": 264452,
+            "num_cubes": 1,
+            "num_entities": 1,
+            "num_mixer_blocks": 2,
+            "num_relation_types": 0,
+            "num_tokens": 1,
+            "query_dense_macs": 0,
+            "query_params": 0,
+            "readout": "mean_context",
+            "readout_dense_macs": 262144,
+            "readout_params": 265216,
+            "relation_aggregation_logical_active_edges": 0,
+            "relation_augmenter": "none",
+            "relation_augmenter_params": 0,
+            "relation_hidden_dim": null,
+            "relation_macs": 0,
+            "relation_mode": "legacy_none",
+            "relation_parameters": 0,
+            "relation_params": 0,
+            "relation_projection_dense_macs": 0,
+            "relation_sparsity_not_hardware_saving": false,
+            "robot_projection_dense_macs": 11008,
+            "robot_projection_params": 11264,
+            "sequential_depth": 11,
+            "slot_name": "critic",
+            "structure": "cube_tokens",
+            "tm_mode": "none",
+            "token_dim": 128,
+            "token_hidden_dim": 64,
+            "token_interaction": true,
+            "token_mixing_dense_macs": 65536,
+            "token_mixing_params": 772,
+            "token_projection_dense_macs": 4608,
+            "token_projection_params": 4864,
+            "topology": "feedforward",
+            "total_dense_macs": 606464,
+            "trainable_params": 547334,
+            "unique_block_dense_layers": 16,
+            "unique_dense_layers": 24,
+            "unique_mixer_layers": 4
+          },
+          "value": {
+            "adapter_dense_macs": 7168,
+            "adapter_params": 7680,
+            "attention_tensor_cost": 0,
+            "block": "mlp_mixer",
+            "block_depth_L": 2,
+            "block_type": "mlp_mixer",
+            "channel_hidden_dim": 256,
+            "channel_mixing_dense_macs": 131072,
+            "channel_mixing_params": 131840,
+            "computation_block_dense_macs": 163840,
+            "computation_block_params": 132226,
+            "computation_body_dense_macs": 302080,
+            "computation_body_params": 272514,
+            "computation_body_sequential_depth": 10,
+            "cross_entity_interaction": false,
+            "entity_family": "cube_entities",
+            "executed_block_dense_layers": 8,
+            "executed_dense_layers": 12,
+            "executed_dense_relation_aggregation_cost": 0,
+            "executed_mixer_layers": 2,
+            "fusion_dense_macs": 131072,
+            "fusion_params": 131584,
+            "index_embedding": false,
+            "iterations_K": 1,
+            "mixer_dense_macs": 163840,
+            "mixer_params": 132226,
+            "num_cubes": 1,
+            "num_entities": 1,
+            "num_mixer_blocks": 2,
+            "num_relation_types": 0,
+            "num_tokens": 1,
+            "query_dense_macs": 0,
+            "query_params": 0,
+            "readout": "mean_context",
+            "readout_dense_macs": 131072,
+            "readout_params": 132608,
+            "relation_aggregation_logical_active_edges": 0,
+            "relation_augmenter": "none",
+            "relation_augmenter_params": 0,
+            "relation_hidden_dim": null,
+            "relation_macs": 0,
+            "relation_mode": "legacy_none",
+            "relation_parameters": 0,
+            "relation_params": 0,
+            "relation_projection_dense_macs": 0,
+            "relation_sparsity_not_hardware_saving": false,
+            "robot_projection_dense_macs": 4864,
+            "robot_projection_params": 4992,
+            "sequential_depth": 11,
+            "slot_name": "value",
+            "structure": "cube_tokens",
+            "tm_mode": "none",
+            "token_dim": 128,
+            "token_hidden_dim": 64,
+            "token_interaction": true,
+            "token_mixing_dense_macs": 32768,
+            "token_mixing_params": 386,
+            "token_projection_dense_macs": 2304,
+            "token_projection_params": 2432,
+            "topology": "feedforward",
+            "total_dense_macs": 302592,
+            "trainable_params": 273027,
+            "unique_block_dense_layers": 8,
+            "unique_dense_layers": 12,
+            "unique_mixer_layers": 2
+          }
+        },
+        "total_dense_macs": 1213696,
+        "total_trainable_params": 1094160
+      },
+      "condition": "S002",
+      "forward_finite": true,
+      "relation_absent": {
+        "cube_slot_embedding": true,
+        "relation_augmenter": true,
+        "relations": true,
+        "tm_weights": true
+      },
+      "structured_slots": {
+        "actor": {
+          "forward_finite": true,
+          "mixer_token_dense2_kernel_shape": [
+            64,
+            1
+          ],
+          "num_tokens": 1,
+          "relation_augmenter_absent": true,
+          "relation_macs": 0,
+          "relation_params": 0,
+          "slot_identity_embedding_absent": true
+        },
+        "critic": {
+          "forward_finite": true,
+          "mixer_token_dense2_kernel_shape": [
+            2,
+            64,
+            1
+          ],
+          "num_tokens": 1,
+          "relation_augmenter_absent": true,
+          "relation_macs": 0,
+          "relation_params": 0,
+          "slot_identity_embedding_absent": true
+        },
+        "value": {
+          "forward_finite": true,
+          "mixer_token_dense2_kernel_shape": [
+            64,
+            1
+          ],
+          "num_tokens": 1,
+          "relation_augmenter_absent": true,
+          "relation_macs": 0,
+          "relation_params": 0,
+          "slot_identity_embedding_absent": true
+        }
+      },
+      "unbatched_action_shape": [
+        5
+      ]
+    },
+    "M20B-triple-B000": {
+      "architecture": {
+        "algorithm": "gciql",
+        "slots": {
+          "actor": {
+            "block": "plain",
+            "channel_hidden_dim": null,
+            "computation_body_dense_macs": 571392,
+            "computation_body_params": 572928,
+            "computation_body_sequential_depth": 3,
+            "executed_dense_layers": 4,
+            "index_embedding": false,
+            "num_mixer_blocks": null,
+            "num_tokens": null,
+            "readout": null,
+            "readout_dense_macs": 2560,
+            "readout_params": 2565,
+            "sequential_depth": 4,
+            "slot_name": "actor",
+            "structure": "vector",
+            "tm_mode": null,
+            "token_dim": null,
+            "token_hidden_dim": null,
+            "topology": "feedforward",
+            "total_dense_macs": 573952,
+            "trainable_params": 575493,
+            "unique_dense_layers": 4
+          },
+          "critic": {
+            "block": "plain",
+            "channel_hidden_dim": null,
+            "computation_body_dense_macs": 1147904,
+            "computation_body_params": 1157120,
+            "computation_body_sequential_depth": 3,
+            "executed_dense_layers": 8,
+            "index_embedding": false,
+            "num_mixer_blocks": null,
+            "num_tokens": null,
+            "readout": null,
+            "readout_dense_macs": 1024,
+            "readout_params": 1026,
+            "sequential_depth": 4,
+            "slot_name": "critic",
+            "structure": "vector",
+            "tm_mode": null,
+            "token_dim": null,
+            "token_hidden_dim": null,
+            "topology": "feedforward",
+            "total_dense_macs": 1148928,
+            "trainable_params": 1158146,
+            "unique_dense_layers": 8
+          },
+          "value": {
+            "block": "plain",
+            "channel_hidden_dim": null,
+            "computation_body_dense_macs": 571392,
+            "computation_body_params": 576000,
+            "computation_body_sequential_depth": 3,
+            "executed_dense_layers": 4,
+            "index_embedding": false,
+            "num_mixer_blocks": null,
+            "num_tokens": null,
+            "readout": null,
+            "readout_dense_macs": 512,
+            "readout_params": 513,
+            "sequential_depth": 4,
+            "slot_name": "value",
+            "structure": "vector",
+            "tm_mode": null,
+            "token_dim": null,
+            "token_hidden_dim": null,
+            "topology": "feedforward",
+            "total_dense_macs": 571904,
+            "trainable_params": 576513,
+            "unique_dense_layers": 4
+          }
+        },
+        "total_dense_macs": 2294784,
+        "total_trainable_params": 2310152
+      },
+      "condition": "B000",
+      "forward_finite": true,
+      "relation_absent": true,
+      "structured_slots": {},
+      "unbatched_action_shape": [
+        5
+      ]
+    },
+    "M20B-triple-S002": {
+      "adapter_relation_contract": {
+        "actor": {
+          "context_shape": [
+            2,
+            128
+          ],
+          "relations_is_none": true,
+          "tokens_shape": [
+            2,
+            3,
+            128
+          ]
+        },
+        "critic": {
+          "context_shape": [
+            2,
+            128
+          ],
+          "relations_is_none": true,
+          "tokens_shape": [
+            2,
+            3,
+            128
+          ]
+        },
+        "value": {
+          "context_shape": [
+            2,
+            128
+          ],
+          "relations_is_none": true,
+          "tokens_shape": [
+            2,
+            3,
+            128
+          ]
+        }
+      },
+      "architecture": {
+        "algorithm": "gciql",
+        "slots": {
+          "actor": {
+            "adapter_dense_macs": 11776,
+            "adapter_params": 7424,
+            "attention_tensor_cost": 0,
+            "block": "mlp_mixer",
+            "block_depth_L": 2,
+            "block_type": "mlp_mixer",
+            "channel_hidden_dim": 256,
+            "channel_mixing_dense_macs": 393216,
+            "channel_mixing_params": 131840,
+            "computation_block_dense_macs": 491520,
+            "computation_block_params": 132742,
+            "computation_body_dense_macs": 634368,
+            "computation_body_params": 271750,
+            "computation_body_sequential_depth": 10,
+            "cross_entity_interaction": true,
+            "entity_family": "cube_entities",
+            "executed_block_dense_layers": 8,
+            "executed_dense_layers": 12,
+            "executed_dense_relation_aggregation_cost": 0,
+            "executed_mixer_layers": 2,
+            "fusion_dense_macs": 131072,
+            "fusion_params": 131584,
+            "index_embedding": false,
+            "iterations_K": 1,
+            "mixer_dense_macs": 491520,
+            "mixer_params": 132742,
+            "num_cubes": 3,
+            "num_entities": 3,
+            "num_mixer_blocks": 2,
+            "num_relation_types": 0,
+            "num_tokens": 3,
+            "query_dense_macs": 0,
+            "query_params": 0,
+            "readout": "mean_context",
+            "readout_dense_macs": 131072,
+            "readout_params": 131584,
+            "relation_aggregation_logical_active_edges": 0,
+            "relation_augmenter": "none",
+            "relation_augmenter_params": 0,
+            "relation_hidden_dim": null,
+            "relation_macs": 0,
+            "relation_mode": "legacy_none",
+            "relation_parameters": 0,
+            "relation_params": 0,
+            "relation_projection_dense_macs": 0,
+            "relation_sparsity_not_hardware_saving": false,
+            "robot_projection_dense_macs": 4864,
+            "robot_projection_params": 4992,
+            "sequential_depth": 11,
+            "slot_name": "actor",
+            "structure": "cube_tokens",
+            "tm_mode": "none",
+            "token_dim": 128,
+            "token_hidden_dim": 64,
+            "token_interaction": true,
+            "token_mixing_dense_macs": 98304,
+            "token_mixing_params": 902,
+            "token_projection_dense_macs": 6912,
+            "token_projection_params": 2432,
+            "topology": "feedforward",
+            "total_dense_macs": 636928,
+            "trainable_params": 274315,
+            "unique_block_dense_layers": 8,
+            "unique_dense_layers": 12,
+            "unique_mixer_layers": 2
+          },
+          "critic": {
+            "adapter_dense_macs": 24832,
+            "adapter_params": 16640,
+            "attention_tensor_cost": 0,
+            "block": "mlp_mixer",
+            "block_depth_L": 2,
+            "block_type": "mlp_mixer",
+            "channel_hidden_dim": 256,
+            "channel_mixing_dense_macs": 786432,
+            "channel_mixing_params": 263680,
+            "computation_block_dense_macs": 983040,
+            "computation_block_params": 265484,
+            "computation_body_dense_macs": 1270016,
+            "computation_body_params": 547340,
+            "computation_body_sequential_depth": 10,
+            "cross_entity_interaction": true,
+            "entity_family": "cube_entities",
+            "executed_block_dense_layers": 16,
+            "executed_dense_layers": 24,
+            "executed_dense_relation_aggregation_cost": 0,
+            "executed_mixer_layers": 4,
+            "fusion_dense_macs": 262144,
+            "fusion_params": 263168,
+            "index_embedding": false,
+            "iterations_K": 1,
+            "mixer_dense_macs": 983040,
+            "mixer_params": 265484,
+            "num_cubes": 3,
+            "num_entities": 3,
+            "num_mixer_blocks": 2,
+            "num_relation_types": 0,
+            "num_tokens": 3,
+            "query_dense_macs": 0,
+            "query_params": 0,
+            "readout": "mean_context",
+            "readout_dense_macs": 262144,
+            "readout_params": 265216,
+            "relation_aggregation_logical_active_edges": 0,
+            "relation_augmenter": "none",
+            "relation_augmenter_params": 0,
+            "relation_hidden_dim": null,
+            "relation_macs": 0,
+            "relation_mode": "legacy_none",
+            "relation_parameters": 0,
+            "relation_params": 0,
+            "relation_projection_dense_macs": 0,
+            "relation_sparsity_not_hardware_saving": false,
+            "robot_projection_dense_macs": 11008,
+            "robot_projection_params": 11264,
+            "sequential_depth": 11,
+            "slot_name": "critic",
+            "structure": "cube_tokens",
+            "tm_mode": "none",
+            "token_dim": 128,
+            "token_hidden_dim": 64,
+            "token_interaction": true,
+            "token_mixing_dense_macs": 196608,
+            "token_mixing_params": 1804,
+            "token_projection_dense_macs": 13824,
+            "token_projection_params": 4864,
+            "topology": "feedforward",
+            "total_dense_macs": 1271040,
+            "trainable_params": 548366,
+            "unique_block_dense_layers": 16,
+            "unique_dense_layers": 24,
+            "unique_mixer_layers": 4
+          },
+          "value": {
+            "adapter_dense_macs": 11776,
+            "adapter_params": 7680,
+            "attention_tensor_cost": 0,
+            "block": "mlp_mixer",
+            "block_depth_L": 2,
+            "block_type": "mlp_mixer",
+            "channel_hidden_dim": 256,
+            "channel_mixing_dense_macs": 393216,
+            "channel_mixing_params": 131840,
+            "computation_block_dense_macs": 491520,
+            "computation_block_params": 132742,
+            "computation_body_dense_macs": 634368,
+            "computation_body_params": 273030,
+            "computation_body_sequential_depth": 10,
+            "cross_entity_interaction": true,
+            "entity_family": "cube_entities",
+            "executed_block_dense_layers": 8,
+            "executed_dense_layers": 12,
+            "executed_dense_relation_aggregation_cost": 0,
+            "executed_mixer_layers": 2,
+            "fusion_dense_macs": 131072,
+            "fusion_params": 131584,
+            "index_embedding": false,
+            "iterations_K": 1,
+            "mixer_dense_macs": 491520,
+            "mixer_params": 132742,
+            "num_cubes": 3,
+            "num_entities": 3,
+            "num_mixer_blocks": 2,
+            "num_relation_types": 0,
+            "num_tokens": 3,
+            "query_dense_macs": 0,
+            "query_params": 0,
+            "readout": "mean_context",
+            "readout_dense_macs": 131072,
+            "readout_params": 132608,
+            "relation_aggregation_logical_active_edges": 0,
+            "relation_augmenter": "none",
+            "relation_augmenter_params": 0,
+            "relation_hidden_dim": null,
+            "relation_macs": 0,
+            "relation_mode": "legacy_none",
+            "relation_parameters": 0,
+            "relation_params": 0,
+            "relation_projection_dense_macs": 0,
+            "relation_sparsity_not_hardware_saving": false,
+            "robot_projection_dense_macs": 4864,
+            "robot_projection_params": 4992,
+            "sequential_depth": 11,
+            "slot_name": "value",
+            "structure": "cube_tokens",
+            "tm_mode": "none",
+            "token_dim": 128,
+            "token_hidden_dim": 64,
+            "token_interaction": true,
+            "token_mixing_dense_macs": 98304,
+            "token_mixing_params": 902,
+            "token_projection_dense_macs": 6912,
+            "token_projection_params": 2432,
+            "topology": "feedforward",
+            "total_dense_macs": 634880,
+            "trainable_params": 273543,
+            "unique_block_dense_layers": 8,
+            "unique_dense_layers": 12,
+            "unique_mixer_layers": 2
+          }
+        },
+        "total_dense_macs": 2542848,
+        "total_trainable_params": 1096224
+      },
+      "condition": "S002",
+      "forward_finite": true,
+      "relation_absent": {
+        "cube_slot_embedding": true,
+        "relation_augmenter": true,
+        "relations": true,
+        "tm_weights": true
+      },
+      "structured_slots": {
+        "actor": {
+          "forward_finite": true,
+          "mixer_token_dense2_kernel_shape": [
+            64,
+            3
+          ],
+          "num_tokens": 3,
+          "relation_augmenter_absent": true,
+          "relation_macs": 0,
+          "relation_params": 0,
+          "slot_identity_embedding_absent": true
+        },
+        "critic": {
+          "forward_finite": true,
+          "mixer_token_dense2_kernel_shape": [
+            2,
+            64,
+            3
+          ],
+          "num_tokens": 3,
+          "relation_augmenter_absent": true,
+          "relation_macs": 0,
+          "relation_params": 0,
+          "slot_identity_embedding_absent": true
+        },
+        "value": {
+          "forward_finite": true,
+          "mixer_token_dense2_kernel_shape": [
+            64,
+            3
+          ],
+          "num_tokens": 3,
+          "relation_augmenter_absent": true,
+          "relation_macs": 0,
+          "relation_params": 0,
+          "slot_identity_embedding_absent": true
+        }
+      },
+      "unbatched_action_shape": [
+        5
+      ]
+    }
+  },
+  "smoke": {
+    "configs": {
+      "M20B-double-B000": {
+        "all_losses_finite": true,
+        "batch_size": 8,
+        "checkpoint_path": "/tmp/m20b_cube_entity_mixer_smoke_final/M20B-double-B000/checkpoints/params_2.pkl",
+        "checkpoint_roundtrip": true,
+        "condition": "B000",
+        "environment": "cube-double-play-v0",
+        "evaluation": {
+          "task1_single_pnp": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          },
+          "task2_double_pnp1": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          },
+          "task3_double_pnp2": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          },
+          "task4_swap": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          },
+          "task5_stack": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          }
+        },
+        "gradients_finite": true,
+        "parameters_changed": true,
+        "target_critic_forward_finite": true,
+        "target_update_valid": true,
+        "updates": 2
+      },
+      "M20B-double-S002": {
+        "all_losses_finite": true,
+        "batch_size": 8,
+        "checkpoint_path": "/tmp/m20b_cube_entity_mixer_smoke_final/M20B-double-S002/checkpoints/params_2.pkl",
+        "checkpoint_roundtrip": true,
+        "condition": "S002",
+        "environment": "cube-double-play-v0",
+        "evaluation": {
+          "task1_single_pnp": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          },
+          "task2_double_pnp1": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          },
+          "task3_double_pnp2": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          },
+          "task4_swap": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          },
+          "task5_stack": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          }
+        },
+        "gradients_finite": true,
+        "parameters_changed": true,
+        "target_critic_forward_finite": true,
+        "target_update_valid": true,
+        "updates": 2
+      },
+      "M20B-single-B000": {
+        "all_losses_finite": true,
+        "batch_size": 8,
+        "checkpoint_path": "/tmp/m20b_cube_entity_mixer_smoke_final/M20B-single-B000/checkpoints/params_2.pkl",
+        "checkpoint_roundtrip": true,
+        "condition": "B000",
+        "environment": "cube-single-play-v0",
+        "evaluation": {
+          "task1_horizontal": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          },
+          "task2_vertical1": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          },
+          "task3_vertical2": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          },
+          "task4_diagonal1": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          },
+          "task5_diagonal2": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          }
+        },
+        "gradients_finite": true,
+        "parameters_changed": true,
+        "target_critic_forward_finite": true,
+        "target_update_valid": true,
+        "updates": 2
+      },
+      "M20B-single-S002": {
+        "all_losses_finite": true,
+        "batch_size": 8,
+        "checkpoint_path": "/tmp/m20b_cube_entity_mixer_smoke_final/M20B-single-S002/checkpoints/params_2.pkl",
+        "checkpoint_roundtrip": true,
+        "condition": "S002",
+        "environment": "cube-single-play-v0",
+        "evaluation": {
+          "task1_horizontal": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          },
+          "task2_vertical1": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          },
+          "task3_vertical2": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          },
+          "task4_diagonal1": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          },
+          "task5_diagonal2": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          }
+        },
+        "gradients_finite": true,
+        "parameters_changed": true,
+        "target_critic_forward_finite": true,
+        "target_update_valid": true,
+        "updates": 2
+      },
+      "M20B-triple-B000": {
+        "all_losses_finite": true,
+        "batch_size": 8,
+        "checkpoint_path": "/tmp/m20b_cube_entity_mixer_smoke_final/M20B-triple-B000/checkpoints/params_2.pkl",
+        "checkpoint_roundtrip": true,
+        "condition": "B000",
+        "environment": "cube-triple-play-v0",
+        "evaluation": {
+          "task1_single_pnp": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          },
+          "task2_triple_pnp": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          },
+          "task3_pnp_from_stack": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          },
+          "task4_cycle": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          },
+          "task5_stack": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          }
+        },
+        "gradients_finite": true,
+        "parameters_changed": true,
+        "target_critic_forward_finite": true,
+        "target_update_valid": true,
+        "updates": 2
+      },
+      "M20B-triple-S002": {
+        "all_losses_finite": true,
+        "batch_size": 8,
+        "checkpoint_path": "/tmp/m20b_cube_entity_mixer_smoke_final/M20B-triple-S002/checkpoints/params_2.pkl",
+        "checkpoint_roundtrip": true,
+        "condition": "S002",
+        "environment": "cube-triple-play-v0",
+        "evaluation": {
+          "task1_single_pnp": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          },
+          "task2_triple_pnp": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          },
+          "task3_pnp_from_stack": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          },
+          "task4_cycle": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          },
+          "task5_stack": {
+            "episodes": 1,
+            "evaluation_completed": true,
+            "success": 0.0
+          }
+        },
+        "gradients_finite": true,
+        "parameters_changed": true,
+        "target_critic_forward_finite": true,
+        "target_update_valid": true,
+        "updates": 2
+      }
+    },
+    "formal_training_started": false,
+    "smoke_root": "/tmp/m20b_cube_entity_mixer_smoke_final",
+    "study_id": "M20B"
+  },
+  "source": {
+    "dirty_files": [
+      " M impls/computation/accounting.py",
+      " M impls/computation/factory.py",
+      " M impls/computation/slots.py",
+      "?? docs/9-8/M20B_analysis.json",
+      "?? docs/9-8/M20B_analysis.md",
+      "?? docs/9-8/M20B_doctor.json",
+      "?? docs/9-8/M20B_source_audit.json",
+      "?? experiments/M20B_cube_entity_mixer_scaling/configs/M20B-double-B000.yaml",
+      "?? experiments/M20B_cube_entity_mixer_scaling/configs/M20B-double-S002.yaml",
+      "?? experiments/M20B_cube_entity_mixer_scaling/configs/M20B-single-B000.yaml",
+      "?? experiments/M20B_cube_entity_mixer_scaling/configs/M20B-single-S002.yaml",
+      "?? experiments/M20B_cube_entity_mixer_scaling/configs/M20B-triple-B000.yaml",
+      "?? experiments/M20B_cube_entity_mixer_scaling/configs/M20B-triple-S002.yaml",
+      "?? experiments/M20B_cube_entity_mixer_scaling/study.yaml",
+      "?? tests/analysis/test_m20b.py",
+      "?? tests/computation/test_relation_free_cube_structured.py",
+      "?? tools/analyze_m20b.py",
+      "?? tools/m20b_doctor.py"
+    ],
+    "git_policy": "read_only_audit",
+    "head": "5edfe409d75e2ba41685355d7b0e41dfaa3be25a",
+    "worktree_clean": false
+  },
+  "source_data_audit": "/home/eai/Research/RLC/docs/9-8/M20B_source_audit.json",
+  "study_schema": {
+    "config_count": 6,
+    "config_ids": [
+      "M20B-double-B000",
+      "M20B-double-S002",
+      "M20B-single-B000",
+      "M20B-single-S002",
+      "M20B-triple-B000",
+      "M20B-triple-S002"
+    ],
+    "environments": [
+      "cube-single-play-v0",
+      "cube-double-play-v0",
+      "cube-triple-play-v0"
+    ],
+    "study_id": "M20B",
+    "within_environment_protocol_identity": {
+      "cube-double-play-v0": {
+        "alpha_same": true,
+        "dataset_identity_same_by_environment_key": true,
+        "dataset_sampling_seed_same": true,
+        "eval_protocol_same": true,
+        "evaluation_seed_schedule_same": true,
+        "goal_sampling_same": true,
+        "only_intended_difference": "compute architecture package",
+        "optimizer_protocol_same": true
+      },
+      "cube-single-play-v0": {
+        "alpha_same": true,
+        "dataset_identity_same_by_environment_key": true,
+        "dataset_sampling_seed_same": true,
+        "eval_protocol_same": true,
+        "evaluation_seed_schedule_same": true,
+        "goal_sampling_same": true,
+        "only_intended_difference": "compute architecture package",
+        "optimizer_protocol_same": true
+      },
+      "cube-triple-play-v0": {
+        "alpha_same": true,
+        "dataset_identity_same_by_environment_key": true,
+        "dataset_sampling_seed_same": true,
+        "eval_protocol_same": true,
+        "evaluation_seed_schedule_same": true,
+        "goal_sampling_same": true,
+        "only_intended_difference": "compute architecture package",
+        "optimizer_protocol_same": true
+      }
+    }
+  }
+}

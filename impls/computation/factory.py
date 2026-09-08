@@ -280,6 +280,174 @@ def _m20_positive_int(mapping, name):
     return int(value)
 
 
+def _make_relation_free_cube_core(spec, *, hidden_dims, activate_final, layer_norm):
+    """Construct the reusable relation-free Cube token computation path.
+
+    Cube tokens are a generic structured representation here: the adapter
+    produces entity tokens and robot context, the standard feed-forward
+    Mixer transforms the token array, and the readout mean-pools it.  Keeping
+    this path independent from the relation factory is important because
+    ``legacy_none`` means that no relation tensor or relation module exists in
+    the forward graph.
+    """
+
+    def require_exact(name, actual, expected):
+        if actual != expected:
+            raise ValueError(
+                f'Relation-free Cube computation requires {name}={expected!r}, '
+                f'got {actual!r}'
+            )
+        return actual
+
+    def positive_int(mapping, name):
+        if name not in mapping:
+            raise ValueError(f'Relation-free Cube computation requires {name}')
+        value = mapping[name]
+        if isinstance(value, bool) or not isinstance(value, Integral) or value <= 0:
+            raise ValueError(
+                f'Relation-free Cube computation requires positive {name}, got {value!r}'
+            )
+        return int(value)
+
+    require_exact('structure', spec.structure, 'cube_tokens')
+    require_exact('topology', spec.topology, 'feedforward')
+    require_exact('credit', spec.credit, DirectCredit.name)
+    require_exact('block', spec.block, 'mlp_mixer')
+    require_exact('readout', spec.readout, 'mean_context')
+    if spec.primitive not in ('mlp', 'original_mlp'):
+        raise ValueError(
+            'Relation-free Cube computation supports primitive in '
+            "('mlp', 'original_mlp')"
+        )
+    if spec.input_semantics != 'goal_pair':
+        raise ValueError(
+            'Relation-free Cube computation requires input_semantics=goal_pair'
+        )
+    if spec.parameter_sharing != 'shared':
+        raise ValueError(
+            'Relation-free Cube computation requires parameter_sharing=shared'
+        )
+    if spec.topology_kwargs:
+        raise ValueError(
+            'Relation-free Cube feed-forward computation does not accept topology_kwargs'
+        )
+    require_exact('relation_mode', spec.relation_mode, 'legacy_none')
+    require_exact('relation_augmenter', spec.relation_augmenter, 'none')
+    if spec.relation_kwargs:
+        raise ValueError(
+            'Relation-free Cube computation does not accept relation_kwargs'
+        )
+    if spec.relation_augmenter_kwargs:
+        raise ValueError(
+            'Relation-free Cube computation does not accept '
+            'relation_augmenter_kwargs'
+        )
+
+    structure_kwargs = dict(spec.structure_kwargs)
+    block_kwargs = dict(spec.block_kwargs)
+    readout_kwargs = dict(spec.readout_kwargs)
+    expected_structure_keys = {
+        'num_cubes', 'robot_dim', 'cube_feature_dim', 'token_dim',
+        'robot_hidden_dim', 'slot_identity_embedding',
+    }
+    unexpected_structure = set(structure_kwargs) - expected_structure_keys
+    if unexpected_structure:
+        raise ValueError(
+            'Relation-free Cube structure_kwargs contain unsupported keys: '
+            f'{sorted(unexpected_structure)!r}'
+        )
+    expected_block_keys = {
+        'num_blocks', 'token_hidden_dim', 'channel_hidden_dim', 'tm_mode',
+    }
+    unexpected_block = set(block_kwargs) - expected_block_keys
+    if unexpected_block:
+        raise ValueError(
+            'Relation-free Cube block_kwargs contain unsupported keys: '
+            f'{sorted(unexpected_block)!r}'
+        )
+    unexpected_readout = set(readout_kwargs) - {'output_dim'}
+    if unexpected_readout:
+        raise ValueError(
+            'Relation-free Cube readout_kwargs contain unsupported keys: '
+            f'{sorted(unexpected_readout)!r}'
+        )
+
+    num_cubes = positive_int(structure_kwargs, 'num_cubes')
+    if num_cubes not in (1, 2, 3):
+        raise ValueError(
+            'Relation-free Cube computation supports num_cubes in {1, 2, 3}, '
+            f'got {num_cubes}'
+        )
+    require_exact('structure_kwargs.robot_dim', positive_int(structure_kwargs, 'robot_dim'), 19)
+    require_exact(
+        'structure_kwargs.cube_feature_dim',
+        positive_int(structure_kwargs, 'cube_feature_dim'),
+        9,
+    )
+    token_dim = positive_int(structure_kwargs, 'token_dim')
+    require_exact('structure_kwargs.token_dim', token_dim, 128)
+    robot_hidden_dim = positive_int(structure_kwargs, 'robot_hidden_dim')
+    require_exact('structure_kwargs.robot_hidden_dim', robot_hidden_dim, 128)
+    require_exact('structure_kwargs.slot_identity_embedding',
+                  structure_kwargs.get('slot_identity_embedding'), False)
+
+    num_blocks = positive_int(block_kwargs, 'num_blocks')
+    token_hidden_dim = positive_int(block_kwargs, 'token_hidden_dim')
+    channel_hidden_dim = positive_int(block_kwargs, 'channel_hidden_dim')
+    require_exact('block_kwargs.num_blocks', num_blocks, 2)
+    require_exact('block_kwargs.token_hidden_dim', token_hidden_dim, 64)
+    require_exact('block_kwargs.channel_hidden_dim', channel_hidden_dim, 256)
+    require_exact('block_kwargs.tm_mode', block_kwargs.get('tm_mode'), 'none')
+
+    requested_output_dim = int(readout_kwargs.pop('output_dim', hidden_dims[-1]))
+    if requested_output_dim != hidden_dims[-1]:
+        raise ValueError(
+            'Relation-free Cube readout output_dim must match the algorithm slot width; '
+            f'got {requested_output_dim}, expected {hidden_dims[-1]}'
+        )
+    if readout_kwargs:
+        raise ValueError(
+            'Relation-free Cube readout_kwargs contain unsupported keys: '
+            f'{sorted(readout_kwargs)!r}'
+        )
+
+    from .structured import StructuredComputationBody
+    from ..representation.manipulation import CubeTokenAdapter
+
+    adapter = CubeTokenAdapter(
+        num_cubes=num_cubes,
+        robot_dim=19,
+        cube_feature_dim=9,
+        token_dim=token_dim,
+        robot_hidden_dim=robot_hidden_dim,
+        slot_identity_embedding=False,
+        input_semantics=spec.input_semantics,
+        action_semantics=spec.action_semantics,
+        layer_norm=layer_norm,
+        relation_mode='legacy_none',
+        relation_kwargs={},
+    )
+    mixer = MLPMixerStack(
+        num_blocks=num_blocks,
+        num_tokens=num_cubes,
+        embed_dim=token_dim,
+        hidden_dim_tokens=token_hidden_dim,
+        hidden_dim_channels=channel_hidden_dim,
+        tm_mode='none',
+    )
+    core = ComputationCore(topology=FeedForward(primitive=mixer))
+    return StructuredComputationBody(
+        adapter=adapter,
+        relation_augmenter=None,
+        core=core,
+        readout=MeanContextReadout(
+            output_dim=hidden_dims[-1],
+            layer_norm=layer_norm,
+            activate_final=True if activate_final is None else bool(activate_final),
+        ),
+    )
+
+
 def _make_m20_relation_core(spec, *, hidden_dims, activate_final, layer_norm):
     """Construct the frozen M20A adapter -> relation -> Mixer -> readout path.
 
@@ -518,7 +686,16 @@ def make_computation_core(
             activate_final=activate_final,
             layer_norm=layer_norm,
         )
-    if spec.structure in ('cube_tokens', 'scene_tokens'):
+    if spec.structure == 'cube_tokens' and spec.relation_mode == 'legacy_none':
+        return _make_relation_free_cube_core(
+            spec,
+            hidden_dims=hidden_dims,
+            activate_final=activate_final,
+            layer_norm=layer_norm,
+        )
+    if spec.structure == 'scene_tokens' or (
+        spec.structure == 'cube_tokens' and spec.relation_mode != 'legacy_none'
+    ):
         raise ValueError(
             f'{spec.structure} requires an explicit M20A relation treatment; '
             'relation_mode=legacy_none is not a supported production path'

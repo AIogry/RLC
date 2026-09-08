@@ -1,0 +1,406 @@
+{
+  "audit_version": "M20B-source-audit-v1",
+  "cube_reset_permutation": {
+    "canonicalization_fragments_absent": {
+      "DeepSets": true,
+      "PermutationInvariant": true,
+      "argsort(": true,
+      "lexsort(": true,
+      "sort(": true
+    },
+    "cube_i_goal_cube_i_pairing_preserved": true,
+    "line_references": {
+      "goal_pair_indexing": [
+        451
+      ],
+      "initial_pair_indexing": [
+        450
+      ],
+      "permutation_draw": [
+        447
+      ]
+    },
+    "same_permutation_applied_to_init_and_goal": true,
+    "slot_identity_embedding": false,
+    "source_file": "/home/eai/Research/RLC/ogbench/manipspace/envs/cube_env.py",
+    "source_sha256": "211a198c6f327332e3bd938b17a59249c1ee9e61aaa0048b2157f248a9df682e",
+    "standard_mlp_mixer_not_permutation_equivariant": true
+  },
+  "dataset_root": "/data/qijunrong/06-RL/offline-rl/data/raw_ogbench",
+  "environments": {
+    "cube-double-play-v0": {
+      "action_shape": [
+        5
+      ],
+      "environment": "cube-double-play-v0",
+      "num_cubes": 2,
+      "observation_dim": 37,
+      "task_names": [
+        "task1_single_pnp",
+        "task2_double_pnp1",
+        "task3_double_pnp2",
+        "task4_swap",
+        "task5_stack"
+      ],
+      "train": {
+        "arrays": {
+          "actions": {
+            "dtype": "<f4",
+            "fortran_order": false,
+            "shape": [
+              1001000,
+              5
+            ]
+          },
+          "observations": {
+            "dtype": "<f4",
+            "fortran_order": false,
+            "shape": [
+              1001000,
+              37
+            ]
+          },
+          "qpos": {
+            "dtype": "<f4",
+            "fortran_order": false,
+            "shape": [
+              1001000,
+              28
+            ]
+          },
+          "qvel": {
+            "dtype": "<f4",
+            "fortran_order": false,
+            "shape": [
+              1001000,
+              26
+            ]
+          },
+          "terminals": {
+            "dtype": "|b1",
+            "fortran_order": false,
+            "shape": [
+              1001000
+            ]
+          }
+        },
+        "bytes": 297435656,
+        "episodes": 1000,
+        "last_terminal_index": 1000999,
+        "path": "/data/qijunrong/06-RL/offline-rl/data/raw_ogbench/cube-double-play-v0.npz",
+        "sha256": "a73d1a33d029cedb8bc170ef94791ec585fa2d9450096f4f2a02b8cfbcf608c9",
+        "transitions": 1001000
+      },
+      "validation": {
+        "arrays": {
+          "actions": {
+            "dtype": "<f4",
+            "fortran_order": false,
+            "shape": [
+              100100,
+              5
+            ]
+          },
+          "observations": {
+            "dtype": "<f4",
+            "fortran_order": false,
+            "shape": [
+              100100,
+              37
+            ]
+          },
+          "qpos": {
+            "dtype": "<f4",
+            "fortran_order": false,
+            "shape": [
+              100100,
+              28
+            ]
+          },
+          "qvel": {
+            "dtype": "<f4",
+            "fortran_order": false,
+            "shape": [
+              100100,
+              26
+            ]
+          },
+          "terminals": {
+            "dtype": "|b1",
+            "fortran_order": false,
+            "shape": [
+              100100
+            ]
+          }
+        },
+        "bytes": 29726524,
+        "episodes": 100,
+        "last_terminal_index": 100099,
+        "path": "/data/qijunrong/06-RL/offline-rl/data/raw_ogbench/cube-double-play-v0-val.npz",
+        "sha256": "b1fcdf4bd40750351a58d0d491d6be198366ce898f0c6a2e4cb5db331966013e",
+        "transitions": 100100
+      }
+    },
+    "cube-single-play-v0": {
+      "action_shape": [
+        5
+      ],
+      "environment": "cube-single-play-v0",
+      "num_cubes": 1,
+      "observation_dim": 28,
+      "task_names": [
+        "task1_horizontal",
+        "task2_vertical1",
+        "task3_vertical2",
+        "task4_diagonal1",
+        "task5_diagonal2"
+      ],
+      "train": {
+        "arrays": {
+          "actions": {
+            "dtype": "<f4",
+            "fortran_order": false,
+            "shape": [
+              1001000,
+              5
+            ]
+          },
+          "observations": {
+            "dtype": "<f4",
+            "fortran_order": false,
+            "shape": [
+              1001000,
+              28
+            ]
+          },
+          "qpos": {
+            "dtype": "<f4",
+            "fortran_order": false,
+            "shape": [
+              1001000,
+              21
+            ]
+          },
+          "qvel": {
+            "dtype": "<f4",
+            "fortran_order": false,
+            "shape": [
+              1001000,
+              20
+            ]
+          },
+          "terminals": {
+            "dtype": "|b1",
+            "fortran_order": false,
+            "shape": [
+              1001000
+            ]
+          }
+        },
+        "bytes": 256728298,
+        "episodes": 1000,
+        "last_terminal_index": 1000999,
+        "path": "/data/qijunrong/06-RL/offline-rl/data/raw_ogbench/cube-single-play-v0.npz",
+        "sha256": "80f3b6fd27f4f9d9e9eb6f0d07d6951559012f45b1e15ea4046ef8ecd8d3684e",
+        "transitions": 1001000
+      },
+      "validation": {
+        "arrays": {
+          "actions": {
+            "dtype": "<f4",
+            "fortran_order": false,
+            "shape": [
+              100100,
+              5
+            ]
+          },
+          "observations": {
+            "dtype": "<f4",
+            "fortran_order": false,
+            "shape": [
+              100100,
+              28
+            ]
+          },
+          "qpos": {
+            "dtype": "<f4",
+            "fortran_order": false,
+            "shape": [
+              100100,
+              21
+            ]
+          },
+          "qvel": {
+            "dtype": "<f4",
+            "fortran_order": false,
+            "shape": [
+              100100,
+              20
+            ]
+          },
+          "terminals": {
+            "dtype": "|b1",
+            "fortran_order": false,
+            "shape": [
+              100100
+            ]
+          }
+        },
+        "bytes": 25687020,
+        "episodes": 100,
+        "last_terminal_index": 100099,
+        "path": "/data/qijunrong/06-RL/offline-rl/data/raw_ogbench/cube-single-play-v0-val.npz",
+        "sha256": "96d07401bdebdc3f0ea6d56ed1333863e0962f441483adc2c43b83105046eb00",
+        "transitions": 100100
+      }
+    },
+    "cube-triple-play-v0": {
+      "action_shape": [
+        5
+      ],
+      "environment": "cube-triple-play-v0",
+      "num_cubes": 3,
+      "observation_dim": 46,
+      "task_names": [
+        "task1_single_pnp",
+        "task2_triple_pnp",
+        "task3_pnp_from_stack",
+        "task4_cycle",
+        "task5_stack"
+      ],
+      "train": {
+        "arrays": {
+          "actions": {
+            "dtype": "<f4",
+            "fortran_order": false,
+            "shape": [
+              3003000,
+              5
+            ]
+          },
+          "observations": {
+            "dtype": "<f4",
+            "fortran_order": false,
+            "shape": [
+              3003000,
+              46
+            ]
+          },
+          "qpos": {
+            "dtype": "<f4",
+            "fortran_order": false,
+            "shape": [
+              3003000,
+              35
+            ]
+          },
+          "qvel": {
+            "dtype": "<f4",
+            "fortran_order": false,
+            "shape": [
+              3003000,
+              32
+            ]
+          },
+          "terminals": {
+            "dtype": "|b1",
+            "fortran_order": false,
+            "shape": [
+              3003000
+            ]
+          }
+        },
+        "bytes": 1003544255,
+        "episodes": 3000,
+        "last_terminal_index": 3002999,
+        "path": "/data/qijunrong/06-RL/offline-rl/data/raw_ogbench/cube-triple-play-v0.npz",
+        "sha256": "4e09a9f5ba7eaba59350dbef7e85887b9a2746490c69eaa83af34a3f9029202b",
+        "transitions": 3003000
+      },
+      "validation": {
+        "arrays": {
+          "actions": {
+            "dtype": "<f4",
+            "fortran_order": false,
+            "shape": [
+              300300,
+              5
+            ]
+          },
+          "observations": {
+            "dtype": "<f4",
+            "fortran_order": false,
+            "shape": [
+              300300,
+              46
+            ]
+          },
+          "qpos": {
+            "dtype": "<f4",
+            "fortran_order": false,
+            "shape": [
+              300300,
+              35
+            ]
+          },
+          "qvel": {
+            "dtype": "<f4",
+            "fortran_order": false,
+            "shape": [
+              300300,
+              32
+            ]
+          },
+          "terminals": {
+            "dtype": "|b1",
+            "fortran_order": false,
+            "shape": [
+              300300
+            ]
+          }
+        },
+        "bytes": 100613267,
+        "episodes": 300,
+        "last_terminal_index": 300299,
+        "path": "/data/qijunrong/06-RL/offline-rl/data/raw_ogbench/cube-triple-play-v0-val.npz",
+        "sha256": "bd6cb3817fc464d7afc50bd90d766f353bc5b8d097579c70afe680a9aa0404a6",
+        "transitions": 300300
+      }
+    }
+  },
+  "relation_free_design": {
+    "relation_augmenter": "none",
+    "relation_augmenter_kwargs": {},
+    "relation_kwargs": {},
+    "relation_macs": 0,
+    "relation_mode": "legacy_none",
+    "relation_params": 0,
+    "structure": "cube_tokens"
+  },
+  "source": {
+    "dirty_files": [
+      " M impls/computation/accounting.py",
+      " M impls/computation/factory.py",
+      " M impls/computation/slots.py",
+      "?? docs/9-8/M20B_analysis.json",
+      "?? docs/9-8/M20B_analysis.md",
+      "?? docs/9-8/M20B_doctor.json",
+      "?? docs/9-8/M20B_source_audit.json",
+      "?? experiments/M20B_cube_entity_mixer_scaling/configs/M20B-double-B000.yaml",
+      "?? experiments/M20B_cube_entity_mixer_scaling/configs/M20B-double-S002.yaml",
+      "?? experiments/M20B_cube_entity_mixer_scaling/configs/M20B-single-B000.yaml",
+      "?? experiments/M20B_cube_entity_mixer_scaling/configs/M20B-single-S002.yaml",
+      "?? experiments/M20B_cube_entity_mixer_scaling/configs/M20B-triple-B000.yaml",
+      "?? experiments/M20B_cube_entity_mixer_scaling/configs/M20B-triple-S002.yaml",
+      "?? experiments/M20B_cube_entity_mixer_scaling/study.yaml",
+      "?? tests/analysis/test_m20b.py",
+      "?? tests/computation/test_relation_free_cube_structured.py",
+      "?? tools/analyze_m20b.py",
+      "?? tools/m20b_doctor.py"
+    ],
+    "git_policy": "read_only_audit",
+    "head": "5edfe409d75e2ba41685355d7b0e41dfaa3be25a",
+    "worktree_clean": false
+  },
+  "study_id": "M20B"
+}

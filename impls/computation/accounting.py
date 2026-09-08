@@ -476,11 +476,21 @@ def gciql_architecture_accounting(params, config, computation_reports=None):
                     'unique_block_dense_layers', 'executed_block_dense_layers',
                     'entity_family', 'num_entities', 'relation_mode',
                     'num_relation_types', 'relation_hidden_dim',
+                    'relation_augmenter', 'relation_params',
                     'relation_augmenter_params', 'relation_projection_dense_macs',
+                    'relation_parameters', 'relation_macs',
                     'relation_aggregation_logical_active_edges',
                     'executed_dense_relation_aggregation_cost',
                     'relation_sparsity_not_hardware_saving', 'query_params',
                     'query_dense_macs', 'attention_tensor_cost',
+                    'adapter_params', 'adapter_dense_macs',
+                    'token_projection_params', 'token_projection_dense_macs',
+                    'robot_projection_params', 'robot_projection_dense_macs',
+                    'mixer_params', 'mixer_dense_macs',
+                    'channel_mixing_params', 'channel_mixing_dense_macs',
+                    'readout_params', 'readout_dense_macs',
+                    'fusion_params', 'fusion_dense_macs',
+                    'cross_entity_interaction', 'num_cubes',
                 )
             }
             topology_name = slot_report.get('topology', 'feedforward')
@@ -561,6 +571,203 @@ def _module_subtrees(tree, prefix):
 
 def _mapping_get(tree, key, default=None):
     return tree.get(key, default) if hasattr(tree, 'get') else default
+
+
+def relation_free_structured_body_accounting(
+    body_params,
+    structure_kwargs=None,
+    *,
+    block_kwargs=None,
+    readout='mean_context',
+):
+    """Account a relation-free Cube adapter, Mixer, mean readout, and head.
+
+    The computation is deliberately based on the actual parameter tree.  A
+    token projection executes once per Cube token, token-mixing Dense layers
+    once per channel, and channel-mixing Dense layers once per token.  No
+    relation tensor, relation projection, or relation aggregation is part of
+    this path, so every relation accounting field is explicitly zero.
+    """
+
+    structure_kwargs = structure_kwargs if hasattr(structure_kwargs, 'get') else {}
+    block_kwargs = block_kwargs if hasattr(block_kwargs, 'get') else {}
+    body_params = body_params if hasattr(body_params, 'items') else {}
+    if readout != 'mean_context':
+        raise ValueError(
+            'Relation-free structured accounting requires readout=mean_context'
+        )
+    num_tokens = int(structure_kwargs.get('num_cubes', 0))
+    token_dim = int(structure_kwargs.get('token_dim', 0))
+    token_hidden_dim = int(block_kwargs.get('token_hidden_dim', 0))
+    channel_hidden_dim = int(block_kwargs.get('channel_hidden_dim', 0))
+    num_blocks = int(block_kwargs.get('num_blocks', 0))
+    if num_tokens not in (1, 2, 3):
+        raise ValueError(
+            'Relation-free structured accounting requires num_cubes in {1, 2, 3}'
+        )
+    if min(token_dim, token_hidden_dim, channel_hidden_dim, num_blocks) <= 0:
+        raise ValueError(
+            'Relation-free structured accounting requires positive token, Mixer, '
+            'and block dimensions'
+        )
+    if structure_kwargs.get('robot_dim') != 19 or structure_kwargs.get('cube_feature_dim') != 9:
+        raise ValueError(
+            'Relation-free structured accounting requires robot_dim=19 and '
+            'cube_feature_dim=9'
+        )
+    if structure_kwargs.get('slot_identity_embedding') is not False:
+        raise ValueError(
+            'Relation-free structured accounting requires slot_identity_embedding=false'
+        )
+    if block_kwargs.get('tm_mode') != 'none':
+        raise ValueError('Relation-free structured accounting requires tm_mode=none')
+
+    adapter = _mapping_get(body_params, 'adapter', {})
+    relation_augmenter = _mapping_get(body_params, 'relation_augmenter', None)
+    if relation_augmenter not in (None, {}):
+        raise ValueError(
+            'Relation-free structured parameter tree must not contain a relation augmenter'
+        )
+    readout_params = _mapping_get(body_params, 'readout', {})
+    core = _mapping_get(body_params, 'core', {})
+    topology = _mapping_get(core, 'topology', {})
+    primitive = _mapping_get(topology, 'primitive', {})
+    blocks = _module_subtrees(primitive, 'blocks')
+    if len(blocks) != num_blocks:
+        raise ValueError(
+            'Relation-free structured accounting Mixer depth mismatch: '
+            f'config L={num_blocks}, parameter blocks={len(blocks)}'
+        )
+
+    token_projection = _mapping_get(adapter, 'cube_entity_encoder', {})
+    context_projection = _mapping_get(adapter, 'robot_projection', {})
+    fusion = _mapping_get(readout_params, 'fusion', {})
+    token_projection_params = count_parameters(token_projection)
+    context_projection_params = count_parameters(context_projection)
+    fusion_params = count_parameters(fusion)
+    # ``_dense_macs`` accepts the named adapter fields and preserves leading
+    # vmap ensemble axes in the actual kernel shapes.
+    token_projection_macs = _dense_macs(adapter, 'cube_entity_encoder') * num_tokens
+    context_projection_macs = _dense_macs(adapter, 'robot_projection')
+    fusion_macs = _dense_macs(readout_params, 'fusion')
+
+    token_mixing_params = 0
+    channel_mixing_params = 0
+    token_mixing_macs = 0
+    channel_mixing_macs = 0
+    for block in blocks.values():
+        if _mapping_get(block, 'tm_weights') is not None:
+            raise ValueError(
+                'Relation-free structured Mixer parameter tree must not contain tm_weights'
+            )
+        token_dense1 = _mapping_get(block, 'token_dense1', {})
+        token_dense2 = _mapping_get(block, 'token_dense2', {})
+        channel_dense1 = _mapping_get(block, 'channel_dense1', {})
+        channel_dense2 = _mapping_get(block, 'channel_dense2', {})
+        token_mixing_params += count_parameters(token_dense1) + count_parameters(token_dense2)
+        channel_mixing_params += count_parameters(channel_dense1) + count_parameters(channel_dense2)
+        token_mixing_macs += (
+            count_dense_macs(token_dense1) * token_dim
+            + count_dense_macs(token_dense2) * token_dim
+        )
+        channel_mixing_macs += (
+            count_dense_macs(channel_dense1) * num_tokens
+            + count_dense_macs(channel_dense2) * num_tokens
+        )
+
+    mixer_params = count_parameters(primitive)
+    mixer_dense_macs = token_mixing_macs + channel_mixing_macs
+    adapter_params = count_parameters(adapter)
+    readout_param_count = count_parameters(readout_params)
+    total_macs = (
+        token_projection_macs + context_projection_macs
+        + mixer_dense_macs + fusion_macs
+    )
+    body_param_count = count_parameters(body_params)
+    physical_mixer_dense_layers = count_dense_layers(primitive)
+    physical_block_dense_layers = physical_mixer_dense_layers
+    adapter_dense_layers = count_dense_layers(adapter)
+    readout_dense_layers = count_dense_layers(readout_params)
+    unique_dense_layers = (
+        adapter_dense_layers + physical_block_dense_layers + readout_dense_layers
+    )
+    sequential_depth = 1 + 4 * num_blocks + 1
+    return {
+        'entity_family': 'cube_entities',
+        'num_entities': num_tokens,
+        'num_cubes': num_tokens,
+        'num_tokens': num_tokens,
+        'token_dim': token_dim,
+        'token_hidden_dim': token_hidden_dim,
+        'channel_hidden_dim': channel_hidden_dim,
+        'num_mixer_blocks': num_blocks,
+        'output_dim': _last_kernel_dims(fusion)[1] if _last_kernel_dims(fusion) else None,
+        'index_embedding': False,
+        'tm_mode': 'none',
+        'block_type': 'mlp_mixer',
+        'token_interaction': True,
+        'cross_entity_interaction': num_tokens > 1,
+        'readout': 'mean_context',
+        'relation_mode': 'legacy_none',
+        'relation_augmenter': 'none',
+        'num_relation_types': 0,
+        'relation_hidden_dim': None,
+        'relation_params': 0,
+        'relation_parameters': 0,
+        'relation_augmenter_params': 0,
+        'relation_macs': 0,
+        'relation_dense_macs': 0,
+        'relation_projection_dense_macs': 0,
+        'relation_aggregation_logical_active_edges': 0,
+        'executed_dense_relation_aggregation_cost': 0,
+        'relation_sparsity_not_hardware_saving': False,
+        'query_params': 0,
+        'query_dense_macs': 0,
+        'attention_tensor_cost': 0,
+        'adapter_params': int(adapter_params),
+        'adapter_dense_macs': int(token_projection_macs + context_projection_macs),
+        'token_projection_params': int(token_projection_params),
+        'token_projection_dense_macs': int(token_projection_macs),
+        'robot_projection_params': int(context_projection_params),
+        'context_projection_params': int(context_projection_params),
+        'robot_projection_dense_macs': int(context_projection_macs),
+        'context_projection_dense_macs': int(context_projection_macs),
+        'mixer_params': int(mixer_params),
+        'mixer_dense_macs': int(mixer_dense_macs),
+        'token_mixing_params': int(token_mixing_params),
+        'token_mixing_dense_macs': int(token_mixing_macs),
+        'channel_mixing_params': int(channel_mixing_params),
+        'channel_mixing_dense_macs': int(channel_mixing_macs),
+        'computation_block_params': int(mixer_params),
+        'computation_block_dense_macs': int(mixer_dense_macs),
+        'executed_computation_block_dense_macs': int(mixer_dense_macs),
+        'block_depth_L': num_blocks,
+        'iterations_K': 1,
+        'unique_mixer_layers': int(physical_mixer_dense_layers // 4),
+        'executed_mixer_layers': int(physical_mixer_dense_layers // 4),
+        'unique_mixer_dense_layers': int(physical_mixer_dense_layers),
+        'executed_mixer_dense_layers': int(physical_mixer_dense_layers),
+        'mixer_dense_macs_per_execution': int(mixer_dense_macs),
+        'executed_mixer_dense_macs': int(mixer_dense_macs),
+        'unique_block_dense_layers': int(physical_block_dense_layers),
+        'executed_block_dense_layers': int(physical_block_dense_layers),
+        'readout_params': int(readout_param_count),
+        'fusion_params': int(fusion_params),
+        'readout_dense_macs': int(fusion_macs),
+        'fusion_dense_macs': int(fusion_macs),
+        'structured_body_params': int(body_param_count),
+        'total_structured_body_params': int(body_param_count),
+        'structured_body_dense_macs': int(total_macs),
+        'structured_dense_macs': int(total_macs),
+        'total_per_sample_dense_macs': int(total_macs),
+        'structured_sequential_depth': int(sequential_depth),
+        'sequential_depth': int(sequential_depth),
+        'unique_sequential_depth': int(sequential_depth),
+        'executed_sequential_depth': int(sequential_depth),
+        'unique_dense_layers': int(unique_dense_layers),
+        'executed_dense_layers': int(unique_dense_layers),
+        'actor_body_dense_macs': int(total_macs),
+    }
 
 
 def _actor_core_params(actor_params):
@@ -1058,6 +1265,13 @@ def computation_slot_accounting(
                 topology_kwargs=topology_kwargs,
                 block_kwargs=block_kwargs,
                 block_type=block_type,
+            )
+        elif structure == 'cube_tokens':
+            structured_metrics = relation_free_structured_body_accounting(
+                body_core,
+                structure_kwargs,
+                block_kwargs=block_kwargs,
+                readout=readout,
             )
         else:
             raise ValueError(
