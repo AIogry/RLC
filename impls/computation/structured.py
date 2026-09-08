@@ -203,6 +203,128 @@ class StructuredComputationBody(nn.Module):
             'relation_mask': relation_mask,
         }
 
+    @staticmethod
+    def _normalize_relation_channel_mask(channel_mask, relations):
+        """Normalize a diagnostic channel mask without changing production APIs.
+
+        M20A-D interventions are channel interventions, not alternate model
+        configurations.  The compact ``[K]`` form is the canonical public
+        form; ``[B, K]`` and a fully expanded relation-shaped mask are accepted
+        for callers that already carry batch-shaped control arrays.
+        """
+
+        channel_mask = jnp.asarray(channel_mask)
+        batch_size, num_tokens, _, num_channels = relations.shape
+        if channel_mask.shape == (num_channels,):
+            return channel_mask.reshape(1, 1, 1, num_channels)
+        if channel_mask.shape == (batch_size, num_channels):
+            return channel_mask[:, None, None, :]
+        if channel_mask.shape == relations.shape:
+            return channel_mask
+        raise ValueError(
+            'relation_channel_mask must be [K], [B, K], or [B, T, T, K]; '
+            f'got relations={relations.shape}, mask={channel_mask.shape}'
+        )
+
+    def relation_utilization_trace(
+        self,
+        x,
+        *,
+        relation_override=None,
+        relation_channel_mask=None,
+    ):
+        """Trace the real relation path under controlled interventions.
+
+        The method intentionally shares the restored adapter, relation
+        augmenter, computation core, and readout with :meth:`__call__`.
+        ``relation_override`` and ``relation_channel_mask`` are the only
+        intervention points; no module or parameter is constructed here.
+        All returned tensors retain the canonical ``[B, ...]`` axis, including
+        for a public single-observation input.
+        """
+
+        representation = self.adapter(x)
+        tokens, context, mask, relations, relation_mask, _ = self._normalize(representation)
+        if self.relation_augmenter is None:
+            raise ValueError(
+                'relation_utilization_trace requires an explicit relation augmenter'
+            )
+        if relations is None:
+            raise ValueError(
+                'relation_utilization_trace requires an explicit relation tensor'
+            )
+
+        relations_original = relations
+        relations_used = relations_original
+        if relation_override is not None:
+            # Check an explicitly supplied host/JAX dtype before conversion;
+            # with x64 disabled, ``jnp.asarray(np.float64_array)`` may
+            # silently narrow to float32 and would otherwise defeat the
+            # strict diagnostic contract.
+            supplied_dtype = getattr(relation_override, 'dtype', None)
+            if supplied_dtype is not None and str(supplied_dtype) != str(relations_original.dtype):
+                raise TypeError(
+                    'relation_override must have exactly the original relation dtype; '
+                    f'got original={relations_original.dtype}, override={supplied_dtype}'
+                )
+            relation_override = jnp.asarray(relation_override)
+            if relation_override.shape != relations_original.shape:
+                raise ValueError(
+                    'relation_override must have exactly the original relation shape; '
+                    f'got original={relations_original.shape}, override={relation_override.shape}'
+                )
+            if relation_override.dtype != relations_original.dtype:
+                raise TypeError(
+                    'relation_override must have exactly the original relation dtype; '
+                    f'got original={relations_original.dtype}, override={relation_override.dtype}'
+                )
+            relations_used = relation_override
+        if relation_channel_mask is not None:
+            normalized_channel_mask = self._normalize_relation_channel_mask(
+                relation_channel_mask, relations_original
+            )
+            relations_used = relations_used * normalized_channel_mask.astype(
+                relations_used.dtype
+            )
+
+        tokens_pre_relation = tokens
+        tokens_post_relation = self.relation_augmenter(
+            tokens_pre_relation,
+            relations_used,
+            mask=mask,
+            relation_mask=relation_mask,
+        )
+        computed = self.core(tokens_post_relation)
+        if not isinstance(computed, ComputationOutput):
+            computed = ComputationOutput(representation=computed)
+        tokens_post_core = computed.representation
+        readout_vector = self.readout(
+            tokens_post_core,
+            context=context,
+            mask=mask,
+        )
+        attention_fn = getattr(self.readout, 'attention_weights', None)
+        attention_weights = None
+        if attention_fn is not None:
+            attention_weights = attention_fn(
+                tokens_post_core,
+                context=context,
+                mask=mask,
+            )
+        return {
+            'relations_original': relations_original,
+            'relations_used': relations_used,
+            'tokens_pre_relation': tokens_pre_relation,
+            'tokens_post_relation': tokens_post_relation,
+            'tokens_post_core': tokens_post_core,
+            'readout_vector': readout_vector,
+            'attention_weights': attention_weights,
+            'entity_mask': mask,
+            'relation_mask': relation_mask,
+            'context': context,
+            'state': computed.state,
+        }
+
 
 class PuzzleStructuredBody(nn.Module):
     """Puzzle tokenizer, MLP-Mixer stack, readout, and robot fusion.

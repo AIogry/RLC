@@ -73,6 +73,18 @@ class ModuleDict(nn.Module):
             raise ValueError(f'Module {name!r} does not expose relation_diagnostic')
         return diagnostic(*args, **kwargs)
 
+    def relation_utilization_trace(self, *args, name=None, **kwargs):
+        """Route relation interventions to one restored network module."""
+
+        if name is None or name not in self.modules:
+            raise ValueError(f'Unknown relation utilization module name: {name!r}')
+        diagnostic = getattr(self.modules[name], 'relation_utilization_trace', None)
+        if diagnostic is None:
+            raise ValueError(
+                f'Module {name!r} does not expose relation_utilization_trace'
+            )
+        return diagnostic(*args, **kwargs)
+
 
 class TrainState(flax.struct.PyTreeNode):
     step: int

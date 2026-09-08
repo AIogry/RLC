@@ -69,6 +69,23 @@ class _ComputationValueBody(nn.Module):
             raise ValueError('Computation value body does not expose relation_diagnostic')
         return diagnostic(x)
 
+    def relation_utilization_trace(
+        self,
+        x,
+        relation_override=None,
+        relation_channel_mask=None,
+    ):
+        diagnostic = getattr(self.core, 'relation_utilization_trace', None)
+        if diagnostic is None:
+            raise ValueError(
+                'Computation value body does not expose relation_utilization_trace'
+            )
+        return diagnostic(
+            x,
+            relation_override=relation_override,
+            relation_channel_mask=relation_channel_mask,
+        )
+
 
 class ComputationVectorBody(nn.Module):
     """Vector-valued body used by QRL phi and latent dynamics.
@@ -234,6 +251,43 @@ class GCActor(nn.Module):
             raise ValueError('GCActor structured body does not expose relation_diagnostic')
         return diagnostic(inputs)
 
+    def relation_utilization_trace(
+        self,
+        observations,
+        goals=None,
+        goal_encoded=False,
+        *,
+        relation_override=None,
+        relation_channel_mask=None,
+    ):
+        """Trace actor relation interventions through the restored actor head."""
+
+        if self.computation_spec is None or self.computation_spec.relation_mode == 'legacy_none':
+            raise ValueError(
+                'GCActor relation_utilization_trace requires an explicit relation treatment'
+            )
+        if self.gc_encoder is not None:
+            inputs = self.gc_encoder(observations, goals, goal_encoded=goal_encoded)
+        else:
+            inputs = [observations]
+            if goals is not None:
+                inputs.append(goals)
+            inputs = jnp.concatenate(inputs, axis=-1)
+        trace_fn = getattr(self.actor_net, 'relation_utilization_trace', None)
+        if trace_fn is None:
+            raise ValueError(
+                'GCActor structured body does not expose relation_utilization_trace'
+            )
+        trace = trace_fn(
+            inputs,
+            relation_override=relation_override,
+            relation_channel_mask=relation_channel_mask,
+        )
+        return {
+            **trace,
+            'action_means': self.mean_net(trace['readout_vector']),
+        }
+
 
 class GCDiscreteActor(nn.Module):
     """Goal-conditioned categorical actor with an optional replaceable body."""
@@ -299,7 +353,12 @@ class GCValue(nn.Module):
             body_module = ensemblize(
                 _ComputationValueBody,
                 2,
-                methods=('__call__', 'trace_tokens', 'relation_diagnostic'),
+                methods=(
+                    '__call__',
+                    'trace_tokens',
+                    'relation_diagnostic',
+                    'relation_utilization_trace',
+                ),
             )
             readout_module = ensemblize(nn.Dense, 2, in_axes=0)
             self.value_net = body_module(
@@ -367,6 +426,45 @@ class GCValue(nn.Module):
         if diagnostic is None:
             raise ValueError('GCValue structured body does not expose relation_diagnostic')
         return diagnostic(jnp.concatenate(inputs, axis=-1))
+
+    def relation_utilization_trace(
+        self,
+        observations,
+        goals=None,
+        actions=None,
+        *,
+        relation_override=None,
+        relation_channel_mask=None,
+    ):
+        """Trace value/critic relation interventions through the scalar head."""
+
+        if self.computation_spec is None or self.computation_spec.relation_mode == 'legacy_none':
+            raise ValueError(
+                'GCValue relation_utilization_trace requires an explicit relation treatment'
+            )
+        inputs = [observations]
+        if goals is not None:
+            inputs.append(goals)
+        if actions is not None:
+            inputs.append(actions)
+        trace_fn = getattr(self.value_net, 'relation_utilization_trace', None)
+        if trace_fn is None:
+            raise ValueError(
+                'GCValue structured body does not expose relation_utilization_trace'
+            )
+        trace = trace_fn(
+            jnp.concatenate(inputs, axis=-1),
+            relation_override,
+            relation_channel_mask,
+        )
+        if self.value_readout is None:
+            raise ValueError(
+                'GCValue relation_utilization_trace requires a computation value readout'
+            )
+        return {
+            **trace,
+            'values': self.value_readout(trace['readout_vector']).squeeze(-1),
+        }
 
 
 class GCDiscreteCritic(GCValue):
