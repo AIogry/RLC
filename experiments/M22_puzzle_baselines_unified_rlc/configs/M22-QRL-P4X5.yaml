@@ -1,0 +1,43 @@
+study_id: M22
+config_id: M22-QRL-P4X5
+slug: qrl-p4x5
+algorithm: qrl
+environment: puzzle-4x5-play-v0
+factors:
+  algorithm: qrl
+  environment: puzzle-4x5-play-v0
+  baseline_family: official_ogbench_hyperparameters
+  implementation_semantics: upstream_semantic_match
+hyperparameter_provenance: official_ogbench
+implementation_semantics: upstream_semantic_match
+documented_difference: null
+canonical_defaults_source: docs/9-9/M22_upstream_baseline_audit.json#/upstream_agent_defaults/qrl
+resolved_defaults:
+  agent_name: qrl
+  actor_hidden_dims: [512, 512, 512]
+  value_hidden_dims: [512, 512, 512]
+  batch_size: 1024
+  lr: 0.0003
+  discount: 0.99
+  quasimetric_type: iqe
+  latent_dim: 512
+  dim_per_component: 8
+  layer_norm: true
+  eps: 0.05
+  actor_loss: ddpgbc
+  alpha: 0.3
+  dataset_class: GCDataset
+  const_std: true
+  discrete: false
+  encoder: null
+  frame_stack: null
+  value_sampling: {p_curgoal: 0.0, p_trajgoal: 0.0, p_randomgoal: 1.0, geom_sample: true}
+  actor_sampling: {p_curgoal: 0.0, p_trajgoal: 1.0, p_randomgoal: 0.0, geom_sample: false}
+  gc_negative: false
+  p_aug: 0.0
+agent_overrides:
+  alpha: 0.3
+  compute:
+    actor: {enabled: false, primitive: mlp, topology: feedforward, credit: direct}
+    value: {enabled: false, primitive: mlp, topology: feedforward, credit: direct}
+    dynamics: {enabled: false, primitive: mlp, topology: feedforward, credit: direct}

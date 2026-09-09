@@ -1,0 +1,42 @@
+study_id: M22
+config_id: M22-CRL-P4X6
+slug: crl-p4x6
+algorithm: crl
+environment: puzzle-4x6-play-v0
+factors:
+  algorithm: crl
+  environment: puzzle-4x6-play-v0
+  baseline_family: official_ogbench_hyperparameters
+  implementation_semantics: upstream_semantic_match
+hyperparameter_provenance: official_ogbench
+implementation_semantics: upstream_semantic_match
+documented_difference: null
+canonical_defaults_source: docs/9-9/M22_upstream_baseline_audit.json#/upstream_agent_defaults/crl
+resolved_defaults:
+  agent_name: crl
+  actor_hidden_dims: [512, 512, 512]
+  value_hidden_dims: [512, 512, 512]
+  batch_size: 1024
+  lr: 0.0003
+  discount: 0.99
+  latent_dim: 512
+  layer_norm: true
+  actor_loss: ddpgbc
+  alpha: 3.0
+  dataset_class: GCDataset
+  const_std: true
+  discrete: false
+  encoder: null
+  frame_stack: null
+  value_sampling: {p_curgoal: 0.0, p_trajgoal: 1.0, p_randomgoal: 0.0, geom_sample: true}
+  actor_sampling: {p_curgoal: 0.0, p_trajgoal: 1.0, p_randomgoal: 0.0, geom_sample: false}
+  gc_negative: false
+  p_aug: 0.0
+agent_overrides:
+  alpha: 3.0
+  compute:
+    actor: {enabled: false, primitive: mlp, topology: feedforward, credit: direct}
+    critic_state: {enabled: false, primitive: mlp, topology: feedforward, credit: direct}
+    critic_goal: {enabled: false, primitive: mlp, topology: feedforward, credit: direct}
+    value_state: {enabled: false, primitive: mlp, topology: feedforward, credit: direct}
+    value_goal: {enabled: false, primitive: mlp, topology: feedforward, credit: direct}

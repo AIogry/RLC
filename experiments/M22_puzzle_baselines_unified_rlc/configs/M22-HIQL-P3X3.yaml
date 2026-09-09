@@ -1,0 +1,46 @@
+study_id: M22
+config_id: M22-HIQL-P3X3
+slug: hiql-p3x3
+algorithm: hiql
+environment: puzzle-3x3-play-v0
+factors:
+  algorithm: hiql
+  environment: puzzle-3x3-play-v0
+  baseline_family: official_ogbench_hyperparameters
+  implementation_semantics: upstream_semantic_match
+hyperparameter_provenance: official_ogbench
+implementation_semantics: upstream_semantic_match
+documented_difference: null
+canonical_defaults_source: docs/9-9/M22_upstream_baseline_audit.json#/upstream_agent_defaults/hiql
+resolved_defaults:
+  agent_name: hiql
+  actor_hidden_dims: [512, 512, 512]
+  value_hidden_dims: [512, 512, 512]
+  batch_size: 1024
+  lr: 0.0003
+  discount: 0.99
+  tau: 0.005
+  expectile: 0.7
+  high_alpha: 3.0
+  low_alpha: 3.0
+  subgoal_steps: 10
+  rep_dim: 10
+  low_actor_rep_grad: false
+  dataset_class: HGCDataset
+  layer_norm: true
+  const_std: true
+  discrete: false
+  encoder: null
+  frame_stack: null
+  value_sampling: {p_curgoal: 0.2, p_trajgoal: 0.5, p_randomgoal: 0.3, geom_sample: true}
+  actor_sampling: {p_curgoal: 0.0, p_trajgoal: 1.0, p_randomgoal: 0.0, geom_sample: false}
+  gc_negative: true
+  p_aug: 0.0
+agent_overrides:
+  high_alpha: 3.0
+  low_alpha: 3.0
+  subgoal_steps: 10
+  compute:
+    low_actor: {enabled: false, primitive: mlp, topology: feedforward, credit: direct}
+    high_actor: {enabled: false, primitive: mlp, topology: feedforward, credit: direct}
+    value: {enabled: false, primitive: mlp, topology: feedforward, credit: direct}

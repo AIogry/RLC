@@ -1,0 +1,425 @@
+{
+  "cells": {
+    "crl::puzzle-3x3-play-v0": {
+      "algorithm": "crl",
+      "environment": "puzzle-3x3-play-v0",
+      "expected_seeds": [
+        0,
+        1,
+        2
+      ],
+      "mean": null,
+      "observed_seeds": [],
+      "ready": false,
+      "seed_count": 0,
+      "source_commits": [],
+      "std": null
+    },
+    "crl::puzzle-4x4-play-v0": {
+      "algorithm": "crl",
+      "environment": "puzzle-4x4-play-v0",
+      "expected_seeds": [
+        0,
+        1,
+        2
+      ],
+      "mean": null,
+      "observed_seeds": [],
+      "ready": false,
+      "seed_count": 0,
+      "source_commits": [],
+      "std": null
+    },
+    "crl::puzzle-4x5-play-v0": {
+      "algorithm": "crl",
+      "environment": "puzzle-4x5-play-v0",
+      "expected_seeds": [
+        0,
+        1,
+        2
+      ],
+      "mean": null,
+      "observed_seeds": [],
+      "ready": false,
+      "seed_count": 0,
+      "source_commits": [],
+      "std": null
+    },
+    "crl::puzzle-4x6-play-v0": {
+      "algorithm": "crl",
+      "environment": "puzzle-4x6-play-v0",
+      "expected_seeds": [
+        0,
+        1,
+        2
+      ],
+      "mean": null,
+      "observed_seeds": [],
+      "ready": false,
+      "seed_count": 0,
+      "source_commits": [],
+      "std": null
+    },
+    "gcbc::puzzle-3x3-play-v0": {
+      "algorithm": "gcbc",
+      "environment": "puzzle-3x3-play-v0",
+      "expected_seeds": [
+        0,
+        1,
+        2
+      ],
+      "mean": null,
+      "observed_seeds": [],
+      "ready": false,
+      "seed_count": 0,
+      "source_commits": [],
+      "std": null
+    },
+    "gcbc::puzzle-4x4-play-v0": {
+      "algorithm": "gcbc",
+      "environment": "puzzle-4x4-play-v0",
+      "expected_seeds": [
+        0,
+        1,
+        2
+      ],
+      "mean": null,
+      "observed_seeds": [],
+      "ready": false,
+      "seed_count": 0,
+      "source_commits": [],
+      "std": null
+    },
+    "gcbc::puzzle-4x5-play-v0": {
+      "algorithm": "gcbc",
+      "environment": "puzzle-4x5-play-v0",
+      "expected_seeds": [
+        0,
+        1,
+        2
+      ],
+      "mean": null,
+      "observed_seeds": [],
+      "ready": false,
+      "seed_count": 0,
+      "source_commits": [],
+      "std": null
+    },
+    "gcbc::puzzle-4x6-play-v0": {
+      "algorithm": "gcbc",
+      "environment": "puzzle-4x6-play-v0",
+      "expected_seeds": [
+        0,
+        1,
+        2
+      ],
+      "mean": null,
+      "observed_seeds": [],
+      "ready": false,
+      "seed_count": 0,
+      "source_commits": [],
+      "std": null
+    },
+    "gciql::puzzle-3x3-play-v0": {
+      "algorithm": "gciql",
+      "environment": "puzzle-3x3-play-v0",
+      "expected_seeds": [
+        0,
+        1,
+        2
+      ],
+      "mean": null,
+      "observed_seeds": [],
+      "ready": false,
+      "seed_count": 0,
+      "source_commits": [],
+      "std": null
+    },
+    "gciql::puzzle-4x4-play-v0": {
+      "algorithm": "gciql",
+      "environment": "puzzle-4x4-play-v0",
+      "expected_seeds": [
+        0,
+        1,
+        2
+      ],
+      "mean": null,
+      "observed_seeds": [],
+      "ready": false,
+      "seed_count": 0,
+      "source_commits": [],
+      "std": null
+    },
+    "gciql::puzzle-4x5-play-v0": {
+      "algorithm": "gciql",
+      "environment": "puzzle-4x5-play-v0",
+      "expected_seeds": [
+        0,
+        1,
+        2
+      ],
+      "mean": null,
+      "observed_seeds": [],
+      "ready": false,
+      "seed_count": 0,
+      "source_commits": [],
+      "std": null
+    },
+    "gciql::puzzle-4x6-play-v0": {
+      "algorithm": "gciql",
+      "environment": "puzzle-4x6-play-v0",
+      "expected_seeds": [
+        0,
+        1,
+        2
+      ],
+      "mean": null,
+      "observed_seeds": [],
+      "ready": false,
+      "seed_count": 0,
+      "source_commits": [],
+      "std": null
+    },
+    "gcivl::puzzle-3x3-play-v0": {
+      "algorithm": "gcivl",
+      "environment": "puzzle-3x3-play-v0",
+      "expected_seeds": [
+        0,
+        1,
+        2
+      ],
+      "mean": null,
+      "observed_seeds": [],
+      "ready": false,
+      "seed_count": 0,
+      "source_commits": [],
+      "std": null
+    },
+    "gcivl::puzzle-4x4-play-v0": {
+      "algorithm": "gcivl",
+      "environment": "puzzle-4x4-play-v0",
+      "expected_seeds": [
+        0,
+        1,
+        2
+      ],
+      "mean": null,
+      "observed_seeds": [],
+      "ready": false,
+      "seed_count": 0,
+      "source_commits": [],
+      "std": null
+    },
+    "gcivl::puzzle-4x5-play-v0": {
+      "algorithm": "gcivl",
+      "environment": "puzzle-4x5-play-v0",
+      "expected_seeds": [
+        0,
+        1,
+        2
+      ],
+      "mean": null,
+      "observed_seeds": [],
+      "ready": false,
+      "seed_count": 0,
+      "source_commits": [],
+      "std": null
+    },
+    "gcivl::puzzle-4x6-play-v0": {
+      "algorithm": "gcivl",
+      "environment": "puzzle-4x6-play-v0",
+      "expected_seeds": [
+        0,
+        1,
+        2
+      ],
+      "mean": null,
+      "observed_seeds": [],
+      "ready": false,
+      "seed_count": 0,
+      "source_commits": [],
+      "std": null
+    },
+    "hiql::puzzle-3x3-play-v0": {
+      "algorithm": "hiql",
+      "environment": "puzzle-3x3-play-v0",
+      "expected_seeds": [
+        0,
+        1,
+        2
+      ],
+      "mean": null,
+      "observed_seeds": [],
+      "ready": false,
+      "seed_count": 0,
+      "source_commits": [],
+      "std": null
+    },
+    "hiql::puzzle-4x4-play-v0": {
+      "algorithm": "hiql",
+      "environment": "puzzle-4x4-play-v0",
+      "expected_seeds": [
+        0,
+        1,
+        2
+      ],
+      "mean": null,
+      "observed_seeds": [],
+      "ready": false,
+      "seed_count": 0,
+      "source_commits": [],
+      "std": null
+    },
+    "hiql::puzzle-4x5-play-v0": {
+      "algorithm": "hiql",
+      "environment": "puzzle-4x5-play-v0",
+      "expected_seeds": [
+        0,
+        1,
+        2
+      ],
+      "mean": null,
+      "observed_seeds": [],
+      "ready": false,
+      "seed_count": 0,
+      "source_commits": [],
+      "std": null
+    },
+    "hiql::puzzle-4x6-play-v0": {
+      "algorithm": "hiql",
+      "environment": "puzzle-4x6-play-v0",
+      "expected_seeds": [
+        0,
+        1,
+        2
+      ],
+      "mean": null,
+      "observed_seeds": [],
+      "ready": false,
+      "seed_count": 0,
+      "source_commits": [],
+      "std": null
+    },
+    "qrl::puzzle-3x3-play-v0": {
+      "algorithm": "qrl",
+      "environment": "puzzle-3x3-play-v0",
+      "expected_seeds": [
+        0,
+        1,
+        2
+      ],
+      "mean": null,
+      "observed_seeds": [],
+      "ready": false,
+      "seed_count": 0,
+      "source_commits": [],
+      "std": null
+    },
+    "qrl::puzzle-4x4-play-v0": {
+      "algorithm": "qrl",
+      "environment": "puzzle-4x4-play-v0",
+      "expected_seeds": [
+        0,
+        1,
+        2
+      ],
+      "mean": null,
+      "observed_seeds": [],
+      "ready": false,
+      "seed_count": 0,
+      "source_commits": [],
+      "std": null
+    },
+    "qrl::puzzle-4x5-play-v0": {
+      "algorithm": "qrl",
+      "environment": "puzzle-4x5-play-v0",
+      "expected_seeds": [
+        0,
+        1,
+        2
+      ],
+      "mean": null,
+      "observed_seeds": [],
+      "ready": false,
+      "seed_count": 0,
+      "source_commits": [],
+      "std": null
+    },
+    "qrl::puzzle-4x6-play-v0": {
+      "algorithm": "qrl",
+      "environment": "puzzle-4x6-play-v0",
+      "expected_seeds": [
+        0,
+        1,
+        2
+      ],
+      "mean": null,
+      "observed_seeds": [],
+      "ready": false,
+      "seed_count": 0,
+      "source_commits": [],
+      "std": null
+    }
+  },
+  "counts": {
+    "aborted": 0,
+    "completed": 0,
+    "failed": 0,
+    "incomplete": 0,
+    "invalid": 0,
+    "missing": 72,
+    "running": 0
+  },
+  "expected_eval_steps": [
+    100000,
+    200000,
+    300000,
+    400000,
+    500000,
+    600000,
+    700000,
+    800000,
+    900000,
+    1000000
+  ],
+  "expected_runs": 72,
+  "final_table_generated": true,
+  "mode": "partial",
+  "observed_runs": 72,
+  "paper_ready": false,
+  "paper_ready_reasons": [
+    "Run statuses: missing=72",
+    "cell gcbc \u00d7 puzzle-3x3-play-v0 is not 3/3 with final@1M",
+    "cell gcbc \u00d7 puzzle-4x4-play-v0 is not 3/3 with final@1M",
+    "cell gcbc \u00d7 puzzle-4x5-play-v0 is not 3/3 with final@1M",
+    "cell gcbc \u00d7 puzzle-4x6-play-v0 is not 3/3 with final@1M",
+    "cell gcivl \u00d7 puzzle-3x3-play-v0 is not 3/3 with final@1M",
+    "cell gcivl \u00d7 puzzle-4x4-play-v0 is not 3/3 with final@1M",
+    "cell gcivl \u00d7 puzzle-4x5-play-v0 is not 3/3 with final@1M",
+    "cell gcivl \u00d7 puzzle-4x6-play-v0 is not 3/3 with final@1M",
+    "cell gciql \u00d7 puzzle-3x3-play-v0 is not 3/3 with final@1M",
+    "cell gciql \u00d7 puzzle-4x4-play-v0 is not 3/3 with final@1M",
+    "cell gciql \u00d7 puzzle-4x5-play-v0 is not 3/3 with final@1M",
+    "cell gciql \u00d7 puzzle-4x6-play-v0 is not 3/3 with final@1M",
+    "cell qrl \u00d7 puzzle-3x3-play-v0 is not 3/3 with final@1M",
+    "cell qrl \u00d7 puzzle-4x4-play-v0 is not 3/3 with final@1M",
+    "cell qrl \u00d7 puzzle-4x5-play-v0 is not 3/3 with final@1M",
+    "cell qrl \u00d7 puzzle-4x6-play-v0 is not 3/3 with final@1M",
+    "cell crl \u00d7 puzzle-3x3-play-v0 is not 3/3 with final@1M",
+    "cell crl \u00d7 puzzle-4x4-play-v0 is not 3/3 with final@1M",
+    "cell crl \u00d7 puzzle-4x5-play-v0 is not 3/3 with final@1M",
+    "cell crl \u00d7 puzzle-4x6-play-v0 is not 3/3 with final@1M",
+    "cell hiql \u00d7 puzzle-3x3-play-v0 is not 3/3 with final@1M",
+    "cell hiql \u00d7 puzzle-4x4-play-v0 is not 3/3 with final@1M",
+    "cell hiql \u00d7 puzzle-4x5-play-v0 is not 3/3 with final@1M",
+    "cell hiql \u00d7 puzzle-4x6-play-v0 is not 3/3 with final@1M",
+    "source commit is not consistent across completed Runs: []"
+  ],
+  "primary_endpoint": "final@1M",
+  "primary_metric": "evaluation/overall_success",
+  "run_root": "/data/qijunrong/06-RL/offline-rl/exp/RLC/runs",
+  "schema": "m22_completion_manifest_v1",
+  "source_commits": [],
+  "study_id": "M22",
+  "study_path": "/home/eai/Research/RLC/experiments/M22_puzzle_baselines_unified_rlc/study.yaml"
+}

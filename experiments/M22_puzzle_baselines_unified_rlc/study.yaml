@@ -1,0 +1,64 @@
+study_id: M22
+name: M22 — OGBench Puzzle Baselines in Unified RLC
+question: >-
+  What are the official OGBench Puzzle baseline results for six canonical
+  goal-conditioned algorithms under the unified RLC runtime?
+primary_factors:
+  - algorithm
+  - environment
+fixed_design:
+  campaign: OGBench Puzzle Baselines in Unified RLC
+  baseline_provenance: official_ogbench_hyperparameters
+  semantic_audit: docs/9-9/canonical_semantics_audit.json
+  upstream_baseline_audit: docs/9-9/M22_upstream_baseline_audit.json
+  dataset_audit: docs/9-9/M22_dataset_audit.json
+  canonical_compute: disabled
+  formal_training_started: false
+deferred_factors:
+  - seed
+algorithms:
+  - gcbc
+  - gcivl
+  - gciql
+  - qrl
+  - crl
+  - hiql
+placements:
+  - runtime_gpu_scheduler
+environments:
+  - puzzle-3x3-play-v0
+  - puzzle-4x4-play-v0
+  - puzzle-4x5-play-v0
+  - puzzle-4x6-play-v0
+seeds:
+  - 0
+  - 1
+  - 2
+primary_metric: evaluation/overall_success
+protocol:
+  stage: formal
+  train_steps: 1000000
+  batch_size: 1024
+  log_interval: 5000
+  eval_interval: 100000
+  eval_tasks: all
+  eval_episodes: 50
+  eval_temperature: 0.0
+  eval_gaussian: null
+  video_episodes: 0
+  save_interval: 100000
+  save_best_checkpoint: true
+  save_last_checkpoint: true
+  primary_endpoint: final@1M
+  primary_metric: evaluation/overall_success
+  secondary_metrics:
+    - best_success
+    - best_step
+    - last3_mean
+    - normalized_auc
+    - per_task_final
+  formal_training_started: false
+  run_root: /data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M22
+  smoke_root: /tmp/m22_puzzle_baseline_smoke
+  physical_gpu_policy: launcher_only
+  jobs_per_gpu: 2

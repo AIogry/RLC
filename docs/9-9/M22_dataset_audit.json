@@ -1,0 +1,294 @@
+{
+  "dataset_authority": "local NPZ files used by RLC/ogbench/utils.py",
+  "dataset_root": "/data/qijunrong/06-RL/offline-rl/data/raw_ogbench",
+  "environments": {
+    "puzzle-3x3-play-v0": {
+      "expected_observation_dim_sanity": 55,
+      "train": {
+        "action_dim": 5,
+        "actions": {
+          "dtype": "float32",
+          "fortran_order": false,
+          "shape": [
+            1001000,
+            5
+          ]
+        },
+        "episodes_recovered_from_terminals": 1000,
+        "file_size_bytes": 242005214,
+        "npz_members": [
+          "actions.npy",
+          "button_states.npy",
+          "observations.npy",
+          "qpos.npy",
+          "qvel.npy",
+          "terminals.npy"
+        ],
+        "observation_dim": 55,
+        "observations": {
+          "dtype": "float32",
+          "fortran_order": false,
+          "shape": [
+            1001000,
+            55
+          ]
+        },
+        "path": "/data/qijunrong/06-RL/offline-rl/data/raw_ogbench/puzzle-3x3-play-v0.npz",
+        "sha256": "bca9b1775ea5c01af5ac3f9b652709d341bddd17fe4b6368056566ac3c5fbb0f",
+        "status": "pass",
+        "transitions": 1001000
+      },
+      "validation": {
+        "action_dim": 5,
+        "actions": {
+          "dtype": "float32",
+          "fortran_order": false,
+          "shape": [
+            100100,
+            5
+          ]
+        },
+        "episodes_recovered_from_terminals": 100,
+        "file_size_bytes": 24201474,
+        "npz_members": [
+          "actions.npy",
+          "button_states.npy",
+          "observations.npy",
+          "qpos.npy",
+          "qvel.npy",
+          "terminals.npy"
+        ],
+        "observation_dim": 55,
+        "observations": {
+          "dtype": "float32",
+          "fortran_order": false,
+          "shape": [
+            100100,
+            55
+          ]
+        },
+        "path": "/data/qijunrong/06-RL/offline-rl/data/raw_ogbench/puzzle-3x3-play-v0-val.npz",
+        "sha256": "897a3f491decf46d72ea73425dc9b2c969530eca190708d763e632850b856550",
+        "status": "pass",
+        "transitions": 100100
+      }
+    },
+    "puzzle-4x4-play-v0": {
+      "expected_observation_dim_sanity": 83,
+      "train": {
+        "action_dim": 5,
+        "actions": {
+          "dtype": "float32",
+          "fortran_order": false,
+          "shape": [
+            1001000,
+            5
+          ]
+        },
+        "episodes_recovered_from_terminals": 1000,
+        "file_size_bytes": 262414247,
+        "npz_members": [
+          "actions.npy",
+          "button_states.npy",
+          "observations.npy",
+          "qpos.npy",
+          "qvel.npy",
+          "terminals.npy"
+        ],
+        "observation_dim": 83,
+        "observations": {
+          "dtype": "float32",
+          "fortran_order": false,
+          "shape": [
+            1001000,
+            83
+          ]
+        },
+        "path": "/data/qijunrong/06-RL/offline-rl/data/raw_ogbench/puzzle-4x4-play-v0.npz",
+        "sha256": "396a029c4c347498eed3e21cd85f99c72c56f786e84c29787715808f27cdfe8a",
+        "status": "pass",
+        "transitions": 1001000
+      },
+      "validation": {
+        "action_dim": 5,
+        "actions": {
+          "dtype": "float32",
+          "fortran_order": false,
+          "shape": [
+            100100,
+            5
+          ]
+        },
+        "episodes_recovered_from_terminals": 100,
+        "file_size_bytes": 26216338,
+        "npz_members": [
+          "actions.npy",
+          "button_states.npy",
+          "observations.npy",
+          "qpos.npy",
+          "qvel.npy",
+          "terminals.npy"
+        ],
+        "observation_dim": 83,
+        "observations": {
+          "dtype": "float32",
+          "fortran_order": false,
+          "shape": [
+            100100,
+            83
+          ]
+        },
+        "path": "/data/qijunrong/06-RL/offline-rl/data/raw_ogbench/puzzle-4x4-play-v0-val.npz",
+        "sha256": "472324d739ed9d029600fd112738d2602b15a7a3039d03ce91265b65c5943d4d",
+        "status": "pass",
+        "transitions": 100100
+      }
+    },
+    "puzzle-4x5-play-v0": {
+      "expected_observation_dim_sanity": 99,
+      "train": {
+        "action_dim": 5,
+        "actions": {
+          "dtype": "float32",
+          "fortran_order": false,
+          "shape": [
+            3003000,
+            5
+          ]
+        },
+        "episodes_recovered_from_terminals": 3000,
+        "file_size_bytes": 816520065,
+        "npz_members": [
+          "actions.npy",
+          "button_states.npy",
+          "observations.npy",
+          "qpos.npy",
+          "qvel.npy",
+          "terminals.npy"
+        ],
+        "observation_dim": 99,
+        "observations": {
+          "dtype": "float32",
+          "fortran_order": false,
+          "shape": [
+            3003000,
+            99
+          ]
+        },
+        "path": "/data/qijunrong/06-RL/offline-rl/data/raw_ogbench/puzzle-4x5-play-v0.npz",
+        "sha256": "7f25e3161280aa4ff1234a279ba7a0a4466df6a8e4f5af64fd2b1bfe8df892cc",
+        "status": "pass",
+        "transitions": 3003000
+      },
+      "validation": {
+        "action_dim": 5,
+        "actions": {
+          "dtype": "float32",
+          "fortran_order": false,
+          "shape": [
+            300300,
+            5
+          ]
+        },
+        "episodes_recovered_from_terminals": 300,
+        "file_size_bytes": 81683658,
+        "npz_members": [
+          "actions.npy",
+          "button_states.npy",
+          "observations.npy",
+          "qpos.npy",
+          "qvel.npy",
+          "terminals.npy"
+        ],
+        "observation_dim": 99,
+        "observations": {
+          "dtype": "float32",
+          "fortran_order": false,
+          "shape": [
+            300300,
+            99
+          ]
+        },
+        "path": "/data/qijunrong/06-RL/offline-rl/data/raw_ogbench/puzzle-4x5-play-v0-val.npz",
+        "sha256": "26bfb8d59290be2838a4c8185fc8221355ff45027d4c4bff4e26f6f4a7c2624c",
+        "status": "pass",
+        "transitions": 300300
+      }
+    },
+    "puzzle-4x6-play-v0": {
+      "expected_observation_dim_sanity": 115,
+      "train": {
+        "action_dim": 5,
+        "actions": {
+          "dtype": "float32",
+          "fortran_order": false,
+          "shape": [
+            5005000,
+            5
+          ]
+        },
+        "episodes_recovered_from_terminals": 5000,
+        "file_size_bytes": 1403180078,
+        "npz_members": [
+          "actions.npy",
+          "button_states.npy",
+          "observations.npy",
+          "qpos.npy",
+          "qvel.npy",
+          "terminals.npy"
+        ],
+        "observation_dim": 115,
+        "observations": {
+          "dtype": "float32",
+          "fortran_order": false,
+          "shape": [
+            5005000,
+            115
+          ]
+        },
+        "path": "/data/qijunrong/06-RL/offline-rl/data/raw_ogbench/puzzle-4x6-play-v0.npz",
+        "sha256": "8d3de9cad77874484367d492540baac385cb487cf94b2649547770bf7d0b6c9f",
+        "status": "pass",
+        "transitions": 5005000
+      },
+      "validation": {
+        "action_dim": 5,
+        "actions": {
+          "dtype": "float32",
+          "fortran_order": false,
+          "shape": [
+            500500,
+            5
+          ]
+        },
+        "episodes_recovered_from_terminals": 500,
+        "file_size_bytes": 140359567,
+        "npz_members": [
+          "actions.npy",
+          "button_states.npy",
+          "observations.npy",
+          "qpos.npy",
+          "qvel.npy",
+          "terminals.npy"
+        ],
+        "observation_dim": 115,
+        "observations": {
+          "dtype": "float32",
+          "fortran_order": false,
+          "shape": [
+            500500,
+            115
+          ]
+        },
+        "path": "/data/qijunrong/06-RL/offline-rl/data/raw_ogbench/puzzle-4x6-play-v0-val.npz",
+        "sha256": "5987ac87eb31ccd05acab8d8a6dac1662462fe9798b1b9e2269a16505adbb230",
+        "status": "pass",
+        "transitions": 500500
+      }
+    }
+  },
+  "failures": [],
+  "schema": "m22_dataset_audit_v1",
+  "source_commit": "824429a431e7350a3020f9d277f54bc82f02eeb3",
+  "status": "pass"
+}

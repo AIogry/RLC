@@ -1,0 +1,733 @@
+{
+  "audit_type": "source_and_override_audit_only",
+  "baseline_provenance": {
+    "crl": {
+      "documented_difference": null,
+      "hyperparameter_provenance": "official_ogbench",
+      "implementation_semantics": "upstream_semantic_match"
+    },
+    "gcbc": {
+      "documented_difference": null,
+      "hyperparameter_provenance": "official_ogbench",
+      "implementation_semantics": "upstream_semantic_match"
+    },
+    "gciql": {
+      "documented_difference": "post-gradient target Polyak update",
+      "hyperparameter_provenance": "official_ogbench",
+      "implementation_semantics": "rlc_variant_documented"
+    },
+    "gcivl": {
+      "documented_difference": "post-gradient target Polyak update",
+      "hyperparameter_provenance": "official_ogbench",
+      "implementation_semantics": "rlc_variant_documented"
+    },
+    "hiql": {
+      "documented_difference": null,
+      "hyperparameter_provenance": "official_ogbench",
+      "implementation_semantics": "upstream_semantic_match"
+    },
+    "qrl": {
+      "documented_difference": null,
+      "hyperparameter_provenance": "official_ogbench",
+      "implementation_semantics": "upstream_semantic_match"
+    }
+  },
+  "byte_for_byte_upstream_implementation_equivalence": false,
+  "campaign_name": "M22 \u2014 OGBench Puzzle Baselines in Unified RLC",
+  "documented_rlc_variants": [
+    {
+      "algorithm": "gcivl",
+      "blocking": false,
+      "difference": "post-gradient target Polyak update",
+      "field": "target_network_semantics",
+      "rlc": {
+        "line": 111,
+        "semantics": "post_gradient_online"
+      },
+      "status": "rlc_variant_documented",
+      "upstream": {
+        "line": 116,
+        "semantics": "pre_gradient_online"
+      },
+      "user_frozen": true
+    },
+    {
+      "algorithm": "gciql",
+      "blocking": false,
+      "difference": "post-gradient target Polyak update",
+      "field": "target_network_semantics",
+      "rlc": {
+        "line": 154,
+        "semantics": "post_gradient_online"
+      },
+      "status": "rlc_variant_documented",
+      "upstream": {
+        "line": 151,
+        "semantics": "pre_gradient_online"
+      },
+      "user_frozen": true
+    }
+  ],
+  "formal_puzzle_scope": {
+    "algorithms": [
+      "gcbc",
+      "gcivl",
+      "gciql",
+      "qrl",
+      "crl",
+      "hiql"
+    ],
+    "environments": [
+      "puzzle-3x3-play-v0",
+      "puzzle-4x4-play-v0",
+      "puzzle-4x5-play-v0",
+      "puzzle-4x6-play-v0"
+    ],
+    "expected_formal_runs": 72,
+    "seeds": [
+      0,
+      1,
+      2
+    ]
+  },
+  "formal_training_started": false,
+  "official_hyperparameters_authoritative": true,
+  "official_override_failures": [],
+  "official_puzzle_commands": {
+    "puzzle-3x3-play-v0": {
+      "crl": {
+        "agent": "agents/crl.py",
+        "command": "python main.py --env_name=puzzle-3x3-play-v0 --eval_episodes=50 --agent=agents/crl.py --agent.alpha=3.0",
+        "eval_episodes": 50,
+        "expected_override": {
+          "alpha": 3.0
+        },
+        "override": {
+          "alpha": 3
+        },
+        "source_line": 738,
+        "status": "pass"
+      },
+      "gcbc": {
+        "agent": "agents/gcbc.py",
+        "command": "python main.py --env_name=puzzle-3x3-play-v0 --eval_episodes=50 --agent=agents/gcbc.py",
+        "eval_episodes": 50,
+        "expected_override": {},
+        "override": {},
+        "source_line": 730,
+        "status": "pass"
+      },
+      "gciql": {
+        "agent": "agents/gciql.py",
+        "command": "python main.py --env_name=puzzle-3x3-play-v0 --eval_episodes=50 --agent=agents/gciql.py --agent.alpha=1.0",
+        "eval_episodes": 50,
+        "expected_override": {
+          "alpha": 1.0
+        },
+        "override": {
+          "alpha": 1
+        },
+        "source_line": 734,
+        "status": "pass"
+      },
+      "gcivl": {
+        "agent": "agents/gcivl.py",
+        "command": "python main.py --env_name=puzzle-3x3-play-v0 --eval_episodes=50 --agent=agents/gcivl.py --agent.alpha=10.0",
+        "eval_episodes": 50,
+        "expected_override": {
+          "alpha": 10.0
+        },
+        "override": {
+          "alpha": 10
+        },
+        "source_line": 732,
+        "status": "pass"
+      },
+      "hiql": {
+        "agent": "agents/hiql.py",
+        "command": "python main.py --env_name=puzzle-3x3-play-v0 --eval_episodes=50 --agent=agents/hiql.py --agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=10",
+        "eval_episodes": 50,
+        "expected_override": {
+          "high_alpha": 3.0,
+          "low_alpha": 3.0,
+          "subgoal_steps": 10
+        },
+        "override": {
+          "high_alpha": 3,
+          "low_alpha": 3,
+          "subgoal_steps": 10
+        },
+        "source_line": 740,
+        "status": "pass"
+      },
+      "qrl": {
+        "agent": "agents/qrl.py",
+        "command": "python main.py --env_name=puzzle-3x3-play-v0 --eval_episodes=50 --agent=agents/qrl.py --agent.alpha=0.3",
+        "eval_episodes": 50,
+        "expected_override": {
+          "alpha": 0.3
+        },
+        "override": {
+          "alpha": 0.3
+        },
+        "source_line": 736,
+        "status": "pass"
+      }
+    },
+    "puzzle-4x4-play-v0": {
+      "crl": {
+        "agent": "agents/crl.py",
+        "command": "python main.py --env_name=puzzle-4x4-play-v0 --eval_episodes=50 --agent=agents/crl.py --agent.alpha=3.0",
+        "eval_episodes": 50,
+        "expected_override": {
+          "alpha": 3.0
+        },
+        "override": {
+          "alpha": 3
+        },
+        "source_line": 751,
+        "status": "pass"
+      },
+      "gcbc": {
+        "agent": "agents/gcbc.py",
+        "command": "python main.py --env_name=puzzle-4x4-play-v0 --eval_episodes=50 --agent=agents/gcbc.py",
+        "eval_episodes": 50,
+        "expected_override": {},
+        "override": {},
+        "source_line": 743,
+        "status": "pass"
+      },
+      "gciql": {
+        "agent": "agents/gciql.py",
+        "command": "python main.py --env_name=puzzle-4x4-play-v0 --eval_episodes=50 --agent=agents/gciql.py --agent.alpha=1.0",
+        "eval_episodes": 50,
+        "expected_override": {
+          "alpha": 1.0
+        },
+        "override": {
+          "alpha": 1
+        },
+        "source_line": 747,
+        "status": "pass"
+      },
+      "gcivl": {
+        "agent": "agents/gcivl.py",
+        "command": "python main.py --env_name=puzzle-4x4-play-v0 --eval_episodes=50 --agent=agents/gcivl.py --agent.alpha=10.0",
+        "eval_episodes": 50,
+        "expected_override": {
+          "alpha": 10.0
+        },
+        "override": {
+          "alpha": 10
+        },
+        "source_line": 745,
+        "status": "pass"
+      },
+      "hiql": {
+        "agent": "agents/hiql.py",
+        "command": "python main.py --env_name=puzzle-4x4-play-v0 --eval_episodes=50 --agent=agents/hiql.py --agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=10",
+        "eval_episodes": 50,
+        "expected_override": {
+          "high_alpha": 3.0,
+          "low_alpha": 3.0,
+          "subgoal_steps": 10
+        },
+        "override": {
+          "high_alpha": 3,
+          "low_alpha": 3,
+          "subgoal_steps": 10
+        },
+        "source_line": 753,
+        "status": "pass"
+      },
+      "qrl": {
+        "agent": "agents/qrl.py",
+        "command": "python main.py --env_name=puzzle-4x4-play-v0 --eval_episodes=50 --agent=agents/qrl.py --agent.alpha=0.3",
+        "eval_episodes": 50,
+        "expected_override": {
+          "alpha": 0.3
+        },
+        "override": {
+          "alpha": 0.3
+        },
+        "source_line": 749,
+        "status": "pass"
+      }
+    },
+    "puzzle-4x5-play-v0": {
+      "crl": {
+        "agent": "agents/crl.py",
+        "command": "python main.py --env_name=puzzle-4x5-play-v0 --eval_episodes=50 --agent=agents/crl.py --agent.alpha=3.0",
+        "eval_episodes": 50,
+        "expected_override": {
+          "alpha": 3.0
+        },
+        "override": {
+          "alpha": 3
+        },
+        "source_line": 764,
+        "status": "pass"
+      },
+      "gcbc": {
+        "agent": "agents/gcbc.py",
+        "command": "python main.py --env_name=puzzle-4x5-play-v0 --eval_episodes=50 --agent=agents/gcbc.py",
+        "eval_episodes": 50,
+        "expected_override": {},
+        "override": {},
+        "source_line": 756,
+        "status": "pass"
+      },
+      "gciql": {
+        "agent": "agents/gciql.py",
+        "command": "python main.py --env_name=puzzle-4x5-play-v0 --eval_episodes=50 --agent=agents/gciql.py --agent.alpha=1.0",
+        "eval_episodes": 50,
+        "expected_override": {
+          "alpha": 1.0
+        },
+        "override": {
+          "alpha": 1
+        },
+        "source_line": 760,
+        "status": "pass"
+      },
+      "gcivl": {
+        "agent": "agents/gcivl.py",
+        "command": "python main.py --env_name=puzzle-4x5-play-v0 --eval_episodes=50 --agent=agents/gcivl.py --agent.alpha=10.0",
+        "eval_episodes": 50,
+        "expected_override": {
+          "alpha": 10.0
+        },
+        "override": {
+          "alpha": 10
+        },
+        "source_line": 758,
+        "status": "pass"
+      },
+      "hiql": {
+        "agent": "agents/hiql.py",
+        "command": "python main.py --env_name=puzzle-4x5-play-v0 --eval_episodes=50 --agent=agents/hiql.py --agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=10",
+        "eval_episodes": 50,
+        "expected_override": {
+          "high_alpha": 3.0,
+          "low_alpha": 3.0,
+          "subgoal_steps": 10
+        },
+        "override": {
+          "high_alpha": 3,
+          "low_alpha": 3,
+          "subgoal_steps": 10
+        },
+        "source_line": 766,
+        "status": "pass"
+      },
+      "qrl": {
+        "agent": "agents/qrl.py",
+        "command": "python main.py --env_name=puzzle-4x5-play-v0 --eval_episodes=50 --agent=agents/qrl.py --agent.alpha=0.3",
+        "eval_episodes": 50,
+        "expected_override": {
+          "alpha": 0.3
+        },
+        "override": {
+          "alpha": 0.3
+        },
+        "source_line": 762,
+        "status": "pass"
+      }
+    },
+    "puzzle-4x6-play-v0": {
+      "crl": {
+        "agent": "agents/crl.py",
+        "command": "python main.py --env_name=puzzle-4x6-play-v0 --eval_episodes=50 --agent=agents/crl.py --agent.alpha=3.0",
+        "eval_episodes": 50,
+        "expected_override": {
+          "alpha": 3.0
+        },
+        "override": {
+          "alpha": 3
+        },
+        "source_line": 777,
+        "status": "pass"
+      },
+      "gcbc": {
+        "agent": "agents/gcbc.py",
+        "command": "python main.py --env_name=puzzle-4x6-play-v0 --eval_episodes=50 --agent=agents/gcbc.py",
+        "eval_episodes": 50,
+        "expected_override": {},
+        "override": {},
+        "source_line": 769,
+        "status": "pass"
+      },
+      "gciql": {
+        "agent": "agents/gciql.py",
+        "command": "python main.py --env_name=puzzle-4x6-play-v0 --eval_episodes=50 --agent=agents/gciql.py --agent.alpha=1.0",
+        "eval_episodes": 50,
+        "expected_override": {
+          "alpha": 1.0
+        },
+        "override": {
+          "alpha": 1
+        },
+        "source_line": 773,
+        "status": "pass"
+      },
+      "gcivl": {
+        "agent": "agents/gcivl.py",
+        "command": "python main.py --env_name=puzzle-4x6-play-v0 --eval_episodes=50 --agent=agents/gcivl.py --agent.alpha=10.0",
+        "eval_episodes": 50,
+        "expected_override": {
+          "alpha": 10.0
+        },
+        "override": {
+          "alpha": 10
+        },
+        "source_line": 771,
+        "status": "pass"
+      },
+      "hiql": {
+        "agent": "agents/hiql.py",
+        "command": "python main.py --env_name=puzzle-4x6-play-v0 --eval_episodes=50 --agent=agents/hiql.py --agent.high_alpha=3.0 --agent.low_alpha=3.0 --agent.subgoal_steps=10",
+        "eval_episodes": 50,
+        "expected_override": {
+          "high_alpha": 3.0,
+          "low_alpha": 3.0,
+          "subgoal_steps": 10
+        },
+        "override": {
+          "high_alpha": 3,
+          "low_alpha": 3,
+          "subgoal_steps": 10
+        },
+        "source_line": 779,
+        "status": "pass"
+      },
+      "qrl": {
+        "agent": "agents/qrl.py",
+        "command": "python main.py --env_name=puzzle-4x6-play-v0 --eval_episodes=50 --agent=agents/qrl.py --agent.alpha=0.3",
+        "eval_episodes": 50,
+        "expected_override": {
+          "alpha": 0.3
+        },
+        "override": {
+          "alpha": 0.3
+        },
+        "source_line": 775,
+        "status": "pass"
+      }
+    }
+  },
+  "rlc_audit_provenance": {
+    "branch": "main",
+    "describe": "824429a",
+    "dirty": true,
+    "head": "824429a431e7350a3020f9d277f54bc82f02eeb3",
+    "root": "/home/eai/Research/RLC",
+    "status": "?? docs/9-9/M22_dataset_audit.json\n?? docs/9-9/M22_upstream_baseline_audit.json\n?? docs/9-9/M22_upstream_baseline_audit.md\n?? docs/9-9/canonical_semantics_audit.json\n?? tools/m22_audit.py"
+  },
+  "rlc_starting_provenance": {
+    "branch": "main",
+    "describe": "824429a",
+    "dirty": false,
+    "head": "824429a431e7350a3020f9d277f54bc82f02eeb3",
+    "root": "/home/eai/Research/RLC",
+    "snapshot_source": "user_supplied_starting_snapshot",
+    "status": ""
+  },
+  "schema": "m22_upstream_baseline_audit_v1",
+  "semantic_gate_status": "pass",
+  "source_files": {
+    "crl": {
+      "bytes": 13137,
+      "path": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/crl.py",
+      "relative_path": "impls/agents/crl.py",
+      "sha256": "05a9faaa8348a16154a03004b54a7eff90ec58eae2588fe7b2bedef2bfcc48af"
+    },
+    "datasets": {
+      "bytes": 16774,
+      "path": "/home/eai/Research/offline_rl_baselines/ogbench/impls/utils/datasets.py",
+      "relative_path": "impls/utils/datasets.py",
+      "sha256": "52c373922a87e1ba8ad8b3b96c3474d5e6385e2ea2c7206930f7a8a315816609"
+    },
+    "evaluation": {
+      "bytes": 3777,
+      "path": "/home/eai/Research/offline_rl_baselines/ogbench/impls/utils/evaluation.py",
+      "relative_path": "impls/utils/evaluation.py",
+      "sha256": "4d9a2732bc9ef89ce99fbc0f07a76d3f4d035783af3a658251709140ff9de3d5"
+    },
+    "gcbc": {
+      "bytes": 6373,
+      "path": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcbc.py",
+      "relative_path": "impls/agents/gcbc.py",
+      "sha256": "a130452c9c76d5718a6c1307525e7d5603334b479683654f7decb6b1280ec15c"
+    },
+    "gciql": {
+      "bytes": 12457,
+      "path": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gciql.py",
+      "relative_path": "impls/agents/gciql.py",
+      "sha256": "05a0b5d9b987d3049df8a1158bbfbaba2ca2611604d24f9e484f8fb6d0cd92bc"
+    },
+    "gcivl": {
+      "bytes": 10307,
+      "path": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcivl.py",
+      "relative_path": "impls/agents/gcivl.py",
+      "sha256": "643ed73b1bad4caa4cf8079aa1bd6cf77f17367f8c67cc9b43acc173bb9aecf8"
+    },
+    "hiql": {
+      "bytes": 15549,
+      "path": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/hiql.py",
+      "relative_path": "impls/agents/hiql.py",
+      "sha256": "0cbceb5506e465f2be793dfd69be0244f7990a4d7335afe78c1f74a42b1aa43e"
+    },
+    "hyperparameters": {
+      "bytes": 112589,
+      "path": "/home/eai/Research/offline_rl_baselines/ogbench/impls/hyperparameters.sh",
+      "relative_path": "impls/hyperparameters.sh",
+      "sha256": "633f6e1f5311e42d0bfd6524cda7255120a0835678dcaa1227cfbf3f5cb1d9df"
+    },
+    "main": {
+      "bytes": 6742,
+      "path": "/home/eai/Research/offline_rl_baselines/ogbench/impls/main.py",
+      "relative_path": "impls/main.py",
+      "sha256": "375fad6375047ff59f3baea408ab7197784c1ec1457588a78a631025e434faee"
+    },
+    "qrl": {
+      "bytes": 13882,
+      "path": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/qrl.py",
+      "relative_path": "impls/agents/qrl.py",
+      "sha256": "4dc68d9a9dbbac73f8610c348308e5044ea05ab21d740841b0e1dd450b62e4c4"
+    }
+  },
+  "status": "pass",
+  "upstream": {
+    "local_path": "/home/eai/Research/offline_rl_baselines/ogbench",
+    "provenance": {
+      "branch": "master",
+      "describe": "v1.2.1",
+      "dirty": false,
+      "head": "1d4140997f60c52c6fb0702ec100dc988b18c548",
+      "root": "/home/eai/Research/offline_rl_baselines/ogbench",
+      "status": ""
+    },
+    "repository": "https://github.com/seohongpark/ogbench",
+    "version": "1.2.1"
+  },
+  "upstream_agent_defaults": {
+    "crl": {
+      "actor_geom_sample": false,
+      "actor_hidden_dims": [
+        512,
+        512,
+        512
+      ],
+      "actor_loss": "ddpgbc",
+      "actor_p_curgoal": 0.0,
+      "actor_p_randomgoal": 0.0,
+      "actor_p_trajgoal": 1.0,
+      "agent_name": "crl",
+      "alpha": 0.1,
+      "batch_size": 1024,
+      "const_std": true,
+      "dataset_class": "GCDataset",
+      "discount": 0.99,
+      "discrete": false,
+      "encoder": null,
+      "frame_stack": null,
+      "gc_negative": false,
+      "latent_dim": 512,
+      "layer_norm": true,
+      "lr": 0.0003,
+      "p_aug": 0.0,
+      "value_geom_sample": true,
+      "value_hidden_dims": [
+        512,
+        512,
+        512
+      ],
+      "value_p_curgoal": 0.0,
+      "value_p_randomgoal": 0.0,
+      "value_p_trajgoal": 1.0
+    },
+    "gcbc": {
+      "actor_geom_sample": false,
+      "actor_hidden_dims": [
+        512,
+        512,
+        512
+      ],
+      "actor_p_curgoal": 0.0,
+      "actor_p_randomgoal": 0.0,
+      "actor_p_trajgoal": 1.0,
+      "agent_name": "gcbc",
+      "batch_size": 1024,
+      "const_std": true,
+      "dataset_class": "GCDataset",
+      "discount": 0.99,
+      "discrete": false,
+      "encoder": null,
+      "frame_stack": null,
+      "gc_negative": true,
+      "lr": 0.0003,
+      "p_aug": 0.0,
+      "value_geom_sample": false,
+      "value_p_curgoal": 0.0,
+      "value_p_randomgoal": 0.0,
+      "value_p_trajgoal": 1.0
+    },
+    "gciql": {
+      "actor_geom_sample": false,
+      "actor_hidden_dims": [
+        512,
+        512,
+        512
+      ],
+      "actor_loss": "ddpgbc",
+      "actor_p_curgoal": 0.0,
+      "actor_p_randomgoal": 0.0,
+      "actor_p_trajgoal": 1.0,
+      "agent_name": "gciql",
+      "alpha": 0.3,
+      "batch_size": 1024,
+      "const_std": true,
+      "dataset_class": "GCDataset",
+      "discount": 0.99,
+      "discrete": false,
+      "encoder": null,
+      "expectile": 0.9,
+      "frame_stack": null,
+      "gc_negative": true,
+      "layer_norm": true,
+      "lr": 0.0003,
+      "p_aug": 0.0,
+      "tau": 0.005,
+      "value_geom_sample": true,
+      "value_hidden_dims": [
+        512,
+        512,
+        512
+      ],
+      "value_p_curgoal": 0.2,
+      "value_p_randomgoal": 0.3,
+      "value_p_trajgoal": 0.5
+    },
+    "gcivl": {
+      "actor_geom_sample": false,
+      "actor_hidden_dims": [
+        512,
+        512,
+        512
+      ],
+      "actor_p_curgoal": 0.0,
+      "actor_p_randomgoal": 0.0,
+      "actor_p_trajgoal": 1.0,
+      "agent_name": "gcivl",
+      "alpha": 10.0,
+      "batch_size": 1024,
+      "const_std": true,
+      "dataset_class": "GCDataset",
+      "discount": 0.99,
+      "discrete": false,
+      "encoder": null,
+      "expectile": 0.9,
+      "frame_stack": null,
+      "gc_negative": true,
+      "layer_norm": true,
+      "lr": 0.0003,
+      "p_aug": 0.0,
+      "tau": 0.005,
+      "value_geom_sample": true,
+      "value_hidden_dims": [
+        512,
+        512,
+        512
+      ],
+      "value_p_curgoal": 0.2,
+      "value_p_randomgoal": 0.3,
+      "value_p_trajgoal": 0.5
+    },
+    "hiql": {
+      "actor_geom_sample": false,
+      "actor_hidden_dims": [
+        512,
+        512,
+        512
+      ],
+      "actor_p_curgoal": 0.0,
+      "actor_p_randomgoal": 0.0,
+      "actor_p_trajgoal": 1.0,
+      "agent_name": "hiql",
+      "batch_size": 1024,
+      "const_std": true,
+      "dataset_class": "HGCDataset",
+      "discount": 0.99,
+      "discrete": false,
+      "encoder": null,
+      "expectile": 0.7,
+      "frame_stack": null,
+      "gc_negative": true,
+      "high_alpha": 3.0,
+      "layer_norm": true,
+      "low_actor_rep_grad": false,
+      "low_alpha": 3.0,
+      "lr": 0.0003,
+      "p_aug": 0.0,
+      "rep_dim": 10,
+      "subgoal_steps": 25,
+      "tau": 0.005,
+      "value_geom_sample": true,
+      "value_hidden_dims": [
+        512,
+        512,
+        512
+      ],
+      "value_p_curgoal": 0.2,
+      "value_p_randomgoal": 0.3,
+      "value_p_trajgoal": 0.5
+    },
+    "qrl": {
+      "actor_geom_sample": false,
+      "actor_hidden_dims": [
+        512,
+        512,
+        512
+      ],
+      "actor_loss": "ddpgbc",
+      "actor_p_curgoal": 0.0,
+      "actor_p_randomgoal": 0.0,
+      "actor_p_trajgoal": 1.0,
+      "agent_name": "qrl",
+      "alpha": 0.003,
+      "batch_size": 1024,
+      "const_std": true,
+      "dataset_class": "GCDataset",
+      "discount": 0.99,
+      "discrete": false,
+      "encoder": null,
+      "eps": 0.05,
+      "frame_stack": null,
+      "gc_negative": false,
+      "latent_dim": 512,
+      "layer_norm": true,
+      "lr": 0.0003,
+      "p_aug": 0.0,
+      "quasimetric_type": "iqe",
+      "value_geom_sample": true,
+      "value_hidden_dims": [
+        512,
+        512,
+        512
+      ],
+      "value_p_curgoal": 0.0,
+      "value_p_randomgoal": 1.0,
+      "value_p_trajgoal": 0.0
+    }
+  },
+  "upstream_main_protocol_defaults": {
+    "eval_episodes": 20,
+    "eval_interval": 100000,
+    "eval_on_cpu": 1,
+    "eval_temperature": 0,
+    "log_interval": 5000,
+    "save_interval": 1000000,
+    "train_steps": 1000000,
+    "video_episodes": 1
+  }
+}

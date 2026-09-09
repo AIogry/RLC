@@ -1,0 +1,2436 @@
+{
+  "baseline_provenance": {
+    "crl": {
+      "documented_difference": null,
+      "hyperparameter_provenance": "official_ogbench",
+      "implementation_semantics": "upstream_semantic_match"
+    },
+    "gcbc": {
+      "documented_difference": null,
+      "hyperparameter_provenance": "official_ogbench",
+      "implementation_semantics": "upstream_semantic_match"
+    },
+    "gciql": {
+      "documented_difference": "post-gradient target Polyak update",
+      "hyperparameter_provenance": "official_ogbench",
+      "implementation_semantics": "rlc_variant_documented"
+    },
+    "gcivl": {
+      "documented_difference": "post-gradient target Polyak update",
+      "hyperparameter_provenance": "official_ogbench",
+      "implementation_semantics": "rlc_variant_documented"
+    },
+    "hiql": {
+      "documented_difference": null,
+      "hyperparameter_provenance": "official_ogbench",
+      "implementation_semantics": "upstream_semantic_match"
+    },
+    "qrl": {
+      "documented_difference": null,
+      "hyperparameter_provenance": "official_ogbench",
+      "implementation_semantics": "upstream_semantic_match"
+    }
+  },
+  "byte_for_byte_upstream_implementation_equivalence": false,
+  "campaign_name": "M22 \u2014 OGBench Puzzle Baselines in Unified RLC",
+  "comparison_scope": "RLC canonical agents versus pinned upstream OGBench source",
+  "config_default_comparisons": {
+    "crl": {
+      "actor_geom_sample": {
+        "rlc": false,
+        "status": "match",
+        "upstream": false
+      },
+      "actor_hidden_dims": {
+        "rlc": [
+          512,
+          512,
+          512
+        ],
+        "status": "match",
+        "upstream": [
+          512,
+          512,
+          512
+        ]
+      },
+      "actor_loss": {
+        "rlc": "ddpgbc",
+        "status": "match",
+        "upstream": "ddpgbc"
+      },
+      "actor_p_curgoal": {
+        "rlc": 0.0,
+        "status": "match",
+        "upstream": 0.0
+      },
+      "actor_p_randomgoal": {
+        "rlc": 0.0,
+        "status": "match",
+        "upstream": 0.0
+      },
+      "actor_p_trajgoal": {
+        "rlc": 1.0,
+        "status": "match",
+        "upstream": 1.0
+      },
+      "agent_name": {
+        "rlc": "crl",
+        "status": "match",
+        "upstream": "crl"
+      },
+      "alpha": {
+        "rlc": 0.1,
+        "status": "match",
+        "upstream": 0.1
+      },
+      "batch_size": {
+        "rlc": 1024,
+        "status": "match",
+        "upstream": 1024
+      },
+      "const_std": {
+        "rlc": true,
+        "status": "match",
+        "upstream": true
+      },
+      "dataset_class": {
+        "rlc": "GCDataset",
+        "status": "match",
+        "upstream": "GCDataset"
+      },
+      "discount": {
+        "rlc": 0.99,
+        "status": "match",
+        "upstream": 0.99
+      },
+      "discrete": {
+        "rlc": false,
+        "status": "match",
+        "upstream": false
+      },
+      "encoder": {
+        "rlc": null,
+        "status": "match",
+        "upstream": null
+      },
+      "frame_stack": {
+        "rlc": null,
+        "status": "match",
+        "upstream": null
+      },
+      "gc_negative": {
+        "rlc": false,
+        "status": "match",
+        "upstream": false
+      },
+      "latent_dim": {
+        "rlc": 512,
+        "status": "match",
+        "upstream": 512
+      },
+      "layer_norm": {
+        "rlc": true,
+        "status": "match",
+        "upstream": true
+      },
+      "lr": {
+        "rlc": 0.0003,
+        "status": "match",
+        "upstream": 0.0003
+      },
+      "p_aug": {
+        "rlc": 0.0,
+        "status": "match",
+        "upstream": 0.0
+      },
+      "value_geom_sample": {
+        "rlc": true,
+        "status": "match",
+        "upstream": true
+      },
+      "value_hidden_dims": {
+        "rlc": [
+          512,
+          512,
+          512
+        ],
+        "status": "match",
+        "upstream": [
+          512,
+          512,
+          512
+        ]
+      },
+      "value_p_curgoal": {
+        "rlc": 0.0,
+        "status": "match",
+        "upstream": 0.0
+      },
+      "value_p_randomgoal": {
+        "rlc": 0.0,
+        "status": "match",
+        "upstream": 0.0
+      },
+      "value_p_trajgoal": {
+        "rlc": 1.0,
+        "status": "match",
+        "upstream": 1.0
+      }
+    },
+    "gcbc": {
+      "actor_geom_sample": {
+        "rlc": false,
+        "status": "match",
+        "upstream": false
+      },
+      "actor_hidden_dims": {
+        "rlc": [
+          512,
+          512,
+          512
+        ],
+        "status": "match",
+        "upstream": [
+          512,
+          512,
+          512
+        ]
+      },
+      "actor_p_curgoal": {
+        "rlc": 0.0,
+        "status": "match",
+        "upstream": 0.0
+      },
+      "actor_p_randomgoal": {
+        "rlc": 0.0,
+        "status": "match",
+        "upstream": 0.0
+      },
+      "actor_p_trajgoal": {
+        "rlc": 1.0,
+        "status": "match",
+        "upstream": 1.0
+      },
+      "agent_name": {
+        "rlc": "gcbc",
+        "status": "match",
+        "upstream": "gcbc"
+      },
+      "batch_size": {
+        "rlc": 1024,
+        "status": "match",
+        "upstream": 1024
+      },
+      "const_std": {
+        "rlc": true,
+        "status": "match",
+        "upstream": true
+      },
+      "dataset_class": {
+        "rlc": "GCDataset",
+        "status": "match",
+        "upstream": "GCDataset"
+      },
+      "discount": {
+        "rlc": 0.99,
+        "status": "match",
+        "upstream": 0.99
+      },
+      "discrete": {
+        "rlc": false,
+        "status": "match",
+        "upstream": false
+      },
+      "encoder": {
+        "rlc": null,
+        "status": "match",
+        "upstream": null
+      },
+      "frame_stack": {
+        "rlc": null,
+        "status": "match",
+        "upstream": null
+      },
+      "gc_negative": {
+        "rlc": true,
+        "status": "match",
+        "upstream": true
+      },
+      "lr": {
+        "rlc": 0.0003,
+        "status": "match",
+        "upstream": 0.0003
+      },
+      "p_aug": {
+        "rlc": 0.0,
+        "status": "match",
+        "upstream": 0.0
+      },
+      "value_geom_sample": {
+        "rlc": false,
+        "status": "match",
+        "upstream": false
+      },
+      "value_p_curgoal": {
+        "rlc": 0.0,
+        "status": "match",
+        "upstream": 0.0
+      },
+      "value_p_randomgoal": {
+        "rlc": 0.0,
+        "status": "match",
+        "upstream": 0.0
+      },
+      "value_p_trajgoal": {
+        "rlc": 1.0,
+        "status": "match",
+        "upstream": 1.0
+      }
+    },
+    "gciql": {
+      "actor_geom_sample": {
+        "rlc": false,
+        "status": "match",
+        "upstream": false
+      },
+      "actor_hidden_dims": {
+        "rlc": [
+          512,
+          512,
+          512
+        ],
+        "status": "match",
+        "upstream": [
+          512,
+          512,
+          512
+        ]
+      },
+      "actor_loss": {
+        "rlc": "ddpgbc",
+        "status": "match",
+        "upstream": "ddpgbc"
+      },
+      "actor_p_curgoal": {
+        "rlc": 0.0,
+        "status": "match",
+        "upstream": 0.0
+      },
+      "actor_p_randomgoal": {
+        "rlc": 0.0,
+        "status": "match",
+        "upstream": 0.0
+      },
+      "actor_p_trajgoal": {
+        "rlc": 1.0,
+        "status": "match",
+        "upstream": 1.0
+      },
+      "agent_name": {
+        "rlc": "gciql",
+        "status": "match",
+        "upstream": "gciql"
+      },
+      "alpha": {
+        "rlc": 0.3,
+        "status": "match",
+        "upstream": 0.3
+      },
+      "batch_size": {
+        "rlc": 1024,
+        "status": "match",
+        "upstream": 1024
+      },
+      "const_std": {
+        "rlc": true,
+        "status": "match",
+        "upstream": true
+      },
+      "dataset_class": {
+        "rlc": "GCDataset",
+        "status": "match",
+        "upstream": "GCDataset"
+      },
+      "discount": {
+        "rlc": 0.99,
+        "status": "match",
+        "upstream": 0.99
+      },
+      "discrete": {
+        "rlc": false,
+        "status": "match",
+        "upstream": false
+      },
+      "encoder": {
+        "rlc": null,
+        "status": "match",
+        "upstream": null
+      },
+      "expectile": {
+        "rlc": 0.9,
+        "status": "match",
+        "upstream": 0.9
+      },
+      "frame_stack": {
+        "rlc": null,
+        "status": "match",
+        "upstream": null
+      },
+      "gc_negative": {
+        "rlc": true,
+        "status": "match",
+        "upstream": true
+      },
+      "layer_norm": {
+        "rlc": true,
+        "status": "match",
+        "upstream": true
+      },
+      "lr": {
+        "rlc": 0.0003,
+        "status": "match",
+        "upstream": 0.0003
+      },
+      "p_aug": {
+        "rlc": 0.0,
+        "status": "match",
+        "upstream": 0.0
+      },
+      "tau": {
+        "rlc": 0.005,
+        "status": "match",
+        "upstream": 0.005
+      },
+      "value_geom_sample": {
+        "rlc": true,
+        "status": "match",
+        "upstream": true
+      },
+      "value_hidden_dims": {
+        "rlc": [
+          512,
+          512,
+          512
+        ],
+        "status": "match",
+        "upstream": [
+          512,
+          512,
+          512
+        ]
+      },
+      "value_p_curgoal": {
+        "rlc": 0.2,
+        "status": "match",
+        "upstream": 0.2
+      },
+      "value_p_randomgoal": {
+        "rlc": 0.3,
+        "status": "match",
+        "upstream": 0.3
+      },
+      "value_p_trajgoal": {
+        "rlc": 0.5,
+        "status": "match",
+        "upstream": 0.5
+      }
+    },
+    "gcivl": {
+      "actor_geom_sample": {
+        "rlc": false,
+        "status": "match",
+        "upstream": false
+      },
+      "actor_hidden_dims": {
+        "rlc": [
+          512,
+          512,
+          512
+        ],
+        "status": "match",
+        "upstream": [
+          512,
+          512,
+          512
+        ]
+      },
+      "actor_p_curgoal": {
+        "rlc": 0.0,
+        "status": "match",
+        "upstream": 0.0
+      },
+      "actor_p_randomgoal": {
+        "rlc": 0.0,
+        "status": "match",
+        "upstream": 0.0
+      },
+      "actor_p_trajgoal": {
+        "rlc": 1.0,
+        "status": "match",
+        "upstream": 1.0
+      },
+      "agent_name": {
+        "rlc": "gcivl",
+        "status": "match",
+        "upstream": "gcivl"
+      },
+      "alpha": {
+        "rlc": 10.0,
+        "status": "match",
+        "upstream": 10.0
+      },
+      "batch_size": {
+        "rlc": 1024,
+        "status": "match",
+        "upstream": 1024
+      },
+      "const_std": {
+        "rlc": true,
+        "status": "match",
+        "upstream": true
+      },
+      "dataset_class": {
+        "rlc": "GCDataset",
+        "status": "match",
+        "upstream": "GCDataset"
+      },
+      "discount": {
+        "rlc": 0.99,
+        "status": "match",
+        "upstream": 0.99
+      },
+      "discrete": {
+        "rlc": false,
+        "status": "match",
+        "upstream": false
+      },
+      "encoder": {
+        "rlc": null,
+        "status": "match",
+        "upstream": null
+      },
+      "expectile": {
+        "rlc": 0.9,
+        "status": "match",
+        "upstream": 0.9
+      },
+      "frame_stack": {
+        "rlc": null,
+        "status": "match",
+        "upstream": null
+      },
+      "gc_negative": {
+        "rlc": true,
+        "status": "match",
+        "upstream": true
+      },
+      "layer_norm": {
+        "rlc": true,
+        "status": "match",
+        "upstream": true
+      },
+      "lr": {
+        "rlc": 0.0003,
+        "status": "match",
+        "upstream": 0.0003
+      },
+      "p_aug": {
+        "rlc": 0.0,
+        "status": "match",
+        "upstream": 0.0
+      },
+      "tau": {
+        "rlc": 0.005,
+        "status": "match",
+        "upstream": 0.005
+      },
+      "value_geom_sample": {
+        "rlc": true,
+        "status": "match",
+        "upstream": true
+      },
+      "value_hidden_dims": {
+        "rlc": [
+          512,
+          512,
+          512
+        ],
+        "status": "match",
+        "upstream": [
+          512,
+          512,
+          512
+        ]
+      },
+      "value_p_curgoal": {
+        "rlc": 0.2,
+        "status": "match",
+        "upstream": 0.2
+      },
+      "value_p_randomgoal": {
+        "rlc": 0.3,
+        "status": "match",
+        "upstream": 0.3
+      },
+      "value_p_trajgoal": {
+        "rlc": 0.5,
+        "status": "match",
+        "upstream": 0.5
+      }
+    },
+    "hiql": {
+      "actor_geom_sample": {
+        "rlc": false,
+        "status": "match",
+        "upstream": false
+      },
+      "actor_hidden_dims": {
+        "rlc": [
+          512,
+          512,
+          512
+        ],
+        "status": "match",
+        "upstream": [
+          512,
+          512,
+          512
+        ]
+      },
+      "actor_p_curgoal": {
+        "rlc": 0.0,
+        "status": "match",
+        "upstream": 0.0
+      },
+      "actor_p_randomgoal": {
+        "rlc": 0.0,
+        "status": "match",
+        "upstream": 0.0
+      },
+      "actor_p_trajgoal": {
+        "rlc": 1.0,
+        "status": "match",
+        "upstream": 1.0
+      },
+      "agent_name": {
+        "rlc": "hiql",
+        "status": "match",
+        "upstream": "hiql"
+      },
+      "batch_size": {
+        "rlc": 1024,
+        "status": "match",
+        "upstream": 1024
+      },
+      "const_std": {
+        "rlc": true,
+        "status": "match",
+        "upstream": true
+      },
+      "dataset_class": {
+        "rlc": "HGCDataset",
+        "status": "match",
+        "upstream": "HGCDataset"
+      },
+      "discount": {
+        "rlc": 0.99,
+        "status": "match",
+        "upstream": 0.99
+      },
+      "discrete": {
+        "rlc": false,
+        "status": "match",
+        "upstream": false
+      },
+      "encoder": {
+        "rlc": null,
+        "status": "match",
+        "upstream": null
+      },
+      "expectile": {
+        "rlc": 0.7,
+        "status": "match",
+        "upstream": 0.7
+      },
+      "frame_stack": {
+        "rlc": null,
+        "status": "match",
+        "upstream": null
+      },
+      "gc_negative": {
+        "rlc": true,
+        "status": "match",
+        "upstream": true
+      },
+      "high_alpha": {
+        "rlc": 3.0,
+        "status": "match",
+        "upstream": 3.0
+      },
+      "layer_norm": {
+        "rlc": true,
+        "status": "match",
+        "upstream": true
+      },
+      "low_actor_rep_grad": {
+        "rlc": false,
+        "status": "match",
+        "upstream": false
+      },
+      "low_alpha": {
+        "rlc": 3.0,
+        "status": "match",
+        "upstream": 3.0
+      },
+      "lr": {
+        "rlc": 0.0003,
+        "status": "match",
+        "upstream": 0.0003
+      },
+      "p_aug": {
+        "rlc": 0.0,
+        "status": "match",
+        "upstream": 0.0
+      },
+      "rep_dim": {
+        "rlc": 10,
+        "status": "match",
+        "upstream": 10
+      },
+      "subgoal_steps": {
+        "rlc": 25,
+        "status": "match",
+        "upstream": 25
+      },
+      "tau": {
+        "rlc": 0.005,
+        "status": "match",
+        "upstream": 0.005
+      },
+      "value_geom_sample": {
+        "rlc": true,
+        "status": "match",
+        "upstream": true
+      },
+      "value_hidden_dims": {
+        "rlc": [
+          512,
+          512,
+          512
+        ],
+        "status": "match",
+        "upstream": [
+          512,
+          512,
+          512
+        ]
+      },
+      "value_p_curgoal": {
+        "rlc": 0.2,
+        "status": "match",
+        "upstream": 0.2
+      },
+      "value_p_randomgoal": {
+        "rlc": 0.3,
+        "status": "match",
+        "upstream": 0.3
+      },
+      "value_p_trajgoal": {
+        "rlc": 0.5,
+        "status": "match",
+        "upstream": 0.5
+      }
+    },
+    "qrl": {
+      "actor_geom_sample": {
+        "rlc": false,
+        "status": "match",
+        "upstream": false
+      },
+      "actor_hidden_dims": {
+        "rlc": [
+          512,
+          512,
+          512
+        ],
+        "status": "match",
+        "upstream": [
+          512,
+          512,
+          512
+        ]
+      },
+      "actor_loss": {
+        "rlc": "ddpgbc",
+        "status": "match",
+        "upstream": "ddpgbc"
+      },
+      "actor_p_curgoal": {
+        "rlc": 0.0,
+        "status": "match",
+        "upstream": 0.0
+      },
+      "actor_p_randomgoal": {
+        "rlc": 0.0,
+        "status": "match",
+        "upstream": 0.0
+      },
+      "actor_p_trajgoal": {
+        "rlc": 1.0,
+        "status": "match",
+        "upstream": 1.0
+      },
+      "agent_name": {
+        "rlc": "qrl",
+        "status": "match",
+        "upstream": "qrl"
+      },
+      "alpha": {
+        "rlc": 0.003,
+        "status": "match",
+        "upstream": 0.003
+      },
+      "batch_size": {
+        "rlc": 1024,
+        "status": "match",
+        "upstream": 1024
+      },
+      "const_std": {
+        "rlc": true,
+        "status": "match",
+        "upstream": true
+      },
+      "dataset_class": {
+        "rlc": "GCDataset",
+        "status": "match",
+        "upstream": "GCDataset"
+      },
+      "dim_per_component": {
+        "rlc": 8,
+        "status": "match",
+        "upstream": "create() hard-codes dim_per_component=8"
+      },
+      "discount": {
+        "rlc": 0.99,
+        "status": "match",
+        "upstream": 0.99
+      },
+      "discrete": {
+        "rlc": false,
+        "status": "match",
+        "upstream": false
+      },
+      "encoder": {
+        "rlc": null,
+        "status": "match",
+        "upstream": null
+      },
+      "eps": {
+        "rlc": 0.05,
+        "status": "match",
+        "upstream": 0.05
+      },
+      "frame_stack": {
+        "rlc": null,
+        "status": "match",
+        "upstream": null
+      },
+      "gc_negative": {
+        "rlc": false,
+        "status": "match",
+        "upstream": false
+      },
+      "latent_dim": {
+        "rlc": 512,
+        "status": "match",
+        "upstream": 512
+      },
+      "layer_norm": {
+        "rlc": true,
+        "status": "match",
+        "upstream": true
+      },
+      "lr": {
+        "rlc": 0.0003,
+        "status": "match",
+        "upstream": 0.0003
+      },
+      "p_aug": {
+        "rlc": 0.0,
+        "status": "match",
+        "upstream": 0.0
+      },
+      "quasimetric_type": {
+        "rlc": "iqe",
+        "status": "match",
+        "upstream": "iqe"
+      },
+      "value_geom_sample": {
+        "rlc": true,
+        "status": "match",
+        "upstream": true
+      },
+      "value_hidden_dims": {
+        "rlc": [
+          512,
+          512,
+          512
+        ],
+        "status": "match",
+        "upstream": [
+          512,
+          512,
+          512
+        ]
+      },
+      "value_p_curgoal": {
+        "rlc": 0.0,
+        "status": "match",
+        "upstream": 0.0
+      },
+      "value_p_randomgoal": {
+        "rlc": 1.0,
+        "status": "match",
+        "upstream": 1.0
+      },
+      "value_p_trajgoal": {
+        "rlc": 0.0,
+        "status": "match",
+        "upstream": 0.0
+      }
+    }
+  },
+  "correction_history": [
+    {
+      "algorithm": "crl",
+      "corrected_status": "match_same_gradient_semantics_different_implementation_style",
+      "correction_basis": "executable isolated actor_loss gradient-flow audit for upstream and RLC",
+      "executable_gradient_flow_audit": {
+        "batch": {
+          "action_dim": 3,
+          "batch_size": 4,
+          "observation_dim": 8,
+          "seed": 0
+        },
+        "gradient_seed": 17,
+        "implementation_details": {
+          "rlc": "critic call receives stop_gradient(grad_params)",
+          "upstream": "critic call omits params=grad_params; TrainState stored params are constants in the grad trace"
+        },
+        "objective": "isolated CRL actor_loss with actor_loss=ddpgbc",
+        "records": {
+          "rlc": {
+            "actor_grad_norm_positive": true,
+            "actor_loss_value": 1.0335309505462646,
+            "actor_subtree_grad_l2_norm": 1.9510931968688965,
+            "critic_grad_numerical_zero": true,
+            "critic_subtree_grad_l2_norm": 0.0,
+            "critic_subtree_grad_max_abs": 0.0,
+            "dQ_da_active": true,
+            "dQ_da_l2_norm": 1.6269197463989258,
+            "dQ_da_max_abs": 1.018206000328064,
+            "full_parameter_tree_leaf_count": 36,
+            "implementation": "rlc",
+            "parameter_subtrees": [
+              "modules_actor",
+              "modules_critic"
+            ],
+            "passed": true,
+            "tolerance": 1e-12
+          },
+          "upstream": {
+            "actor_grad_norm_positive": true,
+            "actor_loss_value": 1.0335309505462646,
+            "actor_subtree_grad_l2_norm": 1.9510931968688965,
+            "critic_grad_numerical_zero": true,
+            "critic_subtree_grad_l2_norm": 0.0,
+            "critic_subtree_grad_max_abs": 0.0,
+            "dQ_da_active": true,
+            "dQ_da_l2_norm": 1.6269197463989258,
+            "dQ_da_max_abs": 1.018206000328064,
+            "full_parameter_tree_leaf_count": 36,
+            "implementation": "upstream",
+            "parameter_subtrees": [
+              "modules_actor",
+              "modules_critic"
+            ],
+            "passed": true,
+            "tolerance": 1e-12
+          }
+        },
+        "same_gradient_semantics": true,
+        "schema": "m22_crl_gradient_flow_audit_v1",
+        "status": "pass"
+      },
+      "field": "ddpgbc_critic_gradient_in_actor_loss",
+      "previous_basis": "syntax-only source classification; it incorrectly treated joint total_loss differentiation as sufficient evidence of critic-parameter gradient flow",
+      "previous_status": "material_difference"
+    }
+  ],
+  "crl_gradient_flow_audit": {
+    "batch": {
+      "action_dim": 3,
+      "batch_size": 4,
+      "observation_dim": 8,
+      "seed": 0
+    },
+    "gradient_seed": 17,
+    "implementation_details": {
+      "rlc": "critic call receives stop_gradient(grad_params)",
+      "upstream": "critic call omits params=grad_params; TrainState stored params are constants in the grad trace"
+    },
+    "objective": "isolated CRL actor_loss with actor_loss=ddpgbc",
+    "records": {
+      "rlc": {
+        "actor_grad_norm_positive": true,
+        "actor_loss_value": 1.0335309505462646,
+        "actor_subtree_grad_l2_norm": 1.9510931968688965,
+        "critic_grad_numerical_zero": true,
+        "critic_subtree_grad_l2_norm": 0.0,
+        "critic_subtree_grad_max_abs": 0.0,
+        "dQ_da_active": true,
+        "dQ_da_l2_norm": 1.6269197463989258,
+        "dQ_da_max_abs": 1.018206000328064,
+        "full_parameter_tree_leaf_count": 36,
+        "implementation": "rlc",
+        "parameter_subtrees": [
+          "modules_actor",
+          "modules_critic"
+        ],
+        "passed": true,
+        "tolerance": 1e-12
+      },
+      "upstream": {
+        "actor_grad_norm_positive": true,
+        "actor_loss_value": 1.0335309505462646,
+        "actor_subtree_grad_l2_norm": 1.9510931968688965,
+        "critic_grad_numerical_zero": true,
+        "critic_subtree_grad_l2_norm": 0.0,
+        "critic_subtree_grad_max_abs": 0.0,
+        "dQ_da_active": true,
+        "dQ_da_l2_norm": 1.6269197463989258,
+        "dQ_da_max_abs": 1.018206000328064,
+        "full_parameter_tree_leaf_count": 36,
+        "implementation": "upstream",
+        "parameter_subtrees": [
+          "modules_actor",
+          "modules_critic"
+        ],
+        "passed": true,
+        "tolerance": 1e-12
+      }
+    },
+    "same_gradient_semantics": true,
+    "schema": "m22_crl_gradient_flow_audit_v1",
+    "status": "pass"
+  },
+  "decision": "PASS: no undisclosed or newly discovered material semantic difference detected; the two user-frozen RLC target-update variants are explicitly documented and non-blocking.",
+  "documented_rlc_variants": [
+    {
+      "algorithm": "gcivl",
+      "blocking": false,
+      "difference": "post-gradient target Polyak update",
+      "field": "target_network_semantics",
+      "rlc": {
+        "line": 111,
+        "semantics": "post_gradient_online"
+      },
+      "status": "rlc_variant_documented",
+      "upstream": {
+        "line": 116,
+        "semantics": "pre_gradient_online"
+      },
+      "user_frozen": true
+    },
+    {
+      "algorithm": "gciql",
+      "blocking": false,
+      "difference": "post-gradient target Polyak update",
+      "field": "target_network_semantics",
+      "rlc": {
+        "line": 154,
+        "semantics": "post_gradient_online"
+      },
+      "status": "rlc_variant_documented",
+      "upstream": {
+        "line": 151,
+        "semantics": "pre_gradient_online"
+      },
+      "user_frozen": true
+    }
+  ],
+  "field_status_vocabulary": [
+    "match",
+    "infrastructure_only_difference",
+    "material_difference",
+    "not_applicable",
+    "match_same_gradient_semantics_different_implementation_style",
+    "rlc_variant_documented"
+  ],
+  "fields": [
+    {
+      "algorithm": "gcbc",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gcbc.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcbc.py"
+      },
+      "field": "objective/loss",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gcbc",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gcbc.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcbc.py"
+      },
+      "field": "actor_objective",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gcbc",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gcbc.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcbc.py"
+      },
+      "field": "value_objective",
+      "rlc": "no value objective in official default branch",
+      "status": "not_applicable",
+      "upstream": "no value objective in official default branch"
+    },
+    {
+      "algorithm": "gcbc",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gcbc.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcbc.py"
+      },
+      "field": "critic_objective",
+      "rlc": "no critic objective",
+      "status": "not_applicable",
+      "upstream": "no critic objective"
+    },
+    {
+      "algorithm": "gcbc",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gcbc.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcbc.py"
+      },
+      "field": "policy_distribution",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gcbc",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gcbc.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcbc.py"
+      },
+      "field": "network_width_depth",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gcbc",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gcbc.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcbc.py"
+      },
+      "field": "normalization",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gcbc",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gcbc.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcbc.py"
+      },
+      "field": "optimizer_learning_rate_batch_discount_expectile",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gcbc",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gcbc.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcbc.py"
+      },
+      "field": "alpha_semantics",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gcbc",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gcbc.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcbc.py"
+      },
+      "field": "goal_sampling",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gcbc",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gcbc.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcbc.py"
+      },
+      "field": "dataset_class",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gcbc",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gcbc.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcbc.py"
+      },
+      "field": "negative_goal_semantics",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gcbc",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gcbc.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcbc.py"
+      },
+      "field": "target_network_semantics",
+      "rlc": "no target-network update in official branch",
+      "status": "not_applicable",
+      "upstream": "no target-network update in official branch"
+    },
+    {
+      "algorithm": "gcbc",
+      "evidence": {
+        "rlc_factory": "/home/eai/Research/RLC/impls/computation/factory.py",
+        "runtime_check": "resolved_default_compute_audit"
+      },
+      "field": "RLC_computation_extension_when_disabled",
+      "rlc": "disabled slots resolve to None and select the original MLP path",
+      "status": "infrastructure_only_difference",
+      "upstream": "no computation-slot ontology in upstream"
+    },
+    {
+      "algorithm": "gcbc",
+      "evidence": {
+        "rlc_main": "/home/eai/Research/RLC/impls/main.py",
+        "upstream_main": "/home/eai/Research/offline_rl_baselines/ogbench/impls/main.py"
+      },
+      "field": "evaluation_device_and_seed_plumbing",
+      "rlc": "RLC uses explicit deterministic seed streams; JAX policy inference follows selected backend",
+      "status": "infrastructure_only_difference",
+      "upstream": "upstream main defaults eval_on_cpu=1 and uses process RNG"
+    },
+    {
+      "algorithm": "gcivl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gcivl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcivl.py"
+      },
+      "field": "objective/loss",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gcivl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gcivl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcivl.py"
+      },
+      "field": "actor_objective",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gcivl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gcivl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcivl.py"
+      },
+      "field": "value_objective",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gcivl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gcivl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcivl.py"
+      },
+      "field": "critic_objective",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gcivl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gcivl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcivl.py"
+      },
+      "field": "policy_distribution",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gcivl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gcivl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcivl.py"
+      },
+      "field": "network_width_depth",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gcivl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gcivl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcivl.py"
+      },
+      "field": "normalization",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gcivl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gcivl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcivl.py"
+      },
+      "field": "optimizer_learning_rate_batch_discount_expectile",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gcivl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gcivl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcivl.py"
+      },
+      "field": "alpha_semantics",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gcivl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gcivl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcivl.py"
+      },
+      "field": "goal_sampling",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gcivl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gcivl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcivl.py"
+      },
+      "field": "dataset_class",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gcivl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gcivl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcivl.py"
+      },
+      "field": "negative_goal_semantics",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gcivl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gcivl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gcivl.py"
+      },
+      "field": "target_network_semantics",
+      "original_static_audit": {
+        "basis": "source-level target_update parameter-source comparison",
+        "rlc": {
+          "line": 111,
+          "semantics": "post_gradient_online"
+        },
+        "status": "material_difference",
+        "upstream": {
+          "line": 116,
+          "semantics": "pre_gradient_online"
+        }
+      },
+      "rlc": {
+        "line": 111,
+        "semantics": "post_gradient_online"
+      },
+      "status": "rlc_variant_documented",
+      "upstream": {
+        "line": 116,
+        "semantics": "pre_gradient_online"
+      },
+      "variant": {
+        "blocking": false,
+        "difference": "post-gradient target Polyak update",
+        "implementation_semantics": "rlc_variant_documented",
+        "user_frozen": true
+      }
+    },
+    {
+      "algorithm": "gcivl",
+      "evidence": {
+        "rlc_factory": "/home/eai/Research/RLC/impls/computation/factory.py",
+        "runtime_check": "resolved_default_compute_audit"
+      },
+      "field": "RLC_computation_extension_when_disabled",
+      "rlc": "disabled slots resolve to None and select the original MLP path",
+      "status": "infrastructure_only_difference",
+      "upstream": "no computation-slot ontology in upstream"
+    },
+    {
+      "algorithm": "gcivl",
+      "evidence": {
+        "rlc_main": "/home/eai/Research/RLC/impls/main.py",
+        "upstream_main": "/home/eai/Research/offline_rl_baselines/ogbench/impls/main.py"
+      },
+      "field": "evaluation_device_and_seed_plumbing",
+      "rlc": "RLC uses explicit deterministic seed streams; JAX policy inference follows selected backend",
+      "status": "infrastructure_only_difference",
+      "upstream": "upstream main defaults eval_on_cpu=1 and uses process RNG"
+    },
+    {
+      "algorithm": "gciql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gciql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gciql.py"
+      },
+      "field": "objective/loss",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gciql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gciql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gciql.py"
+      },
+      "field": "actor_objective",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gciql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gciql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gciql.py"
+      },
+      "field": "value_objective",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gciql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gciql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gciql.py"
+      },
+      "field": "critic_objective",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gciql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gciql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gciql.py"
+      },
+      "field": "policy_distribution",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gciql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gciql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gciql.py"
+      },
+      "field": "network_width_depth",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gciql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gciql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gciql.py"
+      },
+      "field": "normalization",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gciql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gciql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gciql.py"
+      },
+      "field": "optimizer_learning_rate_batch_discount_expectile",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gciql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gciql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gciql.py"
+      },
+      "field": "alpha_semantics",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gciql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gciql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gciql.py"
+      },
+      "field": "goal_sampling",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gciql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gciql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gciql.py"
+      },
+      "field": "dataset_class",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gciql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gciql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gciql.py"
+      },
+      "field": "negative_goal_semantics",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "gciql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/gciql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/gciql.py"
+      },
+      "field": "target_network_semantics",
+      "original_static_audit": {
+        "basis": "source-level target_update parameter-source comparison",
+        "rlc": {
+          "line": 154,
+          "semantics": "post_gradient_online"
+        },
+        "status": "material_difference",
+        "upstream": {
+          "line": 151,
+          "semantics": "pre_gradient_online"
+        }
+      },
+      "rlc": {
+        "line": 154,
+        "semantics": "post_gradient_online"
+      },
+      "status": "rlc_variant_documented",
+      "upstream": {
+        "line": 151,
+        "semantics": "pre_gradient_online"
+      },
+      "variant": {
+        "blocking": false,
+        "difference": "post-gradient target Polyak update",
+        "implementation_semantics": "rlc_variant_documented",
+        "user_frozen": true
+      }
+    },
+    {
+      "algorithm": "gciql",
+      "evidence": {
+        "rlc_factory": "/home/eai/Research/RLC/impls/computation/factory.py",
+        "runtime_check": "resolved_default_compute_audit"
+      },
+      "field": "RLC_computation_extension_when_disabled",
+      "rlc": "disabled slots resolve to None and select the original MLP path",
+      "status": "infrastructure_only_difference",
+      "upstream": "no computation-slot ontology in upstream"
+    },
+    {
+      "algorithm": "gciql",
+      "evidence": {
+        "rlc_main": "/home/eai/Research/RLC/impls/main.py",
+        "upstream_main": "/home/eai/Research/offline_rl_baselines/ogbench/impls/main.py"
+      },
+      "field": "evaluation_device_and_seed_plumbing",
+      "rlc": "RLC uses explicit deterministic seed streams; JAX policy inference follows selected backend",
+      "status": "infrastructure_only_difference",
+      "upstream": "upstream main defaults eval_on_cpu=1 and uses process RNG"
+    },
+    {
+      "algorithm": "qrl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/qrl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/qrl.py"
+      },
+      "field": "objective/loss",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "qrl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/qrl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/qrl.py"
+      },
+      "field": "actor_objective",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "qrl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/qrl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/qrl.py"
+      },
+      "field": "value_objective",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "qrl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/qrl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/qrl.py"
+      },
+      "field": "critic_objective",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "qrl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/qrl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/qrl.py"
+      },
+      "field": "policy_distribution",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "qrl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/qrl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/qrl.py"
+      },
+      "field": "network_width_depth",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "qrl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/qrl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/qrl.py"
+      },
+      "field": "normalization",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "qrl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/qrl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/qrl.py"
+      },
+      "field": "optimizer_learning_rate_batch_discount_expectile",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "qrl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/qrl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/qrl.py"
+      },
+      "field": "alpha_semantics",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "qrl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/qrl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/qrl.py"
+      },
+      "field": "goal_sampling",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "qrl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/qrl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/qrl.py"
+      },
+      "field": "dataset_class",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "qrl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/qrl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/qrl.py"
+      },
+      "field": "negative_goal_semantics",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "qrl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/qrl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/qrl.py"
+      },
+      "field": "target_network_semantics",
+      "rlc": "no target-network update in official branch",
+      "status": "not_applicable",
+      "upstream": "no target-network update in official branch"
+    },
+    {
+      "algorithm": "qrl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/qrl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/qrl.py"
+      },
+      "field": "latent_representation_and_dynamics",
+      "rlc": "same IQE phi and delta dynamics; computation hook is disabled",
+      "status": "match",
+      "upstream": "IQE latent phi and delta dynamics in official DDPG+BC branch"
+    },
+    {
+      "algorithm": "qrl",
+      "evidence": {
+        "rlc_factory": "/home/eai/Research/RLC/impls/computation/factory.py",
+        "runtime_check": "resolved_default_compute_audit"
+      },
+      "field": "RLC_computation_extension_when_disabled",
+      "rlc": "disabled slots resolve to None and select the original MLP path",
+      "status": "infrastructure_only_difference",
+      "upstream": "no computation-slot ontology in upstream"
+    },
+    {
+      "algorithm": "qrl",
+      "evidence": {
+        "rlc_main": "/home/eai/Research/RLC/impls/main.py",
+        "upstream_main": "/home/eai/Research/offline_rl_baselines/ogbench/impls/main.py"
+      },
+      "field": "evaluation_device_and_seed_plumbing",
+      "rlc": "RLC uses explicit deterministic seed streams; JAX policy inference follows selected backend",
+      "status": "infrastructure_only_difference",
+      "upstream": "upstream main defaults eval_on_cpu=1 and uses process RNG"
+    },
+    {
+      "algorithm": "crl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/crl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/crl.py"
+      },
+      "field": "objective/loss",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "crl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/crl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/crl.py"
+      },
+      "field": "actor_objective",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "crl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/crl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/crl.py"
+      },
+      "field": "value_objective",
+      "rlc": "no value objective in official default branch",
+      "status": "not_applicable",
+      "upstream": "no value objective in official default branch"
+    },
+    {
+      "algorithm": "crl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/crl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/crl.py"
+      },
+      "field": "critic_objective",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "crl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/crl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/crl.py"
+      },
+      "field": "policy_distribution",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "crl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/crl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/crl.py"
+      },
+      "field": "network_width_depth",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "crl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/crl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/crl.py"
+      },
+      "field": "normalization",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "crl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/crl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/crl.py"
+      },
+      "field": "optimizer_learning_rate_batch_discount_expectile",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "crl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/crl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/crl.py"
+      },
+      "field": "alpha_semantics",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "crl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/crl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/crl.py"
+      },
+      "field": "goal_sampling",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "crl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/crl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/crl.py"
+      },
+      "field": "dataset_class",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "crl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/crl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/crl.py"
+      },
+      "field": "negative_goal_semantics",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "crl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/crl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/crl.py"
+      },
+      "field": "target_network_semantics",
+      "rlc": "no target-network update in official branch",
+      "status": "not_applicable",
+      "upstream": "no target-network update in official branch"
+    },
+    {
+      "algorithm": "crl",
+      "evidence": {
+        "executable_gradient_flow_audit": {
+          "rlc": {
+            "actor_grad_norm_positive": true,
+            "actor_loss_value": 1.0335309505462646,
+            "actor_subtree_grad_l2_norm": 1.9510931968688965,
+            "critic_grad_numerical_zero": true,
+            "critic_subtree_grad_l2_norm": 0.0,
+            "critic_subtree_grad_max_abs": 0.0,
+            "dQ_da_active": true,
+            "dQ_da_l2_norm": 1.6269197463989258,
+            "dQ_da_max_abs": 1.018206000328064,
+            "full_parameter_tree_leaf_count": 36,
+            "implementation": "rlc",
+            "parameter_subtrees": [
+              "modules_actor",
+              "modules_critic"
+            ],
+            "passed": true,
+            "tolerance": 1e-12
+          },
+          "upstream": {
+            "actor_grad_norm_positive": true,
+            "actor_loss_value": 1.0335309505462646,
+            "actor_subtree_grad_l2_norm": 1.9510931968688965,
+            "critic_grad_numerical_zero": true,
+            "critic_subtree_grad_l2_norm": 0.0,
+            "critic_subtree_grad_max_abs": 0.0,
+            "dQ_da_active": true,
+            "dQ_da_l2_norm": 1.6269197463989258,
+            "dQ_da_max_abs": 1.018206000328064,
+            "full_parameter_tree_leaf_count": 36,
+            "implementation": "upstream",
+            "parameter_subtrees": [
+              "modules_actor",
+              "modules_critic"
+            ],
+            "passed": true,
+            "tolerance": 1e-12
+          }
+        },
+        "original_static_audit": {
+          "basis": "previous source syntax inspection; insufficient without gradient-flow execution",
+          "rlc": {
+            "branch_line": 91,
+            "evidence_line": 107,
+            "semantics": "critic_frozen_inside_actor_loss"
+          },
+          "status": "material_difference",
+          "upstream": {
+            "branch_line": 102,
+            "evidence_line": 76,
+            "semantics": "joint_actor_and_critic_gradient"
+          }
+        },
+        "rlc": "/home/eai/Research/RLC/impls/agents/crl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/crl.py"
+      },
+      "field": "ddpgbc_critic_gradient_in_actor_loss",
+      "original_static_audit": {
+        "basis": "previous source syntax inspection; insufficient without gradient-flow execution",
+        "rlc": {
+          "branch_line": 91,
+          "evidence_line": 107,
+          "semantics": "critic_frozen_inside_actor_loss"
+        },
+        "status": "material_difference",
+        "upstream": {
+          "branch_line": 102,
+          "evidence_line": 76,
+          "semantics": "joint_actor_and_critic_gradient"
+        }
+      },
+      "rlc": {
+        "branch_line": 91,
+        "evidence_line": 107,
+        "semantics": "critic_frozen_inside_actor_loss"
+      },
+      "status": "match_same_gradient_semantics_different_implementation_style",
+      "upstream": {
+        "branch_line": 102,
+        "evidence_line": 76,
+        "semantics": "joint_actor_and_critic_gradient"
+      }
+    },
+    {
+      "algorithm": "crl",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/crl.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/crl.py"
+      },
+      "field": "contrastive_objective",
+      "rlc": "same sigmoid BCE and bilinear phi/psi logits",
+      "status": "match",
+      "upstream": "sigmoid BCE over bilinear phi/psi logits"
+    },
+    {
+      "algorithm": "crl",
+      "evidence": {
+        "rlc_factory": "/home/eai/Research/RLC/impls/computation/factory.py",
+        "runtime_check": "resolved_default_compute_audit"
+      },
+      "field": "RLC_computation_extension_when_disabled",
+      "rlc": "disabled slots resolve to None and select the original MLP path",
+      "status": "infrastructure_only_difference",
+      "upstream": "no computation-slot ontology in upstream"
+    },
+    {
+      "algorithm": "crl",
+      "evidence": {
+        "rlc_main": "/home/eai/Research/RLC/impls/main.py",
+        "upstream_main": "/home/eai/Research/offline_rl_baselines/ogbench/impls/main.py"
+      },
+      "field": "evaluation_device_and_seed_plumbing",
+      "rlc": "RLC uses explicit deterministic seed streams; JAX policy inference follows selected backend",
+      "status": "infrastructure_only_difference",
+      "upstream": "upstream main defaults eval_on_cpu=1 and uses process RNG"
+    },
+    {
+      "algorithm": "hiql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/hiql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/hiql.py"
+      },
+      "field": "objective/loss",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "hiql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/hiql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/hiql.py"
+      },
+      "field": "actor_objective",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "hiql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/hiql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/hiql.py"
+      },
+      "field": "value_objective",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "hiql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/hiql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/hiql.py"
+      },
+      "field": "critic_objective",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "hiql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/hiql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/hiql.py"
+      },
+      "field": "policy_distribution",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "hiql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/hiql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/hiql.py"
+      },
+      "field": "network_width_depth",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "hiql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/hiql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/hiql.py"
+      },
+      "field": "normalization",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "hiql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/hiql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/hiql.py"
+      },
+      "field": "optimizer_learning_rate_batch_discount_expectile",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "hiql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/hiql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/hiql.py"
+      },
+      "field": "alpha_semantics",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "hiql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/hiql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/hiql.py"
+      },
+      "field": "goal_sampling",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "hiql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/hiql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/hiql.py"
+      },
+      "field": "dataset_class",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "hiql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/hiql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/hiql.py"
+      },
+      "field": "negative_goal_semantics",
+      "rlc": "same canonical source equation/configuration",
+      "status": "match",
+      "upstream": "same canonical source equation/configuration"
+    },
+    {
+      "algorithm": "hiql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/hiql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/hiql.py"
+      },
+      "field": "target_network_semantics",
+      "rlc": {
+        "line": 118,
+        "semantics": "pre_gradient_online"
+      },
+      "status": "match",
+      "upstream": {
+        "line": 150,
+        "semantics": "pre_gradient_online"
+      }
+    },
+    {
+      "algorithm": "hiql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/hiql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/hiql.py"
+      },
+      "field": "hierarchy_high_low_actor",
+      "rlc": "same high/low actor hierarchy; computation hook is disabled",
+      "status": "match",
+      "upstream": "high actor predicts normalized subgoal representation; low actor predicts action"
+    },
+    {
+      "algorithm": "hiql",
+      "evidence": {
+        "rlc": "/home/eai/Research/RLC/impls/agents/hiql.py",
+        "upstream": "/home/eai/Research/offline_rl_baselines/ogbench/impls/agents/hiql.py"
+      },
+      "field": "subgoal_sampling_and_subgoal_steps",
+      "rlc": "same HGCDataset equations and subgoal_steps field",
+      "status": "match",
+      "upstream": "HGCDataset and subgoal_steps-controlled low/high targets"
+    },
+    {
+      "algorithm": "hiql",
+      "evidence": {
+        "rlc_factory": "/home/eai/Research/RLC/impls/computation/factory.py",
+        "runtime_check": "resolved_default_compute_audit"
+      },
+      "field": "RLC_computation_extension_when_disabled",
+      "rlc": "disabled slots resolve to None and select the original MLP path",
+      "status": "infrastructure_only_difference",
+      "upstream": "no computation-slot ontology in upstream"
+    },
+    {
+      "algorithm": "hiql",
+      "evidence": {
+        "rlc_main": "/home/eai/Research/RLC/impls/main.py",
+        "upstream_main": "/home/eai/Research/offline_rl_baselines/ogbench/impls/main.py"
+      },
+      "field": "evaluation_device_and_seed_plumbing",
+      "rlc": "RLC uses explicit deterministic seed streams; JAX policy inference follows selected backend",
+      "status": "infrastructure_only_difference",
+      "upstream": "upstream main defaults eval_on_cpu=1 and uses process RNG"
+    }
+  ],
+  "material_mismatches": [],
+  "official_hyperparameters_authoritative": true,
+  "original_static_material_difference_evidence": [
+    {
+      "algorithm": "gcivl",
+      "basis": "source-level target_update parameter-source comparison",
+      "field": "target_network_semantics",
+      "rlc": {
+        "line": 111,
+        "semantics": "post_gradient_online"
+      },
+      "status": "material_difference",
+      "upstream": {
+        "line": 116,
+        "semantics": "pre_gradient_online"
+      }
+    },
+    {
+      "algorithm": "gciql",
+      "basis": "source-level target_update parameter-source comparison",
+      "field": "target_network_semantics",
+      "rlc": {
+        "line": 154,
+        "semantics": "post_gradient_online"
+      },
+      "status": "material_difference",
+      "upstream": {
+        "line": 151,
+        "semantics": "pre_gradient_online"
+      }
+    },
+    {
+      "algorithm": "crl",
+      "basis": "previous source syntax inspection; insufficient without gradient-flow execution",
+      "field": "ddpgbc_critic_gradient_in_actor_loss",
+      "rlc": {
+        "branch_line": 91,
+        "evidence_line": 107,
+        "semantics": "critic_frozen_inside_actor_loss"
+      },
+      "status": "material_difference",
+      "upstream": {
+        "branch_line": 102,
+        "evidence_line": 76,
+        "semantics": "joint_actor_and_critic_gradient"
+      }
+    }
+  ],
+  "rlc_default_compute_audit": {
+    "crl": {
+      "all_disabled": true,
+      "all_resolve_to_none": true,
+      "slot_count": 5,
+      "slots": {
+        "actor": {
+          "enabled": false,
+          "resolved_slot_spec_is_none": true
+        },
+        "critic_goal": {
+          "enabled": false,
+          "resolved_slot_spec_is_none": true
+        },
+        "critic_state": {
+          "enabled": false,
+          "resolved_slot_spec_is_none": true
+        },
+        "value_goal": {
+          "enabled": false,
+          "resolved_slot_spec_is_none": true
+        },
+        "value_state": {
+          "enabled": false,
+          "resolved_slot_spec_is_none": true
+        }
+      }
+    },
+    "gcbc": {
+      "all_disabled": true,
+      "all_resolve_to_none": true,
+      "slot_count": 1,
+      "slots": {
+        "actor": {
+          "enabled": false,
+          "resolved_slot_spec_is_none": true
+        }
+      }
+    },
+    "gciql": {
+      "all_disabled": true,
+      "all_resolve_to_none": true,
+      "slot_count": 3,
+      "slots": {
+        "actor": {
+          "enabled": false,
+          "resolved_slot_spec_is_none": true
+        },
+        "critic": {
+          "enabled": false,
+          "resolved_slot_spec_is_none": true
+        },
+        "value": {
+          "enabled": false,
+          "resolved_slot_spec_is_none": true
+        }
+      }
+    },
+    "gcivl": {
+      "all_disabled": true,
+      "all_resolve_to_none": true,
+      "slot_count": 2,
+      "slots": {
+        "actor": {
+          "enabled": false,
+          "resolved_slot_spec_is_none": true
+        },
+        "value": {
+          "enabled": false,
+          "resolved_slot_spec_is_none": true
+        }
+      }
+    },
+    "hiql": {
+      "all_disabled": true,
+      "all_resolve_to_none": true,
+      "slot_count": 3,
+      "slots": {
+        "high_actor": {
+          "enabled": false,
+          "resolved_slot_spec_is_none": true
+        },
+        "low_actor": {
+          "enabled": false,
+          "resolved_slot_spec_is_none": true
+        },
+        "value": {
+          "enabled": false,
+          "resolved_slot_spec_is_none": true
+        }
+      }
+    },
+    "qrl": {
+      "all_disabled": true,
+      "all_resolve_to_none": true,
+      "slot_count": 3,
+      "slots": {
+        "actor": {
+          "enabled": false,
+          "resolved_slot_spec_is_none": true
+        },
+        "dynamics": {
+          "enabled": false,
+          "resolved_slot_spec_is_none": true
+        },
+        "value": {
+          "enabled": false,
+          "resolved_slot_spec_is_none": true
+        }
+      }
+    }
+  },
+  "rlc_default_compute_gate": {
+    "crl": {
+      "all_disabled": true,
+      "all_resolve_to_none": true
+    },
+    "gcbc": {
+      "all_disabled": true,
+      "all_resolve_to_none": true
+    },
+    "gciql": {
+      "all_disabled": true,
+      "all_resolve_to_none": true
+    },
+    "gcivl": {
+      "all_disabled": true,
+      "all_resolve_to_none": true
+    },
+    "hiql": {
+      "all_disabled": true,
+      "all_resolve_to_none": true
+    },
+    "qrl": {
+      "all_disabled": true,
+      "all_resolve_to_none": true
+    }
+  },
+  "schema": "m22_canonical_semantics_audit_v1",
+  "status": "pass"
+}
