@@ -13,6 +13,7 @@ STUDY=""
 CONFIGS=""
 EXCLUDE_CONFIGS=""
 GPUS=""
+JOBS_PER_GPU="1"
 RUN_ROOT=""
 DATASET_ROOT="${OGBENCH_DATASET_DIR:-}"
 TRAIN_STEPS=""
@@ -36,7 +37,7 @@ Usage:
   bash scripts/run_study.sh --study experiments/<study>/study.yaml \
     [--configs ID1,ID2,... | --exclude-configs ID1,ID2,...] \
     [--run-attempt N] \
-    --gpus 0,1 --run-root /data/.../RLC/runs \
+    --gpus 0,1 [--jobs-per-gpu N] --run-root /data/.../RLC/runs \
     --dataset-root /data/.../ogbench \
     --train-steps N --batch-size N --log-interval N --eval-interval N \
     --eval-tasks N|all --eval-episodes N --save-interval N \
@@ -73,6 +74,7 @@ while (($# > 0)); do
         --configs) need_value "$@"; CONFIGS="$2"; shift 2 ;;
         --exclude-configs) need_value "$@"; EXCLUDE_CONFIGS="$2"; shift 2 ;;
         --gpus) need_value "$@"; GPUS="$2"; shift 2 ;;
+        --jobs-per-gpu) need_value "$@"; JOBS_PER_GPU="$2"; shift 2 ;;
         --run-root) need_value "$@"; RUN_ROOT="$2"; shift 2 ;;
         --run-attempt) need_value "$@"; RUN_ATTEMPT="$2"; shift 2 ;;
         --dataset-root) need_value "$@"; DATASET_ROOT="$2"; shift 2 ;;
@@ -104,6 +106,7 @@ done
 [[ -n "$RUN_ROOT" ]] || die '--run-root is required for formal execution'
 [[ -n "$DATASET_ROOT" ]] || die '--dataset-root is required (or set OGBENCH_DATASET_DIR)'
 nonnegative_int "$RUN_ATTEMPT" || die '--run-attempt must be a non-negative integer'
+positive_int "$JOBS_PER_GPU" || die '--jobs-per-gpu must be a positive integer'
 positive_int "$TRAIN_STEPS" || die '--train-steps must be a positive integer'
 positive_int "$BATCH_SIZE" || die '--batch-size must be a positive integer'
 positive_int "$LOG_INTERVAL" || die '--log-interval must be a positive integer'
@@ -178,6 +181,7 @@ export XLA_PYTHON_CLIENT_PREALLOCATE="${XLA_PYTHON_CLIENT_PREALLOCATE:-false}"
 SUMMARY_ARGS=(
     --study "$STUDY_PATH"
     --gpus "$GPU_CSV"
+    --jobs-per-gpu "$JOBS_PER_GPU"
     --run-root "$RUN_ROOT"
     --run-attempt "$RUN_ATTEMPT"
     --dataset-root "$DATASET_ROOT"
@@ -210,6 +214,7 @@ echo "Run root: $RUN_ROOT"
 echo "Run attempt: $RUN_ATTEMPT"
 echo "Dataset root: $DATASET_ROOT"
 echo "GPUs: $GPU_CSV"
+echo "Jobs per GPU: $JOBS_PER_GPU"
 echo "Config filter: ${CONFIGS:-${EXCLUDE_CONFIGS:+exclude:$EXCLUDE_CONFIGS}}"
 echo "Planned runs: $(field planned)"
 echo "Completed runs: $(field completed)"
@@ -222,6 +227,7 @@ echo 'No interactive confirmation is required.'
 SWEEP_ARGS=(
     --study "$STUDY_PATH"
     --gpus "$GPU_CSV"
+    --jobs-per-gpu "$JOBS_PER_GPU"
     --run-root "$RUN_ROOT"
     --run-attempt "$RUN_ATTEMPT"
     --dataset-root "$DATASET_ROOT"

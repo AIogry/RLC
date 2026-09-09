@@ -41,6 +41,28 @@ def _parse_gpus(value):
     return gpus
 
 
+def _parse_jobs_per_gpu(value):
+    try:
+        jobs_per_gpu = int(value)
+    except (TypeError, ValueError) as error:
+        raise SystemExit('--jobs-per-gpu must be a positive integer') from error
+    if jobs_per_gpu <= 0:
+        raise SystemExit('--jobs-per-gpu must be a positive integer')
+    return jobs_per_gpu
+
+
+def _worker_slots(gpus, jobs_per_gpu=1):
+    """Expand unique physical GPUs into explicit reusable worker slots."""
+
+    gpus = _parse_gpus(','.join(str(gpu) for gpu in gpus))
+    jobs_per_gpu = _parse_jobs_per_gpu(jobs_per_gpu)
+    return [
+        {'physical_gpu_id': gpu, 'worker_slot': slot}
+        for gpu in gpus
+        for slot in range(jobs_per_gpu)
+    ]
+
+
 def _validate_dataset(study_path, dataset_root, *, allow_missing=False):
     """Fail fast unless every Study environment has train and validation data."""
 
@@ -212,26 +234,46 @@ def _command(job, run_root, extra_args):
     ]
 
 
-def _run_one(job, gpu, run_root, extra_args):
+def _run_one(job, gpu, run_root, extra_args, *, worker_slot=0, jobs_per_gpu=1):
     env = os.environ.copy()
     env['CUDA_VISIBLE_DEVICES'] = str(gpu)
+    env['RLC_ASSIGNED_PHYSICAL_GPU'] = str(gpu)
+    env['RLC_WORKER_SLOT'] = str(worker_slot)
+    env['RLC_JOBS_PER_GPU'] = str(jobs_per_gpu)
     command = _command(job, run_root, extra_args)
-    print(f'[gpu={gpu}] start {job["configuration"].config_id} {job["environment"]} seed={job["seed"]}', flush=True)
+    print(
+        f'[gpu={gpu} slot={worker_slot}] start '
+        f'{job["configuration"].config_id} {job["environment"]} seed={job["seed"]}',
+        flush=True,
+    )
     result = subprocess.run(command, env=env, check=False)
-    print(f'[gpu={gpu}] exit={result.returncode} {job["run_dir"]}', flush=True)
+    print(
+        f'[gpu={gpu} slot={worker_slot}] exit={result.returncode} '
+        f'{job["run_dir"]}',
+        flush=True,
+    )
     return result.returncode
 
 
-def _dispatch_jobs(pending, gpus, run_root, extra_args, runner=None):
-    """Run a dynamic queue with exactly one persistent worker per GPU."""
+def _dispatch_jobs(pending, gpus, run_root, extra_args, runner=None, jobs_per_gpu=1):
+    """Run a dynamic queue with a configurable number of workers per GPU.
 
-    gpus = _parse_gpus(','.join(str(gpu) for gpu in gpus))
-    runner = _run_one if runner is None else runner
+    ``runner`` retains its historical four-argument callback contract for
+    tests and external callers.  The production runner additionally receives
+    the explicit worker slot so resource assignment is visible in logs and
+    child-process metadata environment variables.
+    """
+
+    worker_slots = _worker_slots(gpus, jobs_per_gpu)
+    production_runner = runner is None
+    runner = _run_one if production_runner else runner
     job_queue = queue.Queue()
     for job in pending:
         job_queue.put(job)
 
-    def worker(gpu):
+    def worker(worker_spec):
+        gpu = worker_spec['physical_gpu_id']
+        worker_slot = worker_spec['worker_slot']
         failures = 0
         while True:
             try:
@@ -239,13 +281,24 @@ def _dispatch_jobs(pending, gpus, run_root, extra_args, runner=None):
             except queue.Empty:
                 return failures
             try:
-                if runner(job, gpu, run_root, extra_args) != 0:
+                if production_runner:
+                    result = runner(
+                        job,
+                        gpu,
+                        run_root,
+                        extra_args,
+                        worker_slot=worker_slot,
+                        jobs_per_gpu=jobs_per_gpu,
+                    )
+                else:
+                    result = runner(job, gpu, run_root, extra_args)
+                if result != 0:
                     failures += 1
             finally:
                 job_queue.task_done()
 
-    with ThreadPoolExecutor(max_workers=len(gpus)) as executor:
-        futures = [executor.submit(worker, gpu) for gpu in gpus]
+    with ThreadPoolExecutor(max_workers=len(worker_slots)) as executor:
+        futures = [executor.submit(worker, worker_spec) for worker_spec in worker_slots]
         failures = sum(future.result() for future in futures)
     return failures
 
@@ -254,6 +307,10 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--study', required=True)
     parser.add_argument('--gpus', default='0,1', help='Comma-separated CUDA device IDs.')
+    parser.add_argument(
+        '--jobs-per-gpu', type=_parse_jobs_per_gpu, default=1,
+        help='Number of concurrent worker processes allowed per physical GPU.',
+    )
     parser.add_argument('--run-root', default='runs')
     parser.add_argument(
         '--run-attempt', type=int, default=0,
@@ -361,7 +418,21 @@ def main(argv=None):
         return 0
 
     gpus = _parse_gpus(args.gpus)
-    failures = _dispatch_jobs(pending, gpus, args.run_root, extra_args)
+    worker_slots = _worker_slots(gpus, args.jobs_per_gpu)
+    print(
+        'Worker slots: '
+        + ', '.join(
+            f'gpu={slot["physical_gpu_id"]}/slot={slot["worker_slot"]}'
+            for slot in worker_slots
+        )
+    )
+    failures = _dispatch_jobs(
+        pending,
+        gpus,
+        args.run_root,
+        extra_args,
+        jobs_per_gpu=args.jobs_per_gpu,
+    )
     return 1 if failures else 0
 
 
