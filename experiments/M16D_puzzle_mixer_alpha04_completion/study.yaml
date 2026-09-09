@@ -1,0 +1,134 @@
+study_id: M16D
+name: "GCIQL Puzzle Mixer-L2 alpha=0.4 completion"
+question: >-
+  Under the historical M16B S002 Puzzle Mixer-L2 architecture and matched
+  training/evaluation protocol, what is the single-seed alpha=0.4 performance
+  on the four canonical Puzzle play environments?
+parent_study: M16B
+completion_scope: >-
+  Complete the four Puzzle S002 Mixer-L2 cells at alpha=0.4 that are absent
+  from M16A/M16B and needed for the later Flat alpha=1.0 versus Mixer-L2
+  alpha=1.0 versus Mixer-L2 alpha=0.4 comparison.
+protocol_anchor:
+  study: M16B
+  condition: S002
+  config_directory: experiments/M16B_puzzle_alpha_correction/configs
+  source_run_commit: 1eb3ac0f7ef40773bad5f0015d4fe4f490d4de6b
+  parity_rule: change only alpha and Study/config/run identity, with environment-specific dimensions preserved
+primary_factors:
+  - actor_bc_weight_alpha
+fixed_design:
+  algorithm: gciql
+  actor_hidden_dims: [512, 512, 512]
+  value_hidden_dims: [512, 512, 512]
+  layer_norm: true
+  lr: 0.0003
+  batch_size: 1024
+  train_steps: 1000000
+  discount: 0.99
+  expectile: 0.9
+  tau: 0.005
+  actor_loss: ddpgbc
+  alpha: 0.4
+  const_std: true
+  discrete: false
+  dataset_class: GCDataset
+  value_goal_sampling: {p_curgoal: 0.2, p_trajgoal: 0.5, p_randomgoal: 0.3, geom_sample: true}
+  actor_goal_sampling: {p_curgoal: 0.0, p_trajgoal: 1.0, p_randomgoal: 0.0, geom_sample: false}
+  gc_negative: true
+  p_aug: 0.0
+  frame_stack: null
+  structured:
+    structure: puzzle_tokens
+    topology: feedforward
+    block: mlp_mixer
+    primitive: mlp
+    credit: direct
+    token_dim: 128
+    robot_hidden_dim: 128
+    token_mlp_hidden_dim: 64
+    channel_mlp_hidden_dim: 256
+    index_embedding: true
+    readout: mean
+    tm_mode: none
+  polyak_semantics: target_new = tau * online_post_gradient + (1 - tau) * target_old
+alpha_provenance:
+  mode: fixed_operating_point
+  value: 0.4
+  status: empirically_motivated_operating_point_not_alpha_optimization
+  rationale: >-
+    alpha=0.4 is an empirically motivated operating point used in later Puzzle
+    Mixer experiments. M16C did not train alpha=0.4, and M16D does not claim
+    that alpha=0.4 is optimal.
+  evidence:
+    - experiments/M18_puzzle_recurrent_compute_scaling/study.yaml
+    - docs/8-30/M18_fixed_parameter_recurrent_scaling.md
+alpha_policy:
+  mode: explicit_per_study
+  value: 0.4
+  runtime_authority: configuration.agent_overrides.alpha
+  source: empirically_motivated_later_puzzle_mixer_operating_point
+conditions: [S002]
+deferred_conditions: [B000, S001, S004]
+deferred_factors:
+  - additional_training_seeds
+  - other_alpha_values
+  - other_mixer_depths
+  - flat_baseline
+  - relation_augmented_computation
+  - recurrent_or_two_state_topologies
+  - alternative_readouts
+  - other_algorithms
+algorithms: [gciql]
+placements: [actor+value+critic]
+environments:
+  - puzzle-3x3-play-v0
+  - puzzle-4x4-play-v0
+  - puzzle-4x5-play-v0
+  - puzzle-4x6-play-v0
+seeds: [0]
+primary_metric: evaluation/overall_success
+protocol:
+  train_steps: 1000000
+  batch_size: 1024
+  log_interval: 5000
+  eval_interval: 100000
+  eval_tasks: all
+  eval_task_count: 5
+  eval_episodes: 20
+  eval_temperature: 0.0
+  eval_gaussian: null
+  video_episodes: 0
+  save_interval: 100000
+  save_best_checkpoint: true
+  save_last_checkpoint: true
+  selection_metric: evaluation/overall_success
+  selection_rule: strict_greater_than_keep_earlier_tie
+  primary_endpoint: final@1M
+  secondary_endpoints: [best_success, best_step, normalized_eval_auc, last3_mean]
+  auc:
+    checkpoints: [100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000]
+    interval: [100000, 1000000]
+    rule: trapezoidal_area_divided_by_900000
+  formal_training_started: false
+environment_references:
+  puzzle-3x3-play-v0: {underlying_ogbench_env: puzzle-3x3-v0, num_buttons: 9, observation_dim: 55, role: lowest_complexity_reference}
+  puzzle-4x4-play-v0: {underlying_ogbench_env: puzzle-4x4-v0, num_buttons: 16, observation_dim: 83, role: intermediate_complexity}
+  puzzle-4x5-play-v0: {underlying_ogbench_env: puzzle-4x5-v0, num_buttons: 20, observation_dim: 99, role: high_complexity}
+  puzzle-4x6-play-v0: {underlying_ogbench_env: puzzle-4x6-v0, num_buttons: 24, observation_dim: 115, role: highest_complexity}
+comparison_policy:
+  within_study: Compare the four environments descriptively at fixed S002, alpha=0.4, and seed=0.
+  historical_anchor: Compare against M16B S002 alpha=1.0 only after protocol and source provenance validation.
+  cross_alpha: This is an alpha completion/contrast, not evidence that alpha=0.4 is universally optimal.
+  future_m23a: Future M23A may use Flat alpha=1.0, Mixer-L2 alpha=1.0, and Mixer-L2 alpha=0.4 as distinct treatment cells.
+interpretation_boundaries:
+  - M16D has one training seed and is not a statistical-significance study.
+  - alpha=0.4 is an empirically motivated operating point, not an identified optimum.
+  - M16D changes no GCIQL, representation, Mixer, dataset, or evaluation implementation semantics.
+acceptance:
+  expected_formal_runs: 4
+  expected_environment_condition_cells: 4
+  require_all_cells_completed: true
+  no_early_stopping_for_poor_performance: true
+  no_git_writes_by_agent: true
+  no_automatic_formal_launch: true
