@@ -1,59 +1,122 @@
-# M23A-F0 — Puzzle rollout diagnostic foundation
+# M23A — Puzzle Direct Rollout Behavioral Audit
 
-## Scientific purpose
+Status: planned; implementation and smoke validation only. No full campaign
+result is recorded by this document.
 
-Provide a deterministic, observation-only post-hoc diagnosis of canonical
-OGBench Puzzle rollouts. The foundation extracts physical button press events,
-checks board effects against the pinned toggle rule, and computes exact GF(2)
-residual distance (`D*`) and episode-level progress summaries. It is intended
-to help distinguish task/data support failures from policy or closed-loop
-failures in later M23A work.
+## Scientific question
 
-## Fixed protocol
+Why does the structured Puzzle MLP-Mixer policy outperform the canonical flat
+GCIQL policy? M23A diagnoses whether the difference is primarily associated
+with physical execution, useful operator selection, sequential composition,
+destructive/repeated presses, or conversion of near-solved states into success.
 
-- Input is one existing source Run/checkpoint; no training or optimizer update
-  is performed.
-- Rollouts use deterministic temperature 0 and an explicit evaluation seed and
-  episode count. The source checkpoint is restored through the existing
-  reevaluation path and its network fingerprint is checked before/after.
-- Press sources come only from the authoritative joint-position threshold
-  crossing; board differences are used for consistency checks, not source
-  inference. The GF(2) matrix uses row-major boards and press-source columns.
-- Outputs are a separate diagnostic root containing `manifest.json`,
-  `episodes.csv`, and `press_events.csv`; source run/checkpoint directories are
-  not modified or used as output roots.
+This is a post-hoc diagnostic study over existing trained policies. It does not
+train a new policy or modify GCIQL/Mixer semantics.
 
-## Treatment and control
+## Foundation
 
-F0 has no learned treatment/control and no formal Study matrix. It is a
-controlled measurement procedure over a selected checkpoint, task set, and
-seed protocol. Any later comparison between policies or checkpoints belongs to
-M23A and must declare those factors separately.
+M23A-F0 provides observation-only physical press detection, pinned GF(2)
+Puzzle dynamics, exact algebraic `D*`, episode/press-event metrics, and
+deterministic checkpoint rollout diagnosis. M23A reuses those generic APIs and
+adds generic controlled goal replay at the diagnostics layer.
 
-## Current status
+## Treatments and source-policy cells
 
-The reusable foundation and its tests were merged in commit `3600cf6`
-(`M23A-F0: add Puzzle rollout diagnostic foundation`). No formal M23A Study,
-diagnostic result root, or scientific performance claim is recorded here.
+The twelve cells are the Cartesian product of four canonical Puzzle
+environments and these three existing trained-policy conditions:
 
-## Interpretation boundary
+| Source policy | Training family | alpha |
+| --- | --- | --- |
+| Flat GCIQL | M16B | 1.0 |
+| Puzzle Mixer-L2 | M16B | 1.0 |
+| Puzzle Mixer-L2 | M16D | 0.4 |
 
-Event-effect consistency, `D*`, press timing, and progress classifications are
-diagnostic observables. They do not by themselves establish causality,
-representation superiority, optimization failure, or a policy's environment
-return. Multi-source events and unreachable residuals must remain explicit
-invariant outcomes rather than being silently converted into pseudo-distance.
+Environments are `puzzle-3x3-play-v0`, `puzzle-4x4-play-v0`,
+`puzzle-4x5-play-v0`, and `puzzle-4x6-play-v0`; all source training seeds are
+`0`. The declarative authority for the exact source mapping is the
+[M23A Study](../../../../experiments/M23A_puzzle_direct_rollout_audit/study.yaml)
+and its twelve configuration files. Primary source checkpoints are always
+`final@1M`; primary analyses do not mix `best` and `final` checkpoints.
 
-## Relevant artifacts
+## Source provenance rule
 
-- [`puzzle diagnostics package`](../../../../impls/diagnostics/puzzle/)
-- [`event diagnosis tool`](../../../../tools/run_puzzle_event_diagnosis.py)
-- [`diagnostic tests`](../../../../tests/diagnostics/test_puzzle_event_diagnosis.py)
-- Source commit: `3600cf6` (`M23A-F0: add Puzzle rollout diagnostic foundation`)
+Every source is validated against runtime metadata, resolved config, completed
+status, source seed and attempt, source commit, final checkpoint metadata and
+SHA-256, alpha, and architecture identity. The source dependency is not
+silently substituted.
 
-## Next action
+The eight M16B sources must satisfy the normal clean-provenance gate. Four
+M16D `seed_000__attempt_001` sources are the sole exception:
 
-Before any M23A execution, select and validate source checkpoints, define the
-task/episode and output namespace, and register the scientific comparison in a
-Study/config layer if it is a formal experiment. Reuse the F0 APIs; do not
-introduce M23A-specific one-off logic into `impls/`.
+```text
+provenance_status = scoped_exception
+reason = concurrent M23A-F0 diagnostic development
+evidence_level = user-attested / partially machine-verified
+```
+
+Their exception is scoped to the declared study/config/environment/training
+seed/run attempt/source commit/checkpoint SHA-256. It does not relax the
+clean-provenance gate for any other source. The historical exact dirty diff
+cannot be machine-recovered, so these sources must not be described as fully
+verified clean; the listed evidence level is the maximum supported claim.
+
+The M16B Mixer-L2 checkpoints predate the M17 modular ownership layout. For
+diagnostic inference only, the reevaluation path uses an exact, shape-checked
+legacy-Mixer parameter-layout adapter and records
+`checkpoint_restore_mode = legacy_mixer_layout_adapter_v1` in its manifest.
+It neither mutates a source checkpoint nor changes policy/training semantics.
+
+## Frozen diagnostic evaluation protocol
+
+All twelve source policies use exactly:
+
+- source training seed `0` and primary checkpoint `final@1M`;
+- all five canonical task IDs: `1, 2, 3, 4, 5`;
+- `episodes_per_task = 50`;
+- `evaluation_seed = 20260909`;
+- `eval_temperature = 0`;
+- `eval_gaussian = None`.
+
+### Controlled goal replay and pairing invariants
+
+For every `(environment, task_id, episode_index)`, diagnostics first capture a
+canonical real reset and persist its complete policy-facing goal observation,
+board-goal observation, and initial observation. The same persisted full goal
+is injected into all three source-policy rollouts for that paired episode;
+this occurs only in the diagnostic wrapper and does not change `PuzzleEnv` or
+training semantics.
+
+The following are hard invariants, not soft comparisons:
+
+- the three `goal_fingerprint` values are identical;
+- the three `board_goal_fingerprint` values are identical;
+- the three `initial_observation_fingerprint` values are identical.
+
+The wrapper validates the native reset's board target and initial observation
+before replacing the policy-facing goal. An initial-observation mismatch fails
+the rollout immediately; that sample is not considered paired. Every episode
+output records all three fingerprints and the paired-episode identifier.
+
+## Primary behavioral metrics
+
+Execution metrics include `first_press_step`, `num_press_events`, and
+`steps_between_presses`. Operator-quality metrics include progress, neutral,
+and regression press counts/rates. Composition and waste include unique button
+sources, repeated source presses, and `D*` trajectories. Completion metrics
+include `initial_Dstar`, `min_Dstar`, `final_Dstar`, success, and horizon
+exhaustion.
+
+`D*` is an algebraic minimum press distance, not robot-motion distance, control
+difficulty, policy value, or proof of reasoning. M23A is diagnostic evidence
+for distinguishing candidate mechanisms, not a causal result on its own.
+
+## Boundaries and execution authority
+
+M23A does not add oracle policies, Local-GCIQL, solver/executor training, a
+neural composer, representation architectures, or new policy training. It does
+not modify M16D/M22 source artifacts.
+
+The prepared [campaign runner](../../../../tools/run_puzzle_diagnostic_campaign.py)
+may validate dependencies, run targeted tests, and run a declared tiny smoke.
+It must not launch the full M23A campaign unless the user explicitly authorizes
+it. The full campaign is manually launched from a clean frozen worktree.

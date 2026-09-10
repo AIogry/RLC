@@ -12,7 +12,7 @@ from pathlib import Path
 
 
 PRESS_EVENT_FIELDS = (
-    'environment', 'task_id', 'task_name', 'episode_index',
+    'environment', 'paired_episode_id', 'task_id', 'task_name', 'episode_index',
     'transition_index', 'step', 'source_button_indices', 'source_mask',
     'num_sources', 'event_type', 'board_before', 'board_after', 'board_delta',
     'predicted_board_delta', 'effect_consistent', 'goal_board', 'Dstar_before',
@@ -21,7 +21,9 @@ PRESS_EVENT_FIELDS = (
     'steps_since_previous_press', 'remaining_episode_steps',
 )
 EPISODE_FIELDS = (
-    'environment', 'task_id', 'task_name', 'episode_index',
+    'environment', 'paired_episode_id', 'task_id', 'task_name', 'episode_index',
+    'evaluation_seed', 'goal_fingerprint', 'board_goal_fingerprint',
+    'initial_observation_fingerprint',
     'episode_seed', 'actor_seed', 'noise_seed', 'success', 'episode_length',
     'terminated', 'truncated', 'horizon_exhausted', 'max_episode_steps',
     'initial_Dstar', 'final_Dstar', 'min_Dstar', 'num_press_events',
@@ -53,6 +55,8 @@ def _parser():
     parser.add_argument('--task-id', action='append', type=int, dest='task_ids')
     parser.add_argument('--eval-temperature', type=float, default=0.0)
     parser.add_argument('--eval-gaussian', type=float, default=None)
+    parser.add_argument('--controlled-goal-replay', type=Path, default=None)
+    parser.add_argument('--source-provenance-exception', type=Path, default=None)
     parser.add_argument('--jax-platform', choices=('cpu', 'gpu'), default=None)
     parser.add_argument('--cuda-visible-devices', default=None)
     parser.add_argument('--repo-root', type=Path, default=Path(__file__).resolve().parents[1])
@@ -75,6 +79,22 @@ def _json_write(path, value):
     with Path(path).open('w') as file:
         json.dump(value, file, indent=2, sort_keys=True, ensure_ascii=False)
         file.write('\n')
+
+
+def _json_mapping(value, *, label):
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return dict(value)
+    path = Path(value)
+    try:
+        with path.open() as file:
+            result = json.load(file)
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(f'Cannot read {label}: {path}') from error
+    if not isinstance(result, dict):
+        raise ValueError(f'{label} must contain a JSON mapping: {path}')
+    return result
 
 
 def _git_metadata(repo_root):
@@ -162,7 +182,12 @@ def _run(args):
     if args.cuda_visible_devices is not None:
         os.environ['CUDA_VISIBLE_DEVICES'] = str(args.cuda_visible_devices)
 
-    from impls.diagnostics.puzzle import analyze_puzzle_episode
+    from impls.diagnostics.puzzle import (
+        ControlledGoalReplay,
+        ControlledGoalReplayEnv,
+        analyze_puzzle_episode,
+        paired_episode_id,
+    )
     from impls.experiment.reevaluation import (
         _make_restored_agent,
         _restore_probe,
@@ -172,15 +197,21 @@ def _run(args):
     from impls.utils.evaluation import _rollout_episode, common_episode_seeds
 
     selector = _selector(args)
+    source_provenance_exception = _json_mapping(
+        args.source_provenance_exception,
+        label='--source-provenance-exception',
+    )
     provenance = validate_source_run(
         args.source_run,
         checkpoint_selector=selector,
         check_checkpoint_metadata=True,
         allow_running_source_if_checkpoint_best=False,
+        scoped_provenance_exception=source_provenance_exception,
     )
     output_root.mkdir(parents=True, exist_ok=True)
-    restored, env, config, example_batch = _make_restored_agent(provenance)
+    env = None
     try:
+        restored, env, config, example_batch = _make_restored_agent(provenance)
         algorithm = provenance['source_metadata'].get('algorithm') or _config_get(config, 'agent_name')
         _restore_probe(
             restored,
@@ -199,6 +230,19 @@ def _run(args):
         if rows <= 0 or cols <= 0 or task_infos is None:
             raise ValueError('Source environment is not a canonical task-mode Puzzle environment')
         selected_tasks = _task_ids(task_infos, args.task_ids)
+        controlled_replay = (
+            None
+            if args.controlled_goal_replay is None
+            else ControlledGoalReplay.load(args.controlled_goal_replay)
+        )
+        if controlled_replay is not None and controlled_replay.environment != provenance['source_environment']:
+            raise ValueError(
+                'Controlled goal replay environment mismatch: '
+                f'{controlled_replay.environment!r} vs {provenance["source_environment"]!r}'
+            )
+        rollout_env = (
+            env if controlled_replay is None else ControlledGoalReplayEnv(env, controlled_replay)
+        )
         max_episode_steps = getattr(getattr(env, 'spec', None), 'max_episode_steps', None)
         if max_episode_steps is not None:
             max_episode_steps = int(max_episode_steps)
@@ -221,9 +265,7 @@ def _run(args):
                 raise ValueError(f'Invalid canonical goal board for task {task_id}: {goal_board.shape}')
             for episode_index in range(args.episodes_per_task):
                 seeds = common_episode_seeds(args.evaluation_seed, task_id, episode_index)
-                rollout = _rollout_episode(
-                    restored,
-                    env,
+                rollout_kwargs = dict(
                     task_id=int(task_id),
                     config=config,
                     episode_seed=seeds['episode_seed'],
@@ -235,6 +277,15 @@ def _run(args):
                     render=False,
                     video_frame_skip=1,
                 )
+                pairing = None
+                if controlled_replay is None:
+                    rollout = _rollout_episode(restored, rollout_env, **rollout_kwargs)
+                else:
+                    with rollout_env.paired_episode(task_id, episode_index):
+                        rollout = _rollout_episode(restored, rollout_env, **rollout_kwargs)
+                        pairing = rollout_env.last_pairing
+                    if pairing is None:
+                        raise RuntimeError('Controlled goal replay did not expose pairing metadata')
                 result = analyze_puzzle_episode(
                     _episode_trajectory(
                         rollout['trajectory'],
@@ -251,6 +302,10 @@ def _run(args):
                 for event in result['press_events']:
                     press_rows.append({
                         'environment': provenance['source_environment'],
+                        'paired_episode_id': (
+                            paired_episode_id(task_id, episode_index)
+                            if pairing is None else pairing['paired_episode_id']
+                        ),
                         'task_id': int(task_id),
                         'task_name': task_name,
                         'episode_index': int(episode_index),
@@ -258,9 +313,21 @@ def _run(args):
                     })
                 episode_rows.append({
                     'environment': provenance['source_environment'],
+                    'paired_episode_id': (
+                        paired_episode_id(task_id, episode_index)
+                        if pairing is None else pairing['paired_episode_id']
+                    ),
                     'task_id': int(task_id),
                     'task_name': task_name,
                     'episode_index': int(episode_index),
+                    'evaluation_seed': int(args.evaluation_seed),
+                    'goal_fingerprint': None if pairing is None else pairing['goal_fingerprint'],
+                    'board_goal_fingerprint': (
+                        None if pairing is None else pairing['board_goal_fingerprint']
+                    ),
+                    'initial_observation_fingerprint': (
+                        None if pairing is None else pairing['initial_observation_fingerprint']
+                    ),
                     'episode_seed': seeds['episode_seed'],
                     'actor_seed': seeds['actor_seed'],
                     'noise_seed': seeds['noise_seed'],
@@ -298,11 +365,15 @@ def _run(args):
             'source_run_dir': provenance['source_run_dir'],
             'source_commit_sha': provenance['source_git_commit'],
             'source_git_dirty': provenance['source_git_dirty'],
+            'source_run_attempt': provenance['source_run_attempt'],
+            'source_provenance_status': provenance['source_provenance_status'],
+            'source_provenance_exception': provenance['source_provenance_exception'],
             'checkpoint_path': provenance['checkpoint_path'],
             'checkpoint_selector': provenance['requested_checkpoint_selector'],
             'checkpoint_role': provenance['resolved_checkpoint_role'],
             'checkpoint_step': provenance['checkpoint_step'],
             'checkpoint_sha256': provenance['checkpoint_sha256'],
+            'checkpoint_restore_mode': provenance.get('checkpoint_restore_mode'),
             'resolved_config_fingerprint': provenance['source_resolved_config_fingerprint'],
             'resolved_agent_config': resolved_agent_config,
             'actual_algorithm_parameters': actual_parameters,
@@ -321,6 +392,15 @@ def _run(args):
             'seed_scheme': 'common_task_episode_v1',
             'eval_temperature': 0.0,
             'eval_gaussian': args.eval_gaussian,
+            'controlled_goal_replay': (
+                None if controlled_replay is None else {
+                    'root': str(controlled_replay.root),
+                    'schema_version': controlled_replay.metadata['schema_version'],
+                    'archive_sha256': controlled_replay.metadata['archive_sha256'],
+                    'records_fingerprint': controlled_replay.metadata['records_fingerprint'],
+                    'pairing_contract': controlled_replay.metadata['pairing_contract'],
+                }
+            ),
             'episodes_per_task': int(args.episodes_per_task),
             'task_ids': list(selected_tasks),
             'episodes': len(episode_rows),
@@ -332,7 +412,8 @@ def _run(args):
         _json_write(output_root / 'manifest.json', manifest)
         return manifest
     finally:
-        env.close()
+        if env is not None:
+            env.close()
 
 
 def main(argv=None):

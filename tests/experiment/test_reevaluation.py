@@ -18,6 +18,8 @@ from impls.experiment import (
     validate_source_run,
 )
 from impls.experiment.reevaluation import (
+    ReevaluationError,
+    _legacy_mixer_params_to_modular,
     _read_episode_rows,
     _restore_probe,
     _write_task_and_overall_summaries,
@@ -221,6 +223,206 @@ class ReevaluationTest(unittest.TestCase):
         self.assertEqual(provenance['checkpoint_sha256'], sha256_file(checkpoint))
         self.assertEqual(provenance['source_resolved_config_fingerprint'], fingerprint)
         self.assertEqual(provenance['source_training_seed'], 0)
+
+    def test_scoped_dirty_provenance_accepts_only_declared_attempt_and_hash(self):
+        root = Path(tempfile.mkdtemp())
+        source = (
+            root / 'runs' / 'TEST' / 'TEST-C001__control' / 'toy-v0'
+            / 'seed_000__attempt_001'
+        )
+        checkpoint_dir = source / 'checkpoints' / 'last'
+        checkpoint_dir.mkdir(parents=True)
+        resolved_payload = {
+            'study': {'study_id': 'TEST'},
+            'configuration': {'config_id': 'TEST-C001', 'slug': 'control'},
+            'algorithm_config': {'agent': {'agent_name': 'hiql'}},
+        }
+        fingerprint = config_fingerprint(resolved_payload)
+        metadata = {
+            'status': 'completed',
+            'git_dirty': True,
+            'run_dir': str(source.resolve()),
+            'study_id': 'TEST',
+            'config_id': 'TEST-C001',
+            'config_slug': 'control',
+            'environment': 'toy-v0',
+            'seed': 0,
+            'run_attempt': 1,
+            'git_commit': 'dirty-source-commit',
+            'algorithm': 'hiql',
+            'dataset_dir': str(root / 'data'),
+            'resolved_config_fingerprint': fingerprint,
+        }
+        (source / 'runtime_metadata.json').write_text(json.dumps(metadata))
+        (source / 'resolved_config.json').write_text(
+            json.dumps(resolved_payload | {'resolved_config_fingerprint': fingerprint})
+        )
+        checkpoint = checkpoint_dir / 'params_1000000.pkl'
+        checkpoint_metadata = {
+            'environment': 'toy-v0',
+            'study_id': 'TEST',
+            'config_id': 'TEST-C001',
+            'config_slug': 'control',
+            'git_commit': 'dirty-source-commit',
+            'seed': 0,
+        }
+        with checkpoint.open('wb') as file:
+            pickle.dump({'agent': {}, 'checkpoint_metadata': checkpoint_metadata}, file)
+        checkpoint_hash = sha256_file(checkpoint)
+        checkpoint_json = checkpoint_dir / 'checkpoint.json'
+        checkpoint_json.write_text(json.dumps(checkpoint_metadata | {
+            'checkpoint_role': 'last',
+            'checkpoint_step': 1000000,
+            'checkpoint_sha256': checkpoint_hash,
+            'path': str(checkpoint.relative_to(source)),
+            'metadata_path': str(checkpoint_json.relative_to(source)),
+        }))
+        (source / 'checkpoints' / 'index.json').write_text(json.dumps({
+            'schema_version': 1,
+            'selection_metric': 'evaluation/overall_success',
+            'best': None,
+            'last': {
+                'step': 1000000,
+                'metric': 0.0,
+                'path': str(checkpoint.relative_to(source)),
+                'sha256': checkpoint_hash,
+                'metadata_path': str(checkpoint_json.relative_to(source)),
+            },
+        }))
+        exception = {
+            'provenance_status': 'scoped_exception',
+            'reason': 'test-only declared concurrent diagnostics',
+            'evidence_level': 'user-attested / partially machine-verified',
+            'scope': {
+                'study_id': 'TEST',
+                'config_id': 'TEST-C001',
+                'environment': 'toy-v0',
+                'training_seed': 0,
+                'run_attempt': 1,
+                'git_commit': 'dirty-source-commit',
+                'checkpoint_sha256': checkpoint_hash,
+            },
+        }
+        provenance = validate_source_run(
+            source,
+            checkpoint_selector={'selector': 'last'},
+            scoped_provenance_exception=exception,
+        )
+        self.assertEqual(provenance['source_run_attempt'], 1)
+        self.assertEqual(provenance['source_provenance_status'], 'scoped_exception')
+        self.assertEqual(provenance['checkpoint_sha256'], checkpoint_hash)
+        with self.assertRaises(ReevaluationError):
+            validate_source_run(source, checkpoint_selector={'selector': 'last'})
+        bad_exception = dict(exception)
+        bad_exception['scope'] = dict(exception['scope'], checkpoint_sha256='0' * 64)
+        with self.assertRaises(ReevaluationError):
+            validate_source_run(
+                source,
+                checkpoint_selector={'selector': 'last'},
+                scoped_provenance_exception=bad_exception,
+            )
+
+    def test_legacy_mixer_parameter_layout_adapter_is_exact_and_rejects_extra_keys(self):
+        counter = iter(range(1, 200))
+
+        def leaf():
+            return np.asarray([next(counter)], dtype=np.float32)
+
+        def target_body(*, layer_norm):
+            adapter = {
+                'button_projection': {'kernel': leaf()},
+                'index_embedding': leaf(),
+                'robot_projection': {'kernel': leaf()},
+            }
+            readout = {'fusion': {'kernel': leaf()}}
+            if layer_norm:
+                adapter['robot_layer_norm'] = {'scale': leaf()}
+                readout['fusion_layer_norm'] = {'scale': leaf()}
+            return {
+                'adapter': adapter,
+                'core': {'topology': {'primitive': {
+                    'blocks_0': {'kernel': leaf()},
+                    'blocks_1': {'kernel': leaf()},
+                }}},
+                'readout': readout,
+            }
+
+        def legacy_body(*, layer_norm):
+            body = {
+                'button_projection': {'kernel': leaf()},
+                'index_embedding': leaf(),
+                'robot_projection': {'kernel': leaf()},
+                'mixer_blocks_0': {'kernel': leaf()},
+                'mixer_blocks_1': {'kernel': leaf()},
+                'fusion': {'kernel': leaf()},
+            }
+            if layer_norm:
+                body['robot_layer_norm'] = {'scale': leaf()}
+                body['fusion_layer_norm'] = {'scale': leaf()}
+            return body
+
+        def target_value_module():
+            return {
+                'value_net': {'core': target_body(layer_norm=True)},
+                'value_readout': {'kernel': leaf()},
+            }
+
+        def legacy_value_module():
+            return {
+                'value_net': {'core': {'topology': {'primitive': legacy_body(layer_norm=True)}}},
+                'value_readout': {'kernel': leaf()},
+            }
+
+        target = {
+            'modules_actor': {
+                'actor_net': target_body(layer_norm=False),
+                'mean_net': {'kernel': leaf()},
+            },
+            'modules_value': target_value_module(),
+            'modules_critic': target_value_module(),
+            'modules_target_critic': target_value_module(),
+        }
+        source = {
+            'modules_actor': {
+                'actor_net': {'topology': {'primitive': legacy_body(layer_norm=False)}},
+                'mean_net': {'kernel': leaf()},
+            },
+            'modules_value': legacy_value_module(),
+            'modules_critic': legacy_value_module(),
+            'modules_target_critic': legacy_value_module(),
+        }
+        converted = _legacy_mixer_params_to_modular(source, target)
+        actor_legacy = source['modules_actor']['actor_net']['topology']['primitive']
+        actor_converted = converted['modules_actor']['actor_net']
+        np.testing.assert_array_equal(
+            actor_converted['adapter']['button_projection']['kernel'],
+            actor_legacy['button_projection']['kernel'],
+        )
+        np.testing.assert_array_equal(
+            actor_converted['core']['topology']['primitive']['blocks_1']['kernel'],
+            actor_legacy['mixer_blocks_1']['kernel'],
+        )
+        np.testing.assert_array_equal(
+            actor_converted['readout']['fusion']['kernel'],
+            actor_legacy['fusion']['kernel'],
+        )
+        value_legacy = source['modules_value']['value_net']['core']['topology']['primitive']
+        value_converted = converted['modules_value']['value_net']['core']
+        np.testing.assert_array_equal(
+            value_converted['adapter']['robot_layer_norm']['scale'],
+            value_legacy['robot_layer_norm']['scale'],
+        )
+        np.testing.assert_array_equal(
+            value_converted['readout']['fusion_layer_norm']['scale'],
+            value_legacy['fusion_layer_norm']['scale'],
+        )
+        source_with_extra = dict(source)
+        source_with_extra['modules_actor'] = dict(source['modules_actor'])
+        source_with_extra['modules_actor']['actor_net'] = {
+            'topology': {'primitive': dict(actor_legacy, unexpected=leaf())}
+        }
+        with self.assertRaises(ReevaluationError):
+            _legacy_mixer_params_to_modular(source_with_extra, target)
 
     def test_best_last_selectors_use_index_not_eval_csv(self):
         root = Path(tempfile.mkdtemp())

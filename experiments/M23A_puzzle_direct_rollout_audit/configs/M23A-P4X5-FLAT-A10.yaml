@@ -1,0 +1,40 @@
+study_id: M23A
+config_id: M23A-P4X5-FLAT-A10
+slug: p4x5_flat_alpha1p0
+algorithm: gciql
+environment: puzzle-4x5-play-v0
+placement: actor+value+critic
+protocol_stage: diagnostic
+executable: false
+blocked_by: user_manual_full_evaluation_authority
+factors: {source_policy: flat_alpha1p0, environment: puzzle-4x5-play-v0, alpha: 1.0, architecture: flat}
+source_policy:
+  label: flat_alpha1p0
+  dependency: source_policy
+  provenance:
+    provenance_status: verified_clean
+    reason: completed immutable source with git_dirty=false
+    evidence_level: machine-verified
+  expected:
+    source_study_id: M16B
+    source_config_id: M16B-4x5-B000
+    environment: puzzle-4x5-play-v0
+    training_seed: 0
+    run_attempt: 0
+    git_commit: 1eb3ac0f7ef40773bad5f0015d4fe4f490d4de6b
+    git_dirty: false
+    checkpoint_sha256: a41195316c3374df75b2aebbb72a8d650bbfc4c83f8065c51a0a3f42a3b01dcf
+    resolved_config_fingerprint: 114cb609b61810fcb2ab938e4824f8309c411ee2b177ec6fdec95276147b030a
+    alpha: 1.0
+    condition_id: B000
+    architecture: flat
+dependencies:
+  source_policy:
+    source_study_id: M16B
+    source_study_path: ../M16B_puzzle_alpha_correction/study.yaml
+    source_config_id: M16B-4x5-B000
+    seed_policy: explicit_seed
+    source_seed: 0
+    source_run_attempt: 0
+    checkpoint_role: last
+    checkpoint_step: 1000000

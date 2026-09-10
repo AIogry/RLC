@@ -1,0 +1,48 @@
+study_id: M23A
+config_id: M23A-P4X6-MIXERL2-A04
+slug: p4x6_mixer_l2_alpha0p4
+algorithm: gciql
+environment: puzzle-4x6-play-v0
+placement: actor+value+critic
+protocol_stage: diagnostic
+executable: false
+blocked_by: user_manual_full_evaluation_authority
+factors: {source_policy: mixer_l2_alpha0p4, environment: puzzle-4x6-play-v0, alpha: 0.4, architecture: mixer_l2}
+source_policy:
+  label: mixer_l2_alpha0p4
+  dependency: source_policy
+  provenance:
+    provenance_status: scoped_exception
+    reason: concurrent M23A-F0 diagnostic development
+    evidence_level: user-attested / partially machine-verified
+    scope:
+      study_id: M16D
+      config_id: M16D-P4X6-S002-A04
+      environment: puzzle-4x6-play-v0
+      training_seed: 0
+      run_attempt: 1
+      git_commit: fdbd7875a031c537b98b415a3c73ce0bf6a02721
+      checkpoint_sha256: 9535e89c793e2dc9db418b606cbf6f6b98c2ea10d7596384c2827f745ff2cea2
+  expected:
+    source_study_id: M16D
+    source_config_id: M16D-P4X6-S002-A04
+    environment: puzzle-4x6-play-v0
+    training_seed: 0
+    run_attempt: 1
+    git_commit: fdbd7875a031c537b98b415a3c73ce0bf6a02721
+    git_dirty: true
+    checkpoint_sha256: 9535e89c793e2dc9db418b606cbf6f6b98c2ea10d7596384c2827f745ff2cea2
+    resolved_config_fingerprint: e833c6498832348f16f0bb7552d6a454e367b85cfffe2b90e0b82e18592303cb
+    alpha: 0.4
+    condition_id: S002
+    architecture: mixer_l2
+dependencies:
+  source_policy:
+    source_study_id: M16D
+    source_study_path: ../M16D_puzzle_mixer_alpha04_completion/study.yaml
+    source_config_id: M16D-P4X6-S002-A04
+    seed_policy: explicit_seed
+    source_seed: 0
+    source_run_attempt: 1
+    checkpoint_role: last
+    checkpoint_step: 1000000

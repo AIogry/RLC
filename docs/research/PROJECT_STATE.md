@@ -7,8 +7,8 @@ resolved configurations remain authoritative for exact progress and results.
 
 The current thread concerns Puzzle computation, alpha sensitivity, and failure
 mechanisms in the unified RLC runtime. The active work combines the M16D
-alpha-completion study, the M22 official-baseline campaign, and the M23A-F0
-observation-only rollout diagnostic foundation.
+alpha-completion study, the M22 official-baseline campaign, and the M23A
+controlled-goal-replay direct-rollout diagnostic campaign.
 
 ## Established evidence
 
@@ -31,7 +31,7 @@ observation-only rollout diagnostic foundation.
 | --- | --- | --- |
 | M16D | Formal attempt 001 is complete for all four cells; analysis and provenance-qualified handoff remain. | `/data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M16D/` |
 | M22 | Formal campaign is active/partial in the external run tree; the repository completion manifest is not paper-ready. | `/data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M22/` |
-| M23A-F0 | Diagnostic foundation is merged; no M23 formal Study or result artifact is declared here. | M23A-F0 README and source links below |
+| M23A | Twelve-cell controlled-goal-replay diagnostic campaign is specified; implementation/tests and a tiny smoke are allowed, but no formal full evaluation has started. | [`M23A Study`](../../experiments/M23A_puzzle_direct_rollout_audit/study.yaml) and [`M23A authority`](experiments/M23A-F0/README.md) |
 
 The M16D Study and M22 Study retain design-time `formal_training_started: false`
 fields. These declarations conflict with the observed external run artifacts;
@@ -41,15 +41,18 @@ for execution status and the Study/config files for declared design semantics.
 The sampled M16D attempt-001 runtime metadata records source commit
 `fdbd7875a031c537b98b415a3c73ce0bf6a02721` with `git_dirty: true`; this is the
 effective recorded provenance for those runs and must not be replaced by the
-current clean documentation worktree at `279d7b6`. Sampled M22 runtime metadata
-records `2617634f29a883581b6fbf582db072f08b9d24ff` with `git_dirty: false`,
-matching its frozen worktree.
+current clean documentation worktree at `279d7b6`. M23A permits exactly its
+four declared alpha=0.4 sources through a scoped, user-attested / partially
+machine-verified provenance exception; it does not claim their historical dirty
+diff was recovered or their source was fully verified clean. Sampled M22
+runtime metadata records `2617634f29a883581b6fbf582db072f08b9d24ff` with
+`git_dirty: false`, matching its frozen worktree.
 
 ## Immediate next study
 
-M23A is the next planned scientific step after the relevant source checkpoints,
-run status, and diagnostic scope are explicitly reviewed. M23A-F0 currently
-provides infrastructure only; it does not authorize a formal diagnostic run.
+M23A is the next planned scientific step. Its sources, frozen paired protocol,
+and provenance scope are declared in the M23A Study and durable authority; the
+user manually authorizes any formal diagnostic run.
 
 ## Major open scientific questions
 
