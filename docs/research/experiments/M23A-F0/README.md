@@ -1,7 +1,9 @@
 # M23A — Puzzle Direct Rollout Behavioral Audit
 
-Status: planned; implementation and smoke validation only. No full campaign
-result is recorded by this document.
+Status: completed. The full twelve-cell campaign completed under the frozen
+protocol recorded here. This README remains the durable design/provenance
+authority; the result interpretation and discussion-ready tables are in the
+[M23A results and discussion brief](RESULTS_DISCUSSION_BRIEF.md).
 
 ## Scientific question
 
@@ -119,4 +121,25 @@ not modify M16D/M22 source artifacts.
 The prepared [campaign runner](../../../../tools/run_puzzle_diagnostic_campaign.py)
 may validate dependencies, run targeted tests, and run a declared tiny smoke.
 It must not launch the full M23A campaign unless the user explicitly authorizes
-it. The full campaign is manually launched from a clean frozen worktree.
+it. The completed campaign was manually launched under a user-authorized
+non-training diagnostic exception from the clean
+`/home/eai/Research/RLC-M23A` feature worktree on
+`m23a-direct-rollout-audit`; it did not modify source training artifacts.
+
+## Completed campaign record
+
+The actual completed artifact, rather than the design-time
+`formal_evaluation_started: false` field in the Study, is authoritative for
+execution status:
+
+- [campaign manifest](/data/qijunrong/06-RL/offline-rl/exp/RLC/diagnostics/M23A/final_last1m_alltasks_ep50_evalSeed20260909_controlled-goal-replay-v1/campaign_manifest.json)
+  records `status: completed`, diagnostic commit
+  `21e0cb838c1476ac6ec62f63e6f1152702afcde9`, and `diagnostic_git_dirty: false`;
+- twelve cells × five tasks × fifty episodes produced 3,000 rollout records;
+- [pairing invariants](/data/qijunrong/06-RL/offline-rl/exp/RLC/diagnostics/M23A/final_last1m_alltasks_ep50_evalSeed20260909_controlled-goal-replay-v1/pairing_invariants.json)
+  records 1,000 three-policy paired groups and `status: passed`.
+
+The completed campaign is an observation-only, single-training-seed diagnostic.
+It does not turn alpha=0.4 into an optimum claim or establish a causal
+architecture result. See the linked discussion brief for the exact results,
+their scope, and recommended follow-up questions.
