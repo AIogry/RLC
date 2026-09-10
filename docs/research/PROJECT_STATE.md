@@ -7,8 +7,8 @@ resolved configurations remain authoritative for exact progress and results.
 
 The current thread concerns Puzzle computation, alpha sensitivity, and failure
 mechanisms in the unified RLC runtime. The active work combines the M16D
-alpha-completion study, the M22 official-baseline campaign, and the M23A
-controlled-goal-replay direct-rollout diagnostic campaign.
+alpha-completion study, the M22 official-baseline campaign, and completed M23A
+controlled-goal-replay direct-rollout diagnosis.
 
 ## Established evidence
 
@@ -24,6 +24,12 @@ controlled-goal-replay direct-rollout diagnostic campaign.
 - The generic sweep launcher now defaults child processes to
   `XLA_PYTHON_CLIENT_PREALLOCATE=false`; M16D's restart note records the
   controlled single- and dual-process memory checks.
+- M23A completed its twelve-cell, 3,000-rollout controlled-goal-replay audit.
+  The exact final checkpoints show low-distance task competence but no robust
+  4x5/4x6 long-sequence composition; alpha=0.4 Mixer-L2 is the best available
+  source on 4x4--4x6, while Flat alpha=1.0 is strongest on 3x3. This is
+  single-training-seed diagnostic evidence, with M16D alpha=0.4 retaining its
+  scoped provenance exception. See the [M23A results brief](experiments/M23A-F0/RESULTS_DISCUSSION_BRIEF.md).
 
 ## Active studies
 
@@ -31,7 +37,7 @@ controlled-goal-replay direct-rollout diagnostic campaign.
 | --- | --- | --- |
 | M16D | Formal attempt 001 is complete for all four cells; analysis and provenance-qualified handoff remain. | `/data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M16D/` |
 | M22 | Formal campaign is active/partial in the external run tree; the repository completion manifest is not paper-ready. | `/data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M22/` |
-| M23A | Twelve-cell controlled-goal-replay diagnostic campaign is specified; implementation/tests and a tiny smoke are allowed, but no formal full evaluation has started. | [`M23A Study`](../../experiments/M23A_puzzle_direct_rollout_audit/study.yaml) and [`M23A authority`](experiments/M23A-F0/README.md) |
+| M23A | Completed: 12/12 cells, 3,000 controlled paired rollouts; discussion/replication analysis remains. | [`M23A authority`](experiments/M23A-F0/README.md), [`results brief`](experiments/M23A-F0/RESULTS_DISCUSSION_BRIEF.md), and external diagnostic artifact root |
 
 The M16D Study and M22 Study retain design-time `formal_training_started: false`
 fields. These declarations conflict with the observed external run artifacts;
@@ -50,9 +56,10 @@ runtime metadata records `2617634f29a883581b6fbf582db072f08b9d24ff` with
 
 ## Immediate next study
 
-M23A is the next planned scientific step. Its sources, frozen paired protocol,
-and provenance scope are declared in the M23A Study and durable authority; the
-user manually authorizes any formal diagnostic run.
+M23A execution is complete. Preserve its artifact root and use the completed
+paired episode/event tables for discussion and provenance-qualified analysis;
+do not replace its final-checkpoint endpoint or alter its outputs. Any
+architecture/alpha causal claim needs a separately declared multi-seed follow-up.
 
 ## Major open scientific questions
 
@@ -61,8 +68,9 @@ user manually authorizes any formal diagnostic run.
   exploratory scope?
 - What are the complete, reproducible M22 baseline outcomes across algorithms,
   environments, and three seeds once all runs are complete?
-- Do M23A rollout/event metrics distinguish data/task support failures from
-  representation, optimization, or closed-loop policy failures?
+- Which mechanism best explains M23A's high-distance failure boundary, and
+  what matched multi-seed or intervention study can distinguish architecture,
+  alpha, and closed-loop execution effects?
 
 ## Source-of-truth order
 
