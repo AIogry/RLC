@@ -1,0 +1,40 @@
+study_id: M23A
+config_id: M23A-P3X3-MIXERL2-A10
+slug: p3x3_mixer_l2_alpha1p0
+algorithm: gciql
+environment: puzzle-3x3-play-v0
+placement: actor+value+critic
+protocol_stage: diagnostic
+executable: false
+blocked_by: user_manual_full_evaluation_authority
+factors: {source_policy: mixer_l2_alpha1p0, environment: puzzle-3x3-play-v0, alpha: 1.0, architecture: mixer_l2}
+source_policy:
+  label: mixer_l2_alpha1p0
+  dependency: source_policy
+  provenance:
+    provenance_status: verified_clean
+    reason: completed immutable source with git_dirty=false
+    evidence_level: machine-verified
+  expected:
+    source_study_id: M16B
+    source_config_id: M16B-3x3-S002
+    environment: puzzle-3x3-play-v0
+    training_seed: 0
+    run_attempt: 0
+    git_commit: 1eb3ac0f7ef40773bad5f0015d4fe4f490d4de6b
+    git_dirty: false
+    checkpoint_sha256: f62ec6c72a286cab1210fe12a765caeab96f950c6edee6b42c13c7e0751d4ac3
+    resolved_config_fingerprint: 2e7563484ac2a861861f221aa6dffe835253e76d010a4694a5579720e25cf446
+    alpha: 1.0
+    condition_id: S002
+    architecture: mixer_l2
+dependencies:
+  source_policy:
+    source_study_id: M16B
+    source_study_path: ../M16B_puzzle_alpha_correction/study.yaml
+    source_config_id: M16B-3x3-S002
+    seed_policy: explicit_seed
+    source_seed: 0
+    source_run_attempt: 0
+    checkpoint_role: last
+    checkpoint_step: 1000000

@@ -24,10 +24,25 @@ from .layout import (
     extract_button_joint_velocities,
 )
 from .metrics import PuzzleMetricError, analyze_puzzle_episode
+from .replay import (
+    CONTROLLED_GOAL_REPLAY_SCHEMA_VERSION,
+    ControlledGoalRecord,
+    ControlledGoalReplay,
+    ControlledGoalReplayEnv,
+    ControlledGoalReplayError,
+    array_fingerprint,
+    paired_episode_id,
+    verify_paired_fingerprint_groups,
+)
 
 __all__ = [
     'BUTTON_FEATURE_DIM',
     'BUTTON_STATE_DIM',
+    'CONTROLLED_GOAL_REPLAY_SCHEMA_VERSION',
+    'ControlledGoalRecord',
+    'ControlledGoalReplay',
+    'ControlledGoalReplayEnv',
+    'ControlledGoalReplayError',
     'DStarError',
     'GF2SolveResult',
     'POSITION_SCALE',
@@ -38,6 +53,7 @@ __all__ = [
     'PuzzleMetricError',
     'ROBOT_DIM',
     'analyze_puzzle_episode',
+    'array_fingerprint',
     'build_toggle_matrix',
     'compute_dstar',
     'decode_board_bits',
@@ -49,4 +65,6 @@ __all__ = [
     'gf2_solve',
     'identify_press_events',
     'minimum_weight_solution',
+    'paired_episode_id',
+    'verify_paired_fingerprint_groups',
 ]

@@ -13,6 +13,7 @@ import json
 import math
 import os
 import pickle
+import re
 import socket
 import statistics
 import subprocess
@@ -196,19 +197,80 @@ def campaign_root(reeval_root, spec):
     return Path(reeval_root) / spec['source_study_id'] / spec['reevaluation_id']
 
 
+_SEED_COMPONENT_RE = re.compile(r'^seed_(?P<seed>\d+)(?:__attempt_(?P<attempt>\d+))?$')
+_SCOPED_PROVENANCE_SCOPE_FIELDS = (
+    'study_id',
+    'config_id',
+    'environment',
+    'training_seed',
+    'run_attempt',
+    'git_commit',
+    'checkpoint_sha256',
+)
+
+
 def _split_config_identity(source_run_dir):
+    """Parse a canonical Run path, including an explicit nonzero attempt."""
+
     try:
         config_component = Path(source_run_dir).parent.parent.name
         config_id, config_slug = config_component.split('__', 1)
         environment = Path(source_run_dir).parent.name
         study_id = Path(source_run_dir).parent.parent.parent.name
         seed_component = Path(source_run_dir).name
-        if not seed_component.startswith('seed_'):
+        seed_match = _SEED_COMPONENT_RE.fullmatch(seed_component)
+        if seed_match is None:
             raise ValueError
-        training_seed = int(seed_component.removeprefix('seed_'))
+        training_seed = int(seed_match.group('seed'))
+        run_attempt = int(seed_match.group('attempt') or 0)
     except (ValueError, IndexError) as error:
         raise ReevaluationError(f'Cannot parse canonical source run path: {source_run_dir}') from error
-    return study_id, config_id, config_slug, environment, training_seed
+    return study_id, config_id, config_slug, environment, training_seed, run_attempt
+
+
+def _scoped_provenance_exception(exception, *, identity, git_dirty):
+    """Validate the narrow, auditable exception for one dirty source Run.
+
+    Normal source validation remains clean-only.  An exception is accepted
+    only when its complete identity and final checkpoint hash are declared in
+    advance, so a broad ``allow_dirty`` switch cannot accidentally admit a
+    different source Run.
+    """
+
+    if git_dirty is False:
+        if exception is not None:
+            raise ReevaluationError('A scoped provenance exception is only valid for git_dirty=true sources')
+        return None
+    if git_dirty is not True:
+        raise ReevaluationError(f'Formal source run is not clean: {git_dirty!r}')
+    if not isinstance(exception, Mapping):
+        raise ReevaluationError(
+            'Formal source run is dirty and has no explicit scoped provenance exception'
+        )
+    exception = dict(exception)
+    if exception.get('provenance_status') != 'scoped_exception':
+        raise ReevaluationError('Dirty source exception must declare provenance_status=scoped_exception')
+    for field in ('reason', 'evidence_level'):
+        if not isinstance(exception.get(field), str) or not exception[field].strip():
+            raise ReevaluationError(f'Dirty source exception requires a non-empty {field!r}')
+    scope = exception.get('scope')
+    if not isinstance(scope, Mapping):
+        raise ReevaluationError('Dirty source exception requires a mapping scope')
+    missing = [field for field in _SCOPED_PROVENANCE_SCOPE_FIELDS if field not in scope]
+    if missing:
+        raise ReevaluationError(
+            f'Dirty source exception scope is missing required fields: {missing}'
+        )
+    for field in _SCOPED_PROVENANCE_SCOPE_FIELDS[:-1]:
+        if str(scope[field]) != str(identity[field]):
+            raise ReevaluationError(
+                f'Dirty source exception scope mismatch for {field}: '
+                f'expected={scope[field]!r}, observed={identity[field]!r}'
+            )
+    checkpoint_sha256 = scope['checkpoint_sha256']
+    if not isinstance(checkpoint_sha256, str) or len(checkpoint_sha256) != 64:
+        raise ReevaluationError('Dirty source exception scope requires a SHA-256 checkpoint hash')
+    return jsonable(exception)
 
 
 def _resolved_payload(resolved):
@@ -228,6 +290,7 @@ def validate_source_run(
     expected_environment=None,
     check_checkpoint_metadata=True,
     allow_running_source_if_checkpoint_best=False,
+    scoped_provenance_exception=None,
 ):
     """Validate a source run and return immutable provenance information."""
 
@@ -240,6 +303,14 @@ def validate_source_run(
         raise ReevaluationError(f'Missing source resolved_config.json: {resolved_path}')
     metadata = _read_json(metadata_path)
     resolved = _read_json(resolved_path)
+    (
+        study_id,
+        config_id,
+        config_slug,
+        environment,
+        training_seed,
+        run_attempt,
+    ) = _split_config_identity(source_run_dir)
     if checkpoint_selector is None:
         if checkpoint_step is None:
             raise ReevaluationError('A checkpoint_step or checkpoint_selector is required')
@@ -259,16 +330,26 @@ def validate_source_run(
             f'Source run status {metadata.get("status")!r} is not allowed for '
             f'checkpoint selector {normalized_selector!r}; allowed={sorted(allowed_statuses)!r}'
         )
-    if metadata.get('git_dirty') is not False:
-        raise ReevaluationError(f'Formal source run is not clean: {metadata.get("git_dirty")!r}')
-
-    study_id, config_id, config_slug, environment, training_seed = _split_config_identity(source_run_dir)
+    source_identity = {
+        'study_id': study_id,
+        'config_id': config_id,
+        'environment': environment,
+        'training_seed': training_seed,
+        'run_attempt': run_attempt,
+        'git_commit': metadata.get('git_commit'),
+    }
+    provenance_exception = _scoped_provenance_exception(
+        scoped_provenance_exception,
+        identity=source_identity,
+        git_dirty=metadata.get('git_dirty'),
+    )
     expected = {
         'study_id': expected_study_id,
         'environment': expected_environment,
         'config_id': config_id,
         'config_slug': config_slug,
         'training_seed': training_seed,
+        'run_attempt': run_attempt,
     }
     observed = {
         'study_id': metadata.get('study_id'),
@@ -276,6 +357,10 @@ def validate_source_run(
         'config_id': metadata.get('config_id'),
         'config_slug': metadata.get('config_slug'),
         'training_seed': metadata.get('seed'),
+        # Pre-attempt artifacts did not record this field.  Their canonical
+        # path is unambiguously attempt zero, so retain compatibility while
+        # requiring an explicit match for nonzero attempts.
+        'run_attempt': metadata.get('run_attempt', 0),
     }
     for key, wanted in expected.items():
         if wanted is not None and str(observed[key]) != str(wanted):
@@ -328,6 +413,14 @@ def validate_source_run(
                 )
         if int(checkpoint_metadata.get('seed', -1)) != training_seed:
             raise ReevaluationError('Checkpoint metadata seed does not match source training seed')
+    checkpoint_sha256 = sha256_file(checkpoint_path)
+    if provenance_exception is not None:
+        expected_hash = provenance_exception['scope']['checkpoint_sha256']
+        if checkpoint_sha256 != expected_hash:
+            raise ReevaluationError(
+                'Dirty source exception checkpoint hash mismatch: '
+                f'expected={expected_hash!r}, observed={checkpoint_sha256!r}'
+            )
 
     return {
         'source_run_dir': str(source_run_dir),
@@ -336,15 +429,20 @@ def validate_source_run(
         'source_config_slug': config_slug,
         'source_environment': environment,
         'source_training_seed': training_seed,
+        'source_run_attempt': run_attempt,
         'source_git_commit': metadata.get('git_commit'),
         'source_git_dirty': metadata.get('git_dirty'),
+        'source_provenance_status': (
+            'scoped_exception' if provenance_exception is not None else 'verified_clean'
+        ),
+        'source_provenance_exception': provenance_exception,
         'source_run_status_at_validation': metadata.get('status'),
         'source_resolved_config_fingerprint': stored_fingerprint,
         'source_metadata': metadata,
         'resolved_config': resolved,
         'checkpoint_step': int(checkpoint_step),
         'checkpoint_path': str(checkpoint_path),
-        'checkpoint_sha256': sha256_file(checkpoint_path),
+        'checkpoint_sha256': checkpoint_sha256,
         'checkpoint_metadata': jsonable(checkpoint_metadata),
         'requested_checkpoint_selector': normalized_selector,
         'resolved_checkpoint_role': checkpoint['checkpoint_role'],
@@ -361,11 +459,220 @@ def _resolved_agent_config(resolved):
     raise ReevaluationError('resolved_config.json has no algorithm_config.agent mapping')
 
 
+def _mutable_mapping(value):
+    """Copy mappings without copying array leaves."""
+
+    if not isinstance(value, Mapping):
+        return value
+    return {key: _mutable_mapping(item) for key, item in value.items()}
+
+
+def _require_mapping(value, *, label):
+    if not isinstance(value, Mapping):
+        raise ReevaluationError(f'{label} must be a mapping')
+    return value
+
+
+def _legacy_mixer_body_to_modular(legacy_body, target_body, *, label):
+    """Map the pre-M17 Puzzle Mixer ownership layout into the modular layout.
+
+    This is an inference-only checkpoint adapter. M15/M16 checkpoints owned
+    adapter, Mixer blocks, and readout under one ``PuzzleStructuredBody``;
+    M17 preserved their forward semantics but separated those components into
+    adapter/core/readout modules. The mapping is intentionally exact and fails
+    on any unknown or missing parameter name.
+    """
+
+    legacy_body = _require_mapping(legacy_body, label=f'{label} legacy body')
+    target = _mutable_mapping(_require_mapping(target_body, label=f'{label} target body'))
+    adapter = _mutable_mapping(_require_mapping(target.get('adapter'), label=f'{label}.adapter'))
+    core = _mutable_mapping(_require_mapping(target.get('core'), label=f'{label}.core'))
+    topology = _mutable_mapping(
+        _require_mapping(core.get('topology'), label=f'{label}.core.topology')
+    )
+    primitive = _mutable_mapping(
+        _require_mapping(
+            topology.get('primitive'),
+            label=f'{label}.core.topology.primitive',
+        )
+    )
+    readout = _mutable_mapping(_require_mapping(target.get('readout'), label=f'{label}.readout'))
+    target_block_names = sorted(primitive)
+    if any(not name.startswith('blocks_') for name in target_block_names):
+        raise ReevaluationError(f'{label} target has an unsupported non-Mixer block layout')
+    source_block_names = {f'mixer_blocks_{name.removeprefix("blocks_")}' for name in target_block_names}
+    allowed_source_names = set(adapter) | source_block_names | set(readout)
+    if set(legacy_body) != allowed_source_names:
+        raise ReevaluationError(
+            f'{label} legacy Mixer parameter names differ from the exact supported layout: '
+            f'observed={sorted(legacy_body)!r}, expected={sorted(allowed_source_names)!r}'
+        )
+    for name in adapter:
+        adapter[name] = legacy_body[name]
+    for target_name in target_block_names:
+        source_name = f'mixer_blocks_{target_name.removeprefix("blocks_")}'
+        primitive[target_name] = legacy_body[source_name]
+    for name in readout:
+        readout[name] = legacy_body[name]
+    topology['primitive'] = primitive
+    core['topology'] = topology
+    target['adapter'] = adapter
+    target['core'] = core
+    target['readout'] = readout
+    return target
+
+
+def _require_matching_leaf_shapes(source, target, *, label):
+    source_leaves = _tree_leaves(source)
+    target_leaves = _tree_leaves(target)
+    source_shapes = [tuple(np.asarray(leaf).shape) for leaf in source_leaves]
+    target_shapes = [tuple(np.asarray(leaf).shape) for leaf in target_leaves]
+    if source_shapes != target_shapes:
+        raise ReevaluationError(
+            f'{label} legacy Mixer parameter shapes do not match the reconstructed network'
+        )
+
+
+def _legacy_mixer_params_to_modular(source_params, target_params):
+    """Translate a complete pre-M17 GCIQL Puzzle-Mixer parameter tree.
+
+    No source values are changed: each leaf is transplanted into the ownership
+    location that M17 proved forward-equivalent. Non-Mixer and unknown layouts
+    are rejected rather than heuristically coerced.
+    """
+
+    source = _require_mapping(source_params, label='legacy checkpoint params')
+    target = _mutable_mapping(_require_mapping(target_params, label='target checkpoint params'))
+    module_names = (
+        'modules_actor',
+        'modules_value',
+        'modules_critic',
+        'modules_target_critic',
+    )
+    if set(source) != set(module_names) or set(target) != set(module_names):
+        raise ReevaluationError('Legacy Mixer adapter requires the exact GCIQL module set')
+
+    source_actor = _require_mapping(source['modules_actor'], label='legacy modules_actor')
+    target_actor = _mutable_mapping(_require_mapping(target['modules_actor'], label='target modules_actor'))
+    if set(source_actor) != {'actor_net', 'mean_net'} or set(target_actor) != {'actor_net', 'mean_net'}:
+        raise ReevaluationError('Legacy Mixer adapter requires the canonical GCIQL actor layout')
+    source_actor_net = _require_mapping(source_actor['actor_net'], label='legacy actor_net')
+    if set(source_actor_net) != {'topology'}:
+        raise ReevaluationError('Checkpoint is not a pre-M17 Puzzle-Mixer actor layout')
+    source_actor_topology = _require_mapping(
+        source_actor_net['topology'], label='legacy actor topology'
+    )
+    if set(source_actor_topology) != {'primitive'}:
+        raise ReevaluationError('Checkpoint actor topology is not an exact legacy Mixer layout')
+    target_actor['actor_net'] = _legacy_mixer_body_to_modular(
+        source_actor_topology['primitive'],
+        target_actor['actor_net'],
+        label='modules_actor.actor_net',
+    )
+    target_actor['mean_net'] = source_actor['mean_net']
+    target['modules_actor'] = target_actor
+
+    for module_name in module_names[1:]:
+        source_module = _require_mapping(source[module_name], label=f'legacy {module_name}')
+        target_module = _mutable_mapping(
+            _require_mapping(target[module_name], label=f'target {module_name}')
+        )
+        if set(source_module) != {'value_net', 'value_readout'} or set(target_module) != {
+            'value_net', 'value_readout'
+        }:
+            raise ReevaluationError(
+                f'Legacy Mixer adapter requires the canonical GCIQL value layout for {module_name}'
+            )
+        source_value_net = _require_mapping(
+            source_module['value_net'], label=f'legacy {module_name}.value_net'
+        )
+        if set(source_value_net) != {'core'}:
+            raise ReevaluationError(
+                f'Checkpoint {module_name}.value_net is not an exact legacy Mixer layout'
+            )
+        source_core = _require_mapping(
+            source_value_net['core'], label=f'legacy {module_name}.value_net.core'
+        )
+        source_topology = _require_mapping(
+            source_core.get('topology'), label=f'legacy {module_name}.value_net.core.topology'
+        )
+        if set(source_topology) != {'primitive'}:
+            raise ReevaluationError(
+                f'Checkpoint {module_name}.value_net topology is not an exact legacy Mixer layout'
+            )
+        target_value_net = _mutable_mapping(
+            _require_mapping(target_module['value_net'], label=f'target {module_name}.value_net')
+        )
+        if set(target_value_net) != {'core'}:
+            raise ReevaluationError(
+                f'Target {module_name}.value_net is not the expected modular Mixer layout'
+            )
+        target_value_net['core'] = _legacy_mixer_body_to_modular(
+            source_topology['primitive'],
+            target_value_net['core'],
+            label=f'{module_name}.value_net.core',
+        )
+        target_module['value_net'] = target_value_net
+        target_module['value_readout'] = source_module['value_readout']
+        target[module_name] = target_module
+
+    from ..utils.flax_utils import _mapping_like
+
+    converted = _mapping_like(target_params, target)
+    _require_matching_leaf_shapes(converted, target_params, label='Converted')
+    return converted
+
+
+def _restore_legacy_mixer_agent_for_reevaluation(agent, checkpoint_path):
+    """Restore a legacy Puzzle-Mixer checkpoint for inference only.
+
+    The source optimizer state is deliberately not migrated: post-hoc
+    reevaluation never calls ``update`` and retains the freshly initialized
+    optimizer/model state. Source network parameters and RNG are preserved.
+    """
+
+    try:
+        with Path(checkpoint_path).open('rb') as file:
+            payload = pickle.load(file)
+        source_agent = _require_mapping(payload.get('agent'), label='legacy checkpoint agent')
+        source_network = _require_mapping(source_agent.get('network'), label='legacy checkpoint network')
+        source_params = source_network.get('params')
+        source_rng = source_agent.get('rng')
+    except (OSError, EOFError, pickle.UnpicklingError, AttributeError) as error:
+        raise ReevaluationError(f'Cannot read legacy Mixer checkpoint: {checkpoint_path}') from error
+    if source_rng is None:
+        raise ReevaluationError('Legacy Mixer checkpoint has no agent RNG')
+    source_model_state = source_network.get('model_state', {})
+    if source_model_state not in ({}, None):
+        raise ReevaluationError('Legacy Mixer checkpoint has unsupported non-empty model state')
+    converted_params = _legacy_mixer_params_to_modular(source_params, agent.network.params)
+    restored = agent.replace(network=agent.network.replace(params=converted_params), rng=source_rng)
+    print(f'Restored legacy Mixer layout for inference from {checkpoint_path}')
+    return restored
+
+
+def _restore_agent_for_reevaluation(agent, checkpoint_path):
+    """Restore native checkpoints, with one exact legacy Mixer inference adapter."""
+
+    from ..utils.flax_utils import restore_agent_from_checkpoint
+
+    try:
+        return restore_agent_from_checkpoint(agent, checkpoint_path), 'native_state_dict'
+    except ValueError as native_error:
+        try:
+            restored = _restore_legacy_mixer_agent_for_reevaluation(agent, checkpoint_path)
+        except ReevaluationError as compatibility_error:
+            raise ReevaluationError(
+                'Checkpoint cannot be restored natively and is not a supported '
+                'pre-M17 Puzzle-Mixer inference layout'
+            ) from native_error
+        return restored, 'legacy_mixer_layout_adapter_v1'
+
+
 def _make_restored_agent(provenance):
     from ..agents import agents
     from ..utils.datasets import GCDataset, HGCDataset, MultiHGCDataset
     from ..utils.env_utils import make_env_and_datasets
-    from ..utils.flax_utils import restore_agent_from_checkpoint
 
     metadata = provenance['source_metadata']
     resolved = provenance['resolved_config']
@@ -411,7 +718,8 @@ def _make_restored_agent(provenance):
         example_batch['actions'],
         config,
     )
-    restored = restore_agent_from_checkpoint(agent, provenance['checkpoint_path'])
+    restored, restore_mode = _restore_agent_for_reevaluation(agent, provenance['checkpoint_path'])
+    provenance['checkpoint_restore_mode'] = restore_mode
     leaves = []
     leaves.extend(jax_leaf for jax_leaf in _tree_leaves(restored.network.params))
     if not all(np.all(np.isfinite(np.asarray(leaf))) for leaf in leaves):

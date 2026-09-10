@@ -1,0 +1,65 @@
+study_id: M23A
+name: "Puzzle Direct Rollout Behavioral Audit"
+question: >-
+  Across canonical Puzzle environments, how do Flat GCIQL alpha=1.0,
+  Puzzle Mixer-L2 alpha=1.0, and Puzzle Mixer-L2 alpha=0.4 differ in
+  physical press execution, algebraic D* progress, sequential composition,
+  and goal completion under identical policy-facing goal observations?
+parent_studies: [M16B, M16D]
+primary_factors:
+  - source_policy
+  - environment
+fixed_design:
+  diagnostic_type: observation_only_puzzle_direct_rollout
+  algorithm: gciql
+  source_training_seed: 0
+  source_checkpoint: final@1M
+  task_selection: all_five_canonical_tasks
+  eval_temperature: 0.0
+  eval_gaussian: null
+  controlled_goal_replay: true
+  source_run_mutation: forbidden
+deferred_factors:
+  - additional_training_seeds
+  - alternative_checkpoint_selection
+  - altered_environment_or_training_semantics
+  - policy_training_or_finetuning
+algorithms: [gciql]
+placements: [actor+value+critic]
+environments:
+  - puzzle-3x3-play-v0
+  - puzzle-4x4-play-v0
+  - puzzle-4x5-play-v0
+  - puzzle-4x6-play-v0
+seeds: [0]
+primary_metric: diagnostic/paired_behavioral_observables
+diagnostic_protocol:
+  campaign_id: final_last1m_alltasks_ep50_evalSeed20260909_controlled-goal-replay-v1
+  task_ids: [1, 2, 3, 4, 5]
+  episodes_per_task: 50
+  evaluation_seed: 20260909
+  seed_scheme: common_task_episode_v1
+  eval_temperature: 0.0
+  eval_gaussian: null
+  checkpoint_role: last
+  checkpoint_step: 1000000
+  controlled_goal_replay: true
+  goal_replay_contract: >-
+    For a fixed environment/task_id/episode_index, every source policy must
+    receive the identical persisted complete policy-facing goal observation.
+  hard_pairing_invariants:
+    - goal_fingerprint_equal_across_three_policies
+    - board_goal_fingerprint_equal_across_three_policies
+    - initial_observation_fingerprint_equal_across_three_policies
+  on_initial_observation_mismatch: fail_fast_do_not_treat_as_paired
+  output_root_layout: >-
+    <diagnostic-root>/M23A/<campaign-id>/{controlled_goal_replay,runs}/
+execution:
+  formal_evaluation_started: false
+  full_campaign_launch: user_manual_only
+  tiny_paired_smoke_allowed: true
+interpretation_boundaries:
+  - M23A is post-hoc observation-only diagnosis and does not train a policy.
+  - Dstar is algebraic minimum press count, not robot motion distance or value.
+  - The alpha=0.4 source is a single-seed operating-point comparison, not an optimum claim.
+  - Scoped provenance exceptions remain user-attested and partially machine-verified.

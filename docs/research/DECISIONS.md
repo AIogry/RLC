@@ -110,6 +110,32 @@ multi-seed result.
 Evidence: external M16D `summary.json` and checkpoint metadata files; the
 [`M16D context`](experiments/M16D/README.md).
 
+## 2026-09-10 — M23A uses a narrow provenance exception and controlled goal replay
+
+**Partially machine-verified; dirty-diff rationale is user-attested.** The four
+M16D `seed_000__attempt_001` alpha=0.4 sources record `status: completed`,
+`final@1M`, seed `0`, the declared source commit, resolved configuration, and
+checkpoint SHA-256. Their historical `git_dirty: true` diff cannot be exactly
+recovered. The stated cause is `concurrent M23A-F0 diagnostic development`.
+
+**Decision.** M23A may admit only those four declared sources with
+`provenance_status = scoped_exception` and
+`evidence_level = user-attested / partially machine-verified`, scoped to exact
+study/config/environment/seed/attempt/commit/checkpoint hash. The ordinary
+clean-provenance gate remains unchanged for every other source; this is neither
+a claim that the dirty state was clean nor an instruction to retrain M16D.
+
+For each common `(environment, task_id, episode_index)`, the three M23A source
+policies receive the same persisted complete policy-facing goal observation.
+Goal, board-goal, and initial-observation fingerprints are hard equality
+invariants; an initial-observation mismatch fails immediately and is not a
+paired rollout. This is diagnostic-layer behavior and does not modify Puzzle
+environment or training semantics.
+
+Evidence: [`M23A authority`](experiments/M23A-F0/README.md),
+[`M23A Study`](../../experiments/M23A_puzzle_direct_rollout_audit/study.yaml),
+and M16D external runtime/checkpoint artifacts.
+
 ## 2026-08-16 onward — Dependency-aware targeted regression
 
 **Verified.** The repository separates computation, agent, experiment, launch,
