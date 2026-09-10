@@ -58,6 +58,13 @@ current run progress.
 
 - Before formal execution, validate the Study/config matrix, dataset identity,
   protocol, output namespace, GPU policy, and clean frozen source.
+- Formal training and long-running/high-cost formal campaigns require a clean
+  detached frozen worktree. A non-training post-hoc diagnostic or reevaluation
+  may instead use a clean, dedicated feature worktree only when the user
+  explicitly authorizes that exception for the current task. Record its
+  worktree path, branch, commit, clean state, rationale, GPU assignment, and
+  output namespace in the execution manifest and durable study context; do not
+  modify that worktree after preflight or while it is executing.
 - Use explicit seeds and protocol arguments. Let resolved configs and runtime
   metadata record the effective values, devices, source SHA, and lifecycle
   status.
@@ -82,3 +89,26 @@ checks performed, source locations consulted, unresolved conflicts, actions
 intentionally not taken, and the next human-controlled action. Formal launch,
 Git publication, and changes to frozen experiment state require explicit human
 ownership.
+
+## Human-controlled Git and launch guidance
+
+- When repository work is ready, but commit, push, merge, or launch has not
+  been explicitly authorized in the current task, do not perform it. The
+  handoff must still provide a copy-paste-ready sequence tailored to the
+  observed worktree/branch/SHA, target branch, remote state, and any existing
+  user changes. Distinguish required review/validation steps from optional
+  remote publication or pull-request steps.
+- Before suggesting a merge, inspect and report whether the target worktree is
+  clean and whether uncommitted user changes need to be preserved. Do not
+  recommend reset, clean, force-push, or dropping a stash by default.
+- Before suggesting a formal experiment launch, inspect and report the active
+  Study protocol, source/provenance gates, output-root emptiness, current GPU
+  process occupancy, and the exact execution source SHA. Give the exact launch
+  command, explicit GPU assignment, expected output namespace, and monitoring
+  command when known.
+- Never infer that an available GPU may be shared with another formal study.
+  Respect the active Study's declared GPU policy and the user's explicit GPU
+  allocation; recheck live GPU occupancy immediately before launch.
+- State whether the launch source is a frozen worktree or a user-authorized
+  clean feature-worktree exception. If it is the latter, make the exception and
+  its reproducibility boundary explicit in the handoff and execution record.
