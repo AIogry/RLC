@@ -1,14 +1,15 @@
 # RLC project state
 
-Last reviewed: 2026-09-10. This is a compact state summary; run artifacts and
+Last reviewed: 2026-09-11. This is a compact state summary; run artifacts and
 resolved configurations remain authoritative for exact progress and results.
 
 ## Current scientific focus
 
-The current thread concerns Puzzle computation, alpha sensitivity, and failure
-mechanisms in the unified RLC runtime. The active work combines the M16D
-alpha-completion study, the M22 official-baseline campaign, and completed M23A
-controlled-goal-replay direct-rollout diagnosis.
+The current thread concerns Puzzle computation, goal-coordinate semantics, and
+failure mechanisms in the unified RLC runtime. M24A is configured as the next
+direction-selection Study, while M22 remains active/partial and M23A provides
+the completed controlled-goal-replay behavioral diagnosis that motivates the
+intervention.
 
 ## Established evidence
 
@@ -30,6 +31,10 @@ controlled-goal-replay direct-rollout diagnosis.
   source on 4x4--4x6, while Flat alpha=1.0 is strongest on 3x3. This is
   single-training-seed diagnostic evidence, with M16D alpha=0.4 retaining its
   scoped provenance exception. See the [M23A results brief](experiments/M23A-F0/RESULTS_DISCUSSION_BRIEF.md).
+- M24A's preflight validates six seed-0 cells on Puzzle-4x5/4x6, with identical
+  raw transition/value-goal/actor-goal sampling and identical parameter trees
+  across board, residual, and exact operation-parity conditioning. This is a
+  design/runtime validation only; it is not training evidence.
 
 ## Active studies
 
@@ -38,16 +43,19 @@ controlled-goal-replay direct-rollout diagnosis.
 | M16D | Formal attempt 001 is complete for all four cells; analysis and provenance-qualified handoff remain. | `/data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M16D/` |
 | M22 | Formal campaign is active/partial in the external run tree; the repository completion manifest is not paper-ready. | `/data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M22/` |
 | M23A | Completed: 12/12 cells, 3,000 controlled paired rollouts; discussion/replication analysis remains. | [`M23A authority`](experiments/M23A-F0/README.md), [`results brief`](experiments/M23A-F0/RESULTS_DISCUSSION_BRIEF.md), and external diagnostic artifact root |
+| M24A | Study/configuration preflight complete; 0/6 formal runs started. Git review, clean frozen source, exact concurrent-GPU smoke, and physical GPU assignment remain launch gates. | [`M24A Study`](../../experiments/M24A_puzzle_goal_conditioning_intervention/study.yaml), [`M24A protocol`](../../experiments/M24A_puzzle_goal_conditioning_intervention/README.md) |
 
 The M16D Study and M22 Study retain design-time `formal_training_started: false`
 fields. These declarations conflict with the observed external run artifacts;
-they are not silently rewritten here. Use the actual run metadata/process state
-for execution status and the Study/config files for declared design semantics.
+they are not silently rewritten here. M24A's same field currently agrees with
+the absent formal output namespace and process audit. Use actual run metadata
+and process state for execution status and Study/config files for declared
+design semantics.
 
 The sampled M16D attempt-001 runtime metadata records source commit
 `fdbd7875a031c537b98b415a3c73ce0bf6a02721` with `git_dirty: true`; this is the
 effective recorded provenance for those runs and must not be replaced by the
-current clean documentation worktree at `279d7b6`. M23A permits exactly its
+clean documentation snapshot `279d7b6` reviewed on 2026-09-10. M23A permits exactly its
 four declared alpha=0.4 sources through a scoped, user-attested / partially
 machine-verified provenance exception; it does not claim their historical dirty
 diff was recovered or their source was fully verified clean. Sampled M22
@@ -56,10 +64,10 @@ runtime metadata records `2617634f29a883581b6fbf582db072f08b9d24ff` with
 
 ## Immediate next study
 
-M23A execution is complete. Preserve its artifact root and use the completed
-paired episode/event tables for discussion and provenance-qualified analysis;
-do not replace its final-checkpoint endpoint or alter its outputs. Any
-architecture/alpha causal claim needs a separately declared multi-seed follow-up.
+Review and commit the M24 capability and M24A Study definitions separately,
+then repeat the dry-run from a clean detached snapshot. Before any formal
+launch, assign the physical GPU and pass the exact two-process workload smoke.
+Do not start M24A from the currently dirty main worktree.
 
 ## Major open scientific questions
 
@@ -71,6 +79,9 @@ architecture/alpha causal claim needs a separately declared multi-seed follow-up
 - Which mechanism best explains M23A's high-distance failure boundary, and
   what matched multi-seed or intervention study can distinguish architecture,
   alpha, and closed-loop execution effects?
+- Under fixed GCIQL and Mixer-L2, do residual or exact operation-parity
+  coordinates improve final@1M Task2--5 performance over target-board
+  conditioning on Puzzle-4x5/4x6?
 
 ## Source-of-truth order
 

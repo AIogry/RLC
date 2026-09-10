@@ -163,3 +163,32 @@ patch a frozen/running experiment tree in place.
 
 Evidence: [`experiment execution policy`](../../docs/8-16/experiment_execution.md),
 [`M19A handoff`](../../docs/9-4/M19A_implementation_handoff.md).
+
+## 2026-09-11 — M24A is a six-cell goal-coordinate intervention
+
+**Configured, not executed.** M24A fixes GCIQL DDPG+BC at the empirically
+motivated M16D Mixer-L2 `alpha=0.4` operating point and varies only the
+network-visible Puzzle goal coordinate: target board (G1), state-goal residual
+(G2), or exact unordered remaining-operation parity (G4). The six formal Runs
+cover Puzzle-4x5 and Puzzle-4x6 at training seed 0. All conditions retain raw
+goal sampling and board-equality reward/mask semantics through
+`PuzzleBoardGCDataset`; G4 is information intervention, not a planner or an
+action oracle.
+
+**Decision.** Treat G2-G1 and G4-G2 as the only clean primary contrasts.
+Historical canonical GCIQL (G0) changes both goal input and success semantics,
+so it is descriptive dashed/gray context only. Report all five task successes
+at `last@1M`; compute HardTaskMean over Tasks 2--5 separately by environment.
+After all six final checkpoints exist, require the declared M23A-style paired
+50-episode diagnosis. This single-seed screen selects a research direction and
+does not establish a paper-final effect.
+
+Formal execution remains prohibited until the capability and Study diffs have
+been reviewed and committed separately, a clean detached source is created,
+the output namespace is still empty, and an exact two-process GPU smoke passes.
+The planned two-jobs-per-GPU setting is operational and the physical GPU is not
+yet assigned.
+
+Evidence: [`M24A Study`](../../experiments/M24A_puzzle_goal_conditioning_intervention/study.yaml),
+[`M24A protocol`](../../experiments/M24A_puzzle_goal_conditioning_intervention/README.md),
+and [`m24a_doctor.py`](../../tools/m24a_doctor.py).

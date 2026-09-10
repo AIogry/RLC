@@ -12,6 +12,7 @@ import optax
 from ..computation.factory import resolve_slot_spec
 from ..computation.slots import validate_compute_slots
 from ..networks.common import GCActor, GCDiscreteActor, GCDiscreteCritic, GCValue
+from ..networks.goal_conditioning import make_goal_conditioner
 from ..utils.encoders import GCEncoder, encoder_modules
 from ..utils.flax_utils import (
     ModuleDict,
@@ -178,6 +179,11 @@ class GCIQLAgent(flax.struct.PyTreeNode):
     @classmethod
     def create(cls, seed, ex_observations, ex_actions, config):
         validate_compute_slots('gciql', config)
+        goal_conditioner = make_goal_conditioner(
+            config.get('goal_conditioning'),
+            compute_slots=config.get('compute'),
+            dataset_class=config.get('dataset_class'),
+        )
         rng = jax.random.PRNGKey(seed)
         rng, init_rng = jax.random.split(rng, 2)
         ex_goals = ex_observations
@@ -199,6 +205,7 @@ class GCIQLAgent(flax.struct.PyTreeNode):
             ensemble=False,
             gc_encoder=encoders.get('value'),
             computation_spec=resolve_slot_spec(config, 'value'),
+            goal_conditioner=goal_conditioner,
         )
         if config['discrete']:
             critic_def = GCDiscreteCritic(
@@ -208,6 +215,7 @@ class GCIQLAgent(flax.struct.PyTreeNode):
                 gc_encoder=encoders.get('critic'),
                 action_dim=action_dim,
                 computation_spec=resolve_slot_spec(config, 'critic'),
+                goal_conditioner=goal_conditioner,
             )
         else:
             critic_def = GCValue(
@@ -216,6 +224,7 @@ class GCIQLAgent(flax.struct.PyTreeNode):
                 ensemble=True,
                 gc_encoder=encoders.get('critic'),
                 computation_spec=resolve_slot_spec(config, 'critic'),
+                goal_conditioner=goal_conditioner,
             )
         if config['discrete']:
             actor_def = GCDiscreteActor(
@@ -223,6 +232,7 @@ class GCIQLAgent(flax.struct.PyTreeNode):
                 action_dim=action_dim,
                 gc_encoder=encoders.get('actor'),
                 computation_spec=resolve_slot_spec(config, 'actor'),
+                goal_conditioner=goal_conditioner,
             )
         else:
             actor_def = GCActor(
@@ -232,6 +242,7 @@ class GCIQLAgent(flax.struct.PyTreeNode):
                 const_std=config['const_std'],
                 gc_encoder=encoders.get('actor'),
                 computation_spec=resolve_slot_spec(config, 'actor'),
+                goal_conditioner=goal_conditioner,
             )
 
         network_info = {
@@ -281,6 +292,7 @@ def get_config():
             const_std=True,
             discrete=False,
             encoder=None,
+            goal_conditioning=None,
             dataset_class='GCDataset',
             value_p_curgoal=0.2,
             value_p_trajgoal=0.5,

@@ -104,6 +104,11 @@ class GCDataset:
                 stacked_observations = self.get_stacked_observations(np.arange(self.size))
                 self.dataset = Dataset(self.dataset.copy(dict(observations=stacked_observations)))
 
+    def _compute_value_successes(self, idxs, value_goal_idxs):
+        """Return the canonical timestep/index goal-achievement predicate."""
+
+        return (idxs == value_goal_idxs).astype(float)
+
     def sample(
         self,
         batch_size,
@@ -148,7 +153,7 @@ class GCDataset:
         )
         batch['value_goals'] = self.get_observations(value_goal_idxs)
         batch['actor_goals'] = self.get_observations(actor_goal_idxs)
-        successes = (idxs == value_goal_idxs).astype(float)
+        successes = self._compute_value_successes(idxs, value_goal_idxs)
         batch['masks'] = 1.0 - successes
         batch['rewards'] = successes - (1.0 if self.config['gc_negative'] else 0.0)
 

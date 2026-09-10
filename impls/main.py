@@ -21,7 +21,12 @@ from .computation.accounting import (
     hiql_policy_accounting,
 )
 from .computation.slots import descriptor_for, validate_compute_slots
+from .networks.goal_conditioning import (
+    goal_conditioning_runtime_metadata,
+    validate_goal_conditioning_config,
+)
 from .utils.datasets import GCDataset, HGCDataset, MultiHGCDataset
+from .utils.puzzle_datasets import PuzzleBoardGCDataset
 from .utils.env_utils import make_env_and_datasets, resolve_dataset_dir
 from .utils.evaluation import evaluate, extract_episode_success
 from .utils.checkpointing import should_update_best
@@ -264,6 +269,15 @@ def _make_config(args, configuration=None):
             raise ValueError('M9 CRL actor configurations must use actor_loss=ddpgbc.')
     _normalize_structured_compute_defaults(config)
     validate_compute_slots(args.agent, config)
+    if config.get('goal_conditioning') is not None and args.agent != 'gciql':
+        raise ValueError(
+            'goal_conditioning is currently wired only for the GCIQL GC networks'
+        )
+    validate_goal_conditioning_config(
+        config.get('goal_conditioning'),
+        compute_slots=config.get('compute'),
+        dataset_class=config.get('dataset_class'),
+    )
     return config
 
 
@@ -316,6 +330,11 @@ def _computation_runtime_extras(config):
         'resolved_actor_hidden_dims': list(config['actor_hidden_dims']),
         'slot_descriptors': {},
     }
+    extras.update(goal_conditioning_runtime_metadata(
+        config.get('goal_conditioning'),
+        compute_slots=config.get('compute'),
+        dataset_class=config.get('dataset_class'),
+    ))
     slots = config.get('compute', {})
     single_state = {}
     two_state = {}
@@ -1146,6 +1165,7 @@ def run(args):
             'GCDataset': GCDataset,
             'HGCDataset': HGCDataset,
             'MultiHGCDataset': MultiHGCDataset,
+            'PuzzleBoardGCDataset': PuzzleBoardGCDataset,
         }[config['dataset_class']]
         train_dataset = dataset_class(raw_train, config, rng=derive_seed(args.seed, 11))
         val_dataset = dataset_class(raw_val, config, rng=derive_seed(args.seed, 12)) if raw_val is not None else None

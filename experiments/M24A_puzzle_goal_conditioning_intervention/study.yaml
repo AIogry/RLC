@@ -1,0 +1,225 @@
+study_id: M24A
+name: "M24A — Puzzle Goal-Conditioning Intervention"
+question: >-
+  Under identical GCIQL, Puzzle Mixer-L2, raw goal sampling,
+  board-equality training semantics, optimization, and evaluation, does
+  expressing the remaining task as the target board, the state-goal residual,
+  or the exact operation-parity coordinate change learning and execution on
+  large Puzzle environments?
+research_program: "M24 — Operation-Aligned Goal Learning"
+parent_studies: [M16D, M23A]
+primary_factors:
+  - goal_conditioning_mode
+  - environment
+fixed_design:
+  algorithm: gciql
+  actor_hidden_dims: [512, 512, 512]
+  value_hidden_dims: [512, 512, 512]
+  layer_norm: true
+  lr: 0.0003
+  batch_size: 1024
+  train_steps: 1000000
+  discount: 0.99
+  expectile: 0.9
+  tau: 0.005
+  actor_loss: ddpgbc
+  alpha: 0.4
+  const_std: true
+  discrete: false
+  encoder: null
+  dataset_class: PuzzleBoardGCDataset
+  goal_success_semantics: board_equality
+  value_goal_sampling: {p_curgoal: 0.2, p_trajgoal: 0.5, p_randomgoal: 0.3, geom_sample: true}
+  actor_goal_sampling: {p_curgoal: 0.0, p_trajgoal: 1.0, p_randomgoal: 0.0, geom_sample: false}
+  gc_negative: true
+  p_aug: 0.0
+  frame_stack: null
+  current_observation_policy: preserve_all_robot_button_and_transient_fields
+  goal_robot_policy: zero
+  goal_button_transient_policy: zero
+  structured:
+    placement: actor+value+critic
+    structure: puzzle_tokens
+    topology: feedforward
+    block: mlp_mixer
+    primitive: mlp
+    credit: direct
+    token_dim: 128
+    robot_hidden_dim: 128
+    token_mlp_hidden_dim: 64
+    channel_mlp_hidden_dim: 256
+    num_mixer_blocks: 2
+    index_embedding: true
+    readout: mean
+    tm_mode: none
+  polyak_semantics: target_new = tau * online_post_gradient + (1 - tau) * target_old
+conditions: [G1, G2, G4]
+condition_definitions:
+  G1:
+    production_mode: board
+    coordinate: target_board
+    equation: c = g
+  G2:
+    production_mode: residual
+    coordinate: state_goal_residual
+    equation: c = b XOR g
+  G4:
+    production_mode: oracle_operation
+    coordinate: exact_remaining_press_parity
+    equation: c = inverse(M) * (b XOR g) mod 2
+    interpretation: unordered_remaining_press_parity_not_a_plan_or_next_action_oracle
+deferred_factors:
+  - additional_training_seeds
+  - other_alpha_values
+  - flat_backbone
+  - other_mixer_depths
+  - relation_augmentation
+  - recurrent_or_two_state_topologies
+  - operation_to_action_bottleneck
+  - trajectory_witness_learning
+  - learned_or_equivariant_operation_coordinates
+  - solver_executor
+algorithms: [gciql]
+placements: [actor+value+critic]
+environments:
+  - puzzle-4x5-play-v0
+  - puzzle-4x6-play-v0
+seeds: [0]
+primary_metric: analysis/final_at_1m_hard_task_mean
+alpha_policy:
+  mode: fixed_operating_point
+  value: 0.4
+  runtime_authority: configuration.agent_overrides.alpha
+  status: empirically_motivated_operating_point_not_tuned_or_claimed_optimal_in_M24A
+  no_alpha_sweep: true
+protocol:
+  stage: formal
+  train_steps: 1000000
+  batch_size: 1024
+  log_interval: 5000
+  eval_interval: 100000
+  eval_tasks: all
+  eval_task_count: 5
+  eval_episodes: 20
+  eval_temperature: 0.0
+  eval_gaussian: null
+  video_episodes: 0
+  save_interval: 100000
+  save_best_checkpoint: true
+  save_last_checkpoint: true
+  selection_metric: evaluation/overall_success
+  selection_rule: strict_greater_than_keep_earlier_tie
+  primary_endpoint: final@1M
+  expected_evaluation_steps: [100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000]
+  no_early_stopping_for_poor_performance: true
+  formal_training_started: false
+scientific_endpoints:
+  infrastructure_checkpoint_selection_metric: evaluation/overall_success
+  primary_endpoint: final@1M_task_wise_success
+  primary_derived_metric:
+    name: HardTaskMean
+    equation: mean(Success_task2, Success_task3, Success_task4, Success_task5)
+    computed_separately_for_each_environment: true
+  mandatory_task_level_reporting: [task1, task2, task3, task4, task5]
+  emphasized_diagnostic_cell: puzzle-4x5-play-v0/task4
+comparison_policy:
+  clean_primary_comparisons:
+    - {contrast: G2_minus_G1, meaning: Residual_minus_Board}
+    - {contrast: G4_minus_G2, meaning: OracleOperation_minus_Residual}
+  historical_G0:
+    role: descriptive_reference_only
+    semantics: canonical_full_goal_plus_index_equality_success
+    plotting: dashed_gray_reference
+    prohibited_interpretation: G0_to_G1_is_not_a_clean_representation_effect
+hypotheses:
+  H1:
+    contrast: G2_minus_G1
+    statement: Explicit current-goal discrepancy improves learning relative to absolute target-board conditioning.
+  H2:
+    contrast: G4_minus_G2
+    statement: Exact operation-parity conditioning improves difficult-task learning relative to residual conditioning.
+    priority: primary
+decision_branches:
+  G1_approx_G2_below_G4: prioritize_M24B_trajectory_witness_learning
+  G1_below_G2_approx_G4: prioritize_relative_or_controllability_aligned_representation
+  G1_approx_G2_approx_G4_low: prioritize_operation_to_action_interface_and_execution
+  G1_above_G2_or_G4: audit_state_dependent_conditioning_against_behavior_cloning_witness_actions
+final_diagnosis:
+  status: required_after_all_six_last_at_1m_checkpoints_complete
+  diagnostic_type: M23A_style_controlled_full_goal_replay
+  source_campaign: M23A
+  controlled_goal_replay_root: /data/qijunrong/06-RL/offline-rl/exp/RLC/diagnostics/M23A/final_last1m_alltasks_ep50_evalSeed20260909_controlled-goal-replay-v1/controlled_goal_replay
+  checkpoint_role: last
+  checkpoint_step: 1000000
+  task_ids: [1, 2, 3, 4, 5]
+  episodes_per_task: 50
+  evaluation_seed: 20260909
+  eval_temperature: 0.0
+  eval_gaussian: null
+  pairing_contract: identical_raw_full_goal_and_initial_condition_within_environment_task_episode
+  required_metrics:
+    - success
+    - initial_Dstar
+    - min_Dstar
+    - final_Dstar
+    - zero_press_rate
+    - first_press_latency
+    - presses_per_episode
+    - progress_and_regress
+    - repeat_source_rate
+    - last_press_to_horizon_stall
+    - unique_button_coverage
+    - operation_selection_advantage
+  operation_selection_advantage:
+    symbol: A_useful
+    equation: indicator(source_in_remaining_solution_support) - remaining_solution_support_size / num_buttons
+    existing_metric_equivalence: progress_advantage_for_single_source_events_on_full_rank_4x5_and_4x6
+  launch_authority: user_manual_only_after_training
+architecture_anchor:
+  role: protocol_and_architecture_only_not_checkpoint_reuse
+  study_id: M16D
+  source_training_seed: 0
+  source_run_attempt: 1
+  source_commit: fdbd7875a031c537b98b415a3c73ce0bf6a02721
+  source_git_dirty: true
+  provenance_boundary: >-
+    The historical artifacts are authoritative for their resolved operating
+    point but are provenance-qualified. M24A must train from a new clean frozen
+    source and does not inherit the historical dirty-source exception.
+  resolved_artifacts:
+    puzzle-4x5-play-v0:
+      config_id: M16D-P4X5-S002-A04
+      resolved_config_fingerprint: 85ce1b762f2024c5a7c795f81fbe01b2ae43afb9de2ae944a36fcdd89e1e9331
+      resolved_config_sha256: cfb0577e4fd8999cf9945728ecaeaa3510e486a19963709da137083ab7c8d0d0
+      path: /data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M16D/M16D-P4X5-S002-A04__4x5_mixer_l2_alpha0p4/puzzle-4x5-play-v0/seed_000__attempt_001/resolved_config.json
+    puzzle-4x6-play-v0:
+      config_id: M16D-P4X6-S002-A04
+      resolved_config_fingerprint: e833c6498832348f16f0bb7552d6a454e367b85cfffe2b90e0b82e18592303cb
+      resolved_config_sha256: cb7f2ffded385a2837faf2728ee87f30981e2d8213aacbf507c338eca564d8fb
+      path: /data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M16D/M16D-P4X6-S002-A04__4x6_mixer_l2_alpha0p4/puzzle-4x6-play-v0/seed_000__attempt_001/resolved_config.json
+execution:
+  launch_authority: user_manual_only
+  source_requirement: clean_detached_frozen_worktree
+  run_root_parent: /data/qijunrong/06-RL/offline-rl/exp/RLC/runs
+  expected_study_run_root: /data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M24A
+  run_attempt: 0
+  physical_gpu: null
+  concurrency:
+    policy_role: operational_not_scientific
+    planned_jobs_per_gpu: 2
+    gate: exact_workload_concurrent_gpu_smoke_required_before_formal_launch
+    suggested_heaviest_pair: [M24A-C004, M24A-C006]
+    wave_order:
+      - [M24A-C001, M24A-C002]
+      - [M24A-C003, M24A-C004]
+      - [M24A-C005, M24A-C006]
+acceptance:
+  expected_formal_runs: 6
+  expected_environment_condition_cells: 6
+  require_all_cells_completed: true
+  require_raw_sampling_pairing_audit: true
+  require_identical_parameter_schema_within_environment: true
+  require_clean_frozen_source: true
+  require_empty_output_namespace: true
+  require_exact_workload_concurrent_gpu_smoke: true
+  no_automatic_formal_launch: true

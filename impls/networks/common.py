@@ -15,6 +15,24 @@ from ..computation.primitives.mlp import MLP, default_init
 _TOKEN_STRUCTURES = frozenset({'puzzle_tokens', 'cube_tokens', 'scene_tokens'})
 
 
+def _condition_goals(
+    goal_conditioner,
+    observations,
+    goals,
+    *,
+    goal_encoded=False,
+):
+    """Apply optional raw-input goal semantics before any network encoding."""
+
+    if goal_conditioner is None or goals is None:
+        return goals
+    if goal_encoded:
+        raise ValueError(
+            'A raw-observation goal conditioner cannot consume an already encoded goal'
+        )
+    return goal_conditioner(observations, goals)
+
+
 def ensemblize(cls, num_qs, out_axes=0, in_axes=None, methods=None, **kwargs):
     # Computationized CRL branches may own non-trainable recurrent state
     # buffers.  Map and split the buffer collection exactly like parameters so
@@ -168,6 +186,7 @@ class GCActor(nn.Module):
     final_fc_init_scale: float = 1e-2
     gc_encoder: nn.Module = None
     computation_spec: Optional[ComputationSpec] = None
+    goal_conditioner: Any = None
 
     def setup(self):
         if self.computation_spec is not None and self.computation_spec.structure in _TOKEN_STRUCTURES and self.gc_encoder is not None:
@@ -183,6 +202,12 @@ class GCActor(nn.Module):
             self.log_stds = self.param('log_stds', nn.initializers.zeros, (self.action_dim,))
 
     def __call__(self, observations, goals=None, goal_encoded=False, temperature=1.0):
+        goals = _condition_goals(
+            self.goal_conditioner,
+            observations,
+            goals,
+            goal_encoded=goal_encoded,
+        )
         if self.gc_encoder is not None:
             inputs = self.gc_encoder(observations, goals, goal_encoded=goal_encoded)
         else:
@@ -218,6 +243,12 @@ class GCActor(nn.Module):
 
         if self.computation_spec is None or self.computation_spec.structure != 'puzzle_tokens':
             raise ValueError('GCActor diagnostic_trace requires puzzle_tokens structured computation')
+        goals = _condition_goals(
+            self.goal_conditioner,
+            observations,
+            goals,
+            goal_encoded=goal_encoded,
+        )
         if self.gc_encoder is not None:
             inputs = self.gc_encoder(observations, goals, goal_encoded=goal_encoded)
         else:
@@ -239,6 +270,12 @@ class GCActor(nn.Module):
 
         if self.computation_spec is None or self.computation_spec.relation_mode == 'legacy_none':
             raise ValueError('GCActor relation_diagnostic requires an explicit relation treatment')
+        goals = _condition_goals(
+            self.goal_conditioner,
+            observations,
+            goals,
+            goal_encoded=goal_encoded,
+        )
         if self.gc_encoder is not None:
             inputs = self.gc_encoder(observations, goals, goal_encoded=goal_encoded)
         else:
@@ -266,6 +303,12 @@ class GCActor(nn.Module):
             raise ValueError(
                 'GCActor relation_utilization_trace requires an explicit relation treatment'
             )
+        goals = _condition_goals(
+            self.goal_conditioner,
+            observations,
+            goals,
+            goal_encoded=goal_encoded,
+        )
         if self.gc_encoder is not None:
             inputs = self.gc_encoder(observations, goals, goal_encoded=goal_encoded)
         else:
@@ -297,6 +340,7 @@ class GCDiscreteActor(nn.Module):
     final_fc_init_scale: float = 1e-2
     gc_encoder: nn.Module = None
     computation_spec: Optional[ComputationSpec] = None
+    goal_conditioner: Any = None
 
     def setup(self):
         if self.computation_spec is not None and self.computation_spec.structure in _TOKEN_STRUCTURES and self.gc_encoder is not None:
@@ -308,6 +352,12 @@ class GCDiscreteActor(nn.Module):
         self.logit_net = nn.Dense(self.action_dim, kernel_init=default_init(self.final_fc_init_scale))
 
     def __call__(self, observations, goals=None, goal_encoded=False, temperature=1.0):
+        goals = _condition_goals(
+            self.goal_conditioner,
+            observations,
+            goals,
+            goal_encoded=goal_encoded,
+        )
         if self.gc_encoder is not None:
             inputs = self.gc_encoder(observations, goals, goal_encoded=goal_encoded)
         else:
@@ -330,6 +380,7 @@ class GCValue(nn.Module):
     ensemble: bool = True
     gc_encoder: nn.Module = None
     computation_spec: Optional[ComputationSpec] = None
+    goal_conditioner: Any = None
 
     def setup(self):
         if self.computation_spec is not None and self.computation_spec.structure in _TOKEN_STRUCTURES and self.gc_encoder is not None:
@@ -376,6 +427,7 @@ class GCValue(nn.Module):
             self.value_readout = nn.Dense(1, kernel_init=default_init())
 
     def __call__(self, observations, goals=None, actions=None):
+        goals = _condition_goals(self.goal_conditioner, observations, goals)
         if self.gc_encoder is not None:
             inputs = [self.gc_encoder(observations, goals)]
         else:
@@ -396,6 +448,7 @@ class GCValue(nn.Module):
 
         if self.computation_spec is None or self.computation_spec.structure != 'puzzle_tokens':
             raise ValueError('GCValue diagnostic_trace requires puzzle_tokens structured computation')
+        goals = _condition_goals(self.goal_conditioner, observations, goals)
         inputs = [observations]
         if goals is not None:
             inputs.append(goals)
@@ -417,6 +470,7 @@ class GCValue(nn.Module):
 
         if self.computation_spec is None or self.computation_spec.relation_mode == 'legacy_none':
             raise ValueError('GCValue relation_diagnostic requires an explicit relation treatment')
+        goals = _condition_goals(self.goal_conditioner, observations, goals)
         inputs = [observations]
         if goals is not None:
             inputs.append(goals)
@@ -442,6 +496,7 @@ class GCValue(nn.Module):
             raise ValueError(
                 'GCValue relation_utilization_trace requires an explicit relation treatment'
             )
+        goals = _condition_goals(self.goal_conditioner, observations, goals)
         inputs = [observations]
         if goals is not None:
             inputs.append(goals)
