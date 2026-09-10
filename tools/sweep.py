@@ -236,6 +236,9 @@ def _command(job, run_root, extra_args):
 
 def _run_one(job, gpu, run_root, extra_args, *, worker_slot=0, jobs_per_gpu=1):
     env = os.environ.copy()
+    # Avoid JAX's process-wide default preallocation while retaining an
+    # explicit caller choice for jobs that need a different memory policy.
+    env.setdefault('XLA_PYTHON_CLIENT_PREALLOCATE', 'false')
     env['CUDA_VISIBLE_DEVICES'] = str(gpu)
     env['RLC_ASSIGNED_PHYSICAL_GPU'] = str(gpu)
     env['RLC_WORKER_SLOT'] = str(worker_slot)

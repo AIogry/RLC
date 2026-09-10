@@ -174,7 +174,7 @@ class SweepInfrastructureTest(unittest.TestCase):
         self.assertLessEqual(max_active['0'], 2)
         self.assertLessEqual(max_active['1'], 2)
 
-    def test_production_runner_sets_physical_gpu_and_worker_slot(self):
+    def test_production_runner_sets_memory_policy_gpu_and_worker_slot(self):
         job = {
             'configuration': type('Configuration', (), {
                 'config_id': 'TEST-C001',
@@ -184,23 +184,31 @@ class SweepInfrastructureTest(unittest.TestCase):
             'run_dir': Path('/tmp/test-sweep/run'),
         }
         completed = type('Completed', (), {'returncode': 0})()
-        with patch.object(sweep, '_command', return_value=['fake-main']), patch.object(
-            sweep.subprocess, 'run', return_value=completed,
-        ) as run:
-            result = sweep._run_one(
-                job,
-                '1',
-                '/tmp/test-sweep',
-                [],
-                worker_slot=1,
-                jobs_per_gpu=2,
-            )
-        self.assertEqual(result, 0)
-        environment = run.call_args.kwargs['env']
-        self.assertEqual(environment['CUDA_VISIBLE_DEVICES'], '1')
-        self.assertEqual(environment['RLC_ASSIGNED_PHYSICAL_GPU'], '1')
-        self.assertEqual(environment['RLC_WORKER_SLOT'], '1')
-        self.assertEqual(environment['RLC_JOBS_PER_GPU'], '2')
+        for inherited, expected_preallocate in (
+            ({}, 'false'),
+            ({'XLA_PYTHON_CLIENT_PREALLOCATE': 'true'}, 'true'),
+        ):
+            with self.subTest(inherited=inherited):
+                with patch.dict(sweep.os.environ, inherited, clear=True), patch.object(
+                    sweep, '_command', return_value=['fake-main'],
+                ), patch.object(sweep.subprocess, 'run', return_value=completed) as run:
+                    result = sweep._run_one(
+                        job,
+                        '1',
+                        '/tmp/test-sweep',
+                        [],
+                        worker_slot=1,
+                        jobs_per_gpu=2,
+                    )
+                self.assertEqual(result, 0)
+                environment = run.call_args.kwargs['env']
+                self.assertEqual(
+                    environment['XLA_PYTHON_CLIENT_PREALLOCATE'], expected_preallocate,
+                )
+                self.assertEqual(environment['CUDA_VISIBLE_DEVICES'], '1')
+                self.assertEqual(environment['RLC_ASSIGNED_PHYSICAL_GPU'], '1')
+                self.assertEqual(environment['RLC_WORKER_SLOT'], '1')
+                self.assertEqual(environment['RLC_JOBS_PER_GPU'], '2')
 
     def test_study_protocol_fills_omitted_checkpoint_flags(self):
         _, study_path, _ = self._fixture()
