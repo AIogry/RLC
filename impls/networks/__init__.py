@@ -1,5 +1,7 @@
 """Task-specific network modules."""
 
+from .control_coordinates import ControlCoordinateFlow, resolve_control_coordinate_config
+
 from .common import (
     GCActor,
     GCBilinearValue,
@@ -32,4 +34,6 @@ __all__ = (
     'Param',
     'LogParam',
     'MLP',
+    'ControlCoordinateFlow',
+    'resolve_control_coordinate_config',
 )

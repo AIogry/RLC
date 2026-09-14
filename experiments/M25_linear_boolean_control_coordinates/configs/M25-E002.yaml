@@ -1,0 +1,47 @@
+study_id: M25
+config_id: M25-E002
+slug: 4x6_linear_boolean_flow_l32_engineering
+algorithm: control_coordinate
+environment: puzzle-4x6-play-v0
+placement: standalone_stage1_representation
+protocol_stage: engineering_stage1
+executable: true
+formal: false
+description: Engineering-only 4x6 executable for the first M25 Stage-1 implementation.
+factors:
+  environment: puzzle-4x6-play-v0
+  num_bits: 24
+  candidate_flow_depth: 32
+  depth_status: engineering_candidate_not_scientifically_fixed
+  event_sampling_mode: uniform
+  objective: axis_locality_surrogate
+control_coordinate:
+  num_bits: 24
+  num_layers: 32
+  permutation_seed: 25001
+  coupling_logit_init_mean: -2.0
+  coupling_logit_init_std: 0.1
+  binary_temperature: 1.0
+  learning_rate: 0.003
+  batch_size: 256
+  train_steps: 5000
+  event_sampling_mode: uniform
+event_data:
+  required_standard_fields: [observations, actions, terminals]
+  endpoint_semantics: [observation_t, action_t_index_only, observation_t_plus_1]
+  model_input_fields: [start_board, end_board]
+  effect_signature_role: diagnostic_only
+  rank_deficiency_policy: fail
+  extraction_chunk_size: 65536
+  future_window_scales: [1, 2, 4, 8, 16, 32]
+launcher:
+  log_interval: 100
+  eval_interval: 500
+  save_interval: 1000
+  diagnostic_batch_size: 4096
+  matrix_test_states: 256
+  goal_pair_count: 1024
+  diagnostic_seed: 250101
+  save_best_checkpoint: true
+  save_last_checkpoint: true
+  selection_metric: metric/hard_axis_success

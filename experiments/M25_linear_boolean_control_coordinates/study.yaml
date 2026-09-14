@@ -1,0 +1,65 @@
+study_id: M25
+name: "M25 — Linear Reversible Boolean Control Coordinates"
+question: >-
+  Can an information-preserving linear Boolean change of coordinates learned
+  only from real adjacent offline Puzzle board-change edges make every
+  observed short intervention an axis-local edit?
+research_program: "M25 — Learned Control Coordinates"
+parent_studies: [M23A, M24A]
+primary_factors:
+  - environment
+  - candidate_flow_depth
+fixed_design:
+  protocol_stage: engineering_stage1
+  scientific_status: implementation_and_capacity_preflight_only
+  transform: linear_reversible_boolean_flow
+  output_variables_equal_input_bits: true
+  trainable_translation: false
+  coupling: fixed_permutation_conjugated_gf2_additive
+  binary_forward: hard_exact
+  gradient_estimator: sigmoid_straight_through
+  event_definition: adjacent_same_episode_nonzero_board_change
+  model_inputs: [start_board, end_board]
+  event_sampling_mode: uniform
+  cross_context_pairing_loss: false
+  reconstruction_loss: false
+  privileged_training_information: none
+  depth_status: engineering_candidate_not_scientifically_fixed
+deferred_factors:
+  - final_flow_depth_selection_after_capacity_preflight
+  - additional_training_seeds
+  - nonlinear_boolean_flows
+  - effect_balanced_sampling
+  - physical_operation_grounding
+  - goal_conditioned_rl_integration
+  - singular_4x4_quotient_coordinates
+algorithms: [control_coordinate]
+placements: [standalone_stage1_representation]
+environments:
+  - puzzle-4x5-play-v0
+  - puzzle-4x6-play-v0
+seeds: [0]
+primary_metric: metric/hard_axis_success
+protocol:
+  stage: engineering_stage1
+  formal_training_started: false
+  formal_campaign_declared: false
+  launch_authority: user_manual_only
+  long_training_authorized: false
+  capacity_preflight_required_before_formal_design: true
+scientific_boundary:
+  input: offline_real_adjacent_event_edges
+  learned_object: linear_reversible_boolean_H
+  output: axis_local_control_coordinates
+  gciql_modified: false
+  physical_operation_classifier_implemented: false
+  operation_executor_implemented: false
+forbidden_training_sources:
+  - ground_truth_operation_matrix
+  - ground_truth_operation_inverse
+  - oracle_press_set
+  - oracle_solver
+  - target_button
+  - physical_button_identity_labels
+  - privileged_button_states
+  - scripted_solutions

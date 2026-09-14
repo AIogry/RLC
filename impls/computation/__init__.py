@@ -7,6 +7,7 @@ from .accounting import (
     structured_body_accounting,
 )
 from .blocks.entity_mlp import EntityMLPBlock, EntityMLPStack
+from .blocks.linear_boolean_flow import LinearBooleanCoupling, LinearBooleanFlow
 from .readouts import HybridContextQueryReadout, MeanContextReadout
 from .relation import RelationAugmenter
 from .structured import PuzzleStructuredBody, StructuredComputationBody
@@ -27,6 +28,8 @@ __all__ = (
     'resolve_slot_spec',
     'EntityMLPBlock',
     'EntityMLPStack',
+    'LinearBooleanCoupling',
+    'LinearBooleanFlow',
     'structured_body_accounting',
     'modular_structured_body_accounting',
     'relation_structured_body_accounting',
