@@ -1,24 +1,34 @@
 # RLC project state
 
-Last reviewed: 2026-09-19 for the M26 capability task only. Existing-study
-execution statements below retain their 2026-09-11 review boundary; no formal
-run inventory or result was re-audited in this task. Run artifacts and resolved
-configurations remain authoritative for exact progress and results.
+Last reviewed: 2026-09-19 for M26 experiment configuration. The exact M24A
+C003/C005 seed-0 attempt-001 resolved/runtime files were re-audited as protocol
+anchors (both record completed), not their scores or the whole campaign.
+Other existing-study execution statements below retain their 2026-09-11
+boundary. Run artifacts and resolved configs remain authoritative.
 
-## Current capability handoff — M26
+## Current configuration handoff — M26
 
-The isolated `m26-goal-conditioning-diagnostics` worktree implements versioned
-actor/value-side goal coordinates, fixed-width token auxiliary inputs, explicit
-permutation/GF(2) transforms, semantic checkpoint guards, and production-input
-audits on the committed local main/M24 base `38fccf0`. There are 144 passing
-targeted CPU tests plus 10 exact pre-change legacy reference comparisons.
-This is uncommitted capability work, not a frozen experiment or a performance
-result. No M26 Study/config matrix, real-data/GPU smoke, or formal launch has
-been performed. User review and formal configuration decisions come next.
+The role-aware capability was independently committed/published as `f0484f4`
+on main/M24 base `38fccf0`. The existing M26 feature worktree now contains
+uncommitted experiment definitions: 10 v2/9D conditions, only Puzzle-4x5 and
+training seed 0. Default initial selection is C003--C010 (8 runs); C001/C002
+are executable but unscheduled matched references, never substituted by M24's
+v1/8D results. Full matched conclusions still require those two new runs.
 
-See [M26 design](experiments/M26/DESIGN.md) and
-[implementation handoff](experiments/M26/IMPLEMENTATION_HANDOFF.md) for exact
-source, file inventory, test coverage, and actions intentionally not taken.
+This stage passed 115 targeted CPU tests, all-condition production-width
+input/init checks, real 4x5 train/val sampling pairing, and a two-update tiny
+CPU fresh-restore smoke. Fixed derangement P and weight-constrained full-rank B
+are embedded in configs. M24 runtime inheritance is verified. No impls/agent
+or historical Study code changed. These are engineering checks, not results.
+
+User review/configuration commit, merge, clean detached freezing of the same
+RLC-M26 directory, and GPU1 single/dual full-batch smoke remain pending. No GPU
+smoke or formal training was executed; current GPU availability is not a gate
+reservation. See [experiment handoff](experiments/M26/EXPERIMENT_HANDOFF.md),
+[inheritance audit](experiments/M26/M24_INHERITANCE_AUDIT.md), and
+[manual Git/freeze/launch steps](experiments/M26/MANUAL_OPERATIONS.md).
+The [capability handoff](experiments/M26/IMPLEMENTATION_HANDOFF.md) retains its
+earlier historical status and test counts; they are not this stage's results.
 
 ## Scientific context recorded on 2026-09-11
 

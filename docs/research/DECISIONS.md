@@ -214,3 +214,31 @@ formal condition matrix, or launch is implied by this capability delivery.
 
 Evidence: [M26 design](experiments/M26/DESIGN.md),
 [M26 implementation/validation handoff](experiments/M26/IMPLEMENTATION_HANDOFF.md).
+
+## 2026-09-19 — M26 defines ten v2 cells but initially selects eight
+
+**Verified this stage.** Main/M24 `38fccf0` and independent M26 capability
+`f0484f4` are committed and remote publication was read-verified. Actual M24A
+C003/C005 seed-0 attempt-001 resolved/runtime configs match the declared
+GCIQL alpha=0.4 Mixer-L2 protocol; both artifacts record completed. This is
+not a fresh audit of their scores or the whole historical campaign.
+
+**Decision.** Define all C001--C010 on Puzzle-4x5, seed0, v2 9D paired tokens.
+Default execution is C003--C010 via --configs; C001/C002 remain executable,
+unscheduled new matched references. Never reuse v1/8D M24 results/checkpoints
+as those controls. Full placement/distance conclusions wait for both anchors.
+P is the first derangement at seed26001 (candidate2); B is the first full-rank
+Bernoulli binary matrix with every row/column weight in [5,15] at seed26002
+(candidate7). Embed actual payloads; distance always derives from original x.
+
+**Execution boundary.** Configuration and CPU engineering validation only:
+115 tests, all-condition production forward/init and small real-data sampling/
+update/restore pass. Physical GPU1/two full-batch workers is an operational
+policy, still gated on manual production GPU smoke. All Git writes, merging,
+detaching the existing M26 tree, and formal launch belong to the user. No
+formal-ready claim before the configuration commit, frozen SHA and resource
+gates. Existing capability handoff remains an unchanged historical record.
+
+Evidence: [experiment design](experiments/M26/EXPERIMENT_DESIGN.md),
+[M24 inheritance](experiments/M26/M24_INHERITANCE_AUDIT.md),
+[configuration handoff](experiments/M26/EXPERIMENT_HANDOFF.md).

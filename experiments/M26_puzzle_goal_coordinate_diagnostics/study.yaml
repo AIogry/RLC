@@ -1,0 +1,270 @@
+study_id: "M26"
+name: "M26 — Puzzle Goal Coordinate Mechanism Diagnostics"
+question: "At fixed v2 9D input width, GCIQL and Mixer-L2, how do exact distance, operation-coordinate recoding and actor/value-side placement affect final task success on Puzzle-4x5?"
+research_program: "M24 — Operation-Aligned Goal Learning"
+parent_studies: ["M24A"]
+primary_factors: ["actor_coordinate","value_side_coordinate","transform_id","distance_feature"]
+fixed_design:
+  algorithm: "gciql"
+  actor_hidden_dims: [512,512,512]
+  value_hidden_dims: [512,512,512]
+  layer_norm: true
+  lr: 0.0003
+  batch_size: 1024
+  train_steps: 1000000
+  discount: 0.99
+  expectile: 0.9
+  tau: 0.005
+  actor_loss: "ddpgbc"
+  alpha: 0.4
+  const_std: true
+  discrete: false
+  encoder: null
+  dataset_class: "PuzzleBoardGCDataset"
+  goal_success_semantics: "board_equality"
+  value_goal_sampling:
+    p_curgoal: 0.2
+    p_trajgoal: 0.5
+    p_randomgoal: 0.3
+    geom_sample: true
+  actor_goal_sampling:
+    p_curgoal: 0
+    p_trajgoal: 1
+    p_randomgoal: 0
+    geom_sample: false
+  gc_negative: true
+  p_aug: 0
+  frame_stack: null
+  current_observation_policy: "preserve_all_robot_button_and_transient_fields"
+  goal_robot_policy: "zero"
+  goal_button_transient_policy: "zero"
+  structured:
+    placement: "actor+value+critic"
+    structure: "puzzle_tokens"
+    topology: "feedforward"
+    block: "mlp_mixer"
+    primitive: "mlp"
+    credit: "direct"
+    token_dim: 128
+    robot_hidden_dim: 128
+    token_mlp_hidden_dim: 64
+    channel_mlp_hidden_dim: 256
+    num_mixer_blocks: 2
+    index_embedding: true
+    readout: "mean"
+    tm_mode: "none"
+  polyak_semantics: "target_new = tau * online_post_gradient + (1 - tau) * target_old"
+  goal_input_schema: "token_aux_v1"
+  paired_token_dim: 9
+  token_aux_dim: 1
+algorithms: ["gciql"]
+placements: ["actor+value+critic"]
+environments: ["puzzle-4x5-play-v0"]
+seeds: [0]
+conditions: ["C01","C02","C03","C04","C05","C06","C07","C08","C09","C10"]
+condition_definitions:
+  C01:
+    config_id: "M26-C001"
+    actor:
+      coordinate: "residual"
+      transform_id: "identity"
+      distance_feature: "zero"
+    value_side:
+      coordinate: "residual"
+      transform_id: "identity"
+      distance_feature: "zero"
+  C02:
+    config_id: "M26-C002"
+    actor:
+      coordinate: "operation"
+      transform_id: "identity"
+      distance_feature: "zero"
+    value_side:
+      coordinate: "operation"
+      transform_id: "identity"
+      distance_feature: "zero"
+  C03:
+    config_id: "M26-C003"
+    actor:
+      coordinate: "residual"
+      transform_id: "identity"
+      distance_feature: "exact_press_fraction"
+    value_side:
+      coordinate: "residual"
+      transform_id: "identity"
+      distance_feature: "exact_press_fraction"
+  C04:
+    config_id: "M26-C004"
+    actor:
+      coordinate: "operation"
+      transform_id: "identity"
+      distance_feature: "exact_press_fraction"
+    value_side:
+      coordinate: "operation"
+      transform_id: "identity"
+      distance_feature: "exact_press_fraction"
+  C05:
+    config_id: "M26-C005"
+    actor:
+      coordinate: "operation"
+      transform_id: "perm_v1"
+      distance_feature: "zero"
+    value_side:
+      coordinate: "operation"
+      transform_id: "perm_v1"
+      distance_feature: "zero"
+  C06:
+    config_id: "M26-C006"
+    actor:
+      coordinate: "operation"
+      transform_id: "perm_v1"
+      distance_feature: "exact_press_fraction"
+    value_side:
+      coordinate: "operation"
+      transform_id: "perm_v1"
+      distance_feature: "exact_press_fraction"
+  C07:
+    config_id: "M26-C007"
+    actor:
+      coordinate: "operation"
+      transform_id: "dense_v1"
+      distance_feature: "zero"
+    value_side:
+      coordinate: "operation"
+      transform_id: "dense_v1"
+      distance_feature: "zero"
+  C08:
+    config_id: "M26-C008"
+    actor:
+      coordinate: "operation"
+      transform_id: "dense_v1"
+      distance_feature: "exact_press_fraction"
+    value_side:
+      coordinate: "operation"
+      transform_id: "dense_v1"
+      distance_feature: "exact_press_fraction"
+  C09:
+    config_id: "M26-C009"
+    actor:
+      coordinate: "operation"
+      transform_id: "identity"
+      distance_feature: "zero"
+    value_side:
+      coordinate: "residual"
+      transform_id: "identity"
+      distance_feature: "zero"
+  C10:
+    config_id: "M26-C010"
+    actor:
+      coordinate: "residual"
+      transform_id: "identity"
+      distance_feature: "zero"
+    value_side:
+      coordinate: "operation"
+      transform_id: "identity"
+      distance_feature: "zero"
+primary_metric: "analysis/final_at_1m_hard_task_mean"
+protocol:
+  stage: "formal"
+  train_steps: 1000000
+  batch_size: 1024
+  log_interval: 5000
+  eval_interval: 100000
+  eval_tasks: "all"
+  eval_task_count: 5
+  eval_episodes: 20
+  eval_temperature: 0
+  eval_gaussian: null
+  video_episodes: 0
+  save_interval: 100000
+  save_best_checkpoint: true
+  save_last_checkpoint: true
+  selection_metric: "evaluation/overall_success"
+  selection_rule: "strict_greater_than_keep_earlier_tie"
+  primary_endpoint: "final@1M"
+  expected_evaluation_steps: [100000,200000,300000,400000,500000,600000,700000,800000,900000,1000000]
+  no_early_stopping_for_poor_performance: true
+scientific_endpoints:
+  infrastructure_checkpoint_selection_metric: "evaluation/overall_success"
+  primary_endpoint: "final@1M_task_wise_success"
+  primary_derived_metric:
+    name: "HardTaskMean"
+    equation: "mean(Success_task2, Success_task3, Success_task4, Success_task5)"
+    computed_separately_for_each_environment: true
+  mandatory_task_level_reporting: ["task1","task2","task3","task4","task5"]
+  emphasized_diagnostic_cell: "puzzle-4x5-play-v0/task4"
+execution:
+  launch_authority: "user_manual_only"
+  source_requirement: "clean_detached_frozen_worktree"
+  run_root_parent: "/data/qijunrong/06-RL/offline-rl/exp/RLC/runs"
+  expected_study_run_root: "/data/qijunrong/06-RL/offline-rl/exp/RLC/runs/M26"
+  run_attempt: 0
+  physical_gpu: 1
+  concurrency:
+    policy_role: "operational_not_scientific"
+    planned_jobs_per_gpu: 2
+    gate: "production_single_and_dual_gpu_smoke_required"
+    single_smoke_configs: ["M26-C008"]
+    dual_smoke_configs: ["M26-C007","M26-C008"]
+  selection:
+    default_initial_configs: ["M26-C003","M26-C004","M26-C005","M26-C006","M26-C007","M26-C008","M26-C009","M26-C010"]
+    full_alternative_configs: ["M26-C001","M26-C002","M26-C003","M26-C004","M26-C005","M26-C006","M26-C007","M26-C008","M26-C009","M26-C010"]
+    matched_reference_supplement: ["M26-C001","M26-C002"]
+    reference_plan_status: "not_scheduled_in_initial_batch"
+    is_run_lifecycle_status: false
+  initial_selected_runs: 8
+  total_defined_runs: 10
+transform_preparation:
+  perm_v1:
+    accepted_candidate_1based: 2
+    max_attempts: 10000
+    rng: "numpy.Generator(PCG64)"
+    numpy_version: "2.4.6"
+    candidate_draw: "permutation(N)"
+    derangement: true
+    min_weight: null
+    max_weight: null
+    inverse_rank: 20
+    inverse_row_weights: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    inverse_column_weights: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    inverse_is_model_input: false
+    transform_seed: 26001
+    content_sha256: "e68864ecc5f5f3ecbfb76a8302807190730436197bba85e324a6b5ac465f7de1"
+    rank: 20
+    num_coordinates: 20
+    tool: "tools/prepare_goal_coordinate_transform.py"
+    actual_payload: "embedded in each active configuration; no runtime file/seed generation"
+  dense_v1:
+    accepted_candidate_1based: 7
+    max_attempts: 10000
+    rng: "numpy.Generator(PCG64)"
+    numpy_version: "2.4.6"
+    candidate_draw: "integers(0,2,(N,N),dtype=uint8)"
+    derangement: false
+    min_weight: 5
+    max_weight: 15
+    inverse_rank: 20
+    inverse_row_weights: [9,5,10,12,11,13,8,8,9,9,9,9,4,11,12,8,9,10,8,12]
+    inverse_column_weights: [9,10,8,12,8,11,10,8,7,5,9,10,11,13,8,8,11,9,9,10]
+    inverse_is_model_input: false
+    transform_seed: 26002
+    content_sha256: "34e92593c51a1c923644473a752acdeaee3dc728a7870fafb3a0215ef37eca17"
+    rank: 20
+    num_coordinates: 20
+    tool: "tools/prepare_goal_coordinate_transform.py"
+    actual_payload: "embedded in each active configuration; no runtime file/seed generation"
+comparison_policy:
+  historical_M24: "descriptive_only_v1_8D_not_v2_matched_references_no_checkpoint_or_result_reuse"
+  initial_complete_contrasts: ["C04-C03","C04-C06","C08-C07","C06-C08"]
+  requires_matched_references: ["C03-C01","C04-C02","C02-C05","placement_2x2_C01_C02_C09_C10"]
+  distance_definition: "sum(original x)/20; never Hamming weight of Bx"
+  interpretation_boundary: "One training seed, one fixed P, one fixed B; oracle diagnostic, not learned operations or causal isolation of coordinate dynamics."
+deferred_factors: ["puzzle-4x6","additional_training_seeds","additional_transform_seeds","learned_coordinates","planner_or_executor","other_alpha_or_architectures"]
+acceptance:
+  expected_formal_runs: 10
+  initial_selected_runs: 8
+  require_all_cells_for_full_matched_conclusion: true
+  require_clean_frozen_source: true
+  require_untouched_selected_run_paths: true
+  require_exact_workload_concurrent_gpu_smoke: true
+  no_automatic_formal_launch: true

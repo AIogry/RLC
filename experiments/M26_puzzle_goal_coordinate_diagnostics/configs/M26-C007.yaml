@@ -1,0 +1,159 @@
+study_id: "M26"
+config_id: "M26-C007"
+slug: "4x5_dense_zero"
+algorithm: "gciql"
+environment: "puzzle-4x5-play-v0"
+protocol_stage: "formal"
+placement: "actor+value+critic"
+executable: true
+condition_id: "C07"
+semantic_condition: "PUZZLE_V2_DENSE_ZERO"
+description: "Actor=operation, value_side=operation, transform=dense_v1, distance=zero; fixed v2 9D paired-token input."
+factors:
+  environment: "puzzle-4x5-play-v0"
+  condition: "C07"
+  goal_success_semantics: "board_equality"
+  structure: "puzzle_tokens"
+  topology: "feedforward"
+  block: "mlp_mixer"
+  num_buttons: 20
+  num_mixer_blocks: 2
+  alpha: 0.4
+  actor_coordinate: "operation"
+  value_side_coordinate: "operation"
+  transform_id: "dense_v1"
+  distance_feature: "zero"
+  input_schema: "token_aux_v1"
+  paired_token_dim: 9
+agent_overrides:
+  actor_hidden_dims: [512,512,512]
+  value_hidden_dims: [512,512,512]
+  layer_norm: true
+  lr: 0.0003
+  batch_size: 1024
+  discount: 0.99
+  expectile: 0.9
+  tau: 0.005
+  actor_loss: "ddpgbc"
+  alpha: 0.4
+  const_std: true
+  discrete: false
+  encoder: null
+  dataset_class: "PuzzleBoardGCDataset"
+  value_p_curgoal: 0.2
+  value_p_trajgoal: 0.5
+  value_p_randomgoal: 0.3
+  value_geom_sample: true
+  actor_p_curgoal: 0
+  actor_p_trajgoal: 1
+  actor_p_randomgoal: 0
+  actor_geom_sample: false
+  gc_negative: true
+  p_aug: 0
+  frame_stack: null
+  goal_conditioning:
+    domain: "puzzle"
+    rows: 4
+    cols: 5
+    num_buttons: 20
+    robot_dim: 19
+    button_feature_dim: 4
+    robot_goal_policy: "zero"
+    button_goal_transient_policy: "zero"
+    schema_version: 2
+    input_schema: "token_aux_v1"
+    transforms:
+      dense_v1:
+        column_weights: [10,9,10,8,11,8,10,11,15,9,8,12,10,9,7,10,11,8,10,14]
+        content_sha256: "34e92593c51a1c923644473a752acdeaee3dc728a7870fafb3a0215ef37eca17"
+        convention: "y=B@x mod 2; B[encoded_coordinate,original_operation_coordinate]"
+        kind: "gf2_linear"
+        matrix:
+          - [0,1,0,0,0,1,0,0,1,1,1,0,1,1,0,0,1,0,1,1]
+          - [1,0,0,1,1,0,1,1,1,0,0,1,1,1,0,1,0,1,1,1]
+          - [0,0,1,0,1,0,1,0,1,1,0,1,0,0,1,0,1,1,1,1]
+          - [0,0,1,0,1,1,1,0,0,0,0,1,1,1,0,1,1,1,1,1]
+          - [0,1,0,1,0,1,0,0,0,1,0,1,1,1,0,1,0,1,0,1]
+          - [1,0,1,1,0,0,0,0,1,0,0,0,1,1,0,0,0,1,0,0]
+          - [0,0,0,0,1,0,0,1,0,1,0,1,1,0,0,1,0,0,0,1]
+          - [1,0,0,1,1,0,1,1,1,0,0,1,1,0,0,1,1,0,1,1]
+          - [0,1,1,1,1,0,0,1,1,0,0,0,0,1,1,1,1,1,1,0]
+          - [0,0,0,0,1,0,1,1,1,1,1,0,0,0,1,0,1,0,0,0]
+          - [0,1,1,0,1,1,1,1,1,0,0,0,1,1,0,1,0,1,1,1]
+          - [1,0,1,1,0,1,0,0,1,1,1,1,0,0,1,0,1,1,0,0]
+          - [1,1,1,1,1,1,1,1,1,0,1,1,0,0,1,1,0,0,0,0]
+          - [1,1,0,0,0,1,1,0,1,0,0,1,0,0,0,1,0,0,1,1]
+          - [1,0,1,0,0,0,1,0,1,0,1,1,1,1,1,0,0,0,1,1]
+          - [0,1,0,1,0,0,0,0,1,0,1,1,1,0,0,0,1,0,0,1]
+          - [1,1,1,0,1,0,0,1,0,1,1,1,0,0,0,0,1,0,1,0]
+          - [1,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,1]
+          - [0,1,0,0,0,1,0,1,1,1,1,0,0,1,0,1,1,0,0,1]
+          - [1,0,1,0,1,0,0,1,0,0,0,0,0,0,1,0,1,0,0,1]
+        num_coordinates: 20
+        provenance:
+          generator: "constrained_goal_coordinate_transform"
+          transform_seed: 26002
+          version: 1
+        rank: 20
+        row_weights: [10,13,11,12,10,7,7,12,12,8,13,11,13,9,11,8,10,6,10,7]
+    roles:
+      actor:
+        coordinate: "operation"
+        transform_id: "dense_v1"
+        distance_feature: "zero"
+      value_side:
+        coordinate: "operation"
+        transform_id: "dense_v1"
+        distance_feature: "zero"
+  compute:
+    actor:
+      enabled: true
+      primitive: "mlp"
+      topology: "feedforward"
+      block: "mlp_mixer"
+      credit: "direct"
+      structure: "puzzle_tokens"
+      structure_kwargs:
+        num_buttons: 20
+        token_dim: 128
+        robot_hidden_dim: 128
+        token_mlp_hidden_dim: 64
+        channel_mlp_hidden_dim: 256
+        num_mixer_blocks: 2
+        index_embedding: true
+        readout: "mean"
+        tm_mode: "none"
+    value:
+      enabled: true
+      primitive: "mlp"
+      topology: "feedforward"
+      block: "mlp_mixer"
+      credit: "direct"
+      structure: "puzzle_tokens"
+      structure_kwargs:
+        num_buttons: 20
+        token_dim: 128
+        robot_hidden_dim: 128
+        token_mlp_hidden_dim: 64
+        channel_mlp_hidden_dim: 256
+        num_mixer_blocks: 2
+        index_embedding: true
+        readout: "mean"
+        tm_mode: "none"
+    critic:
+      enabled: true
+      primitive: "mlp"
+      topology: "feedforward"
+      block: "mlp_mixer"
+      credit: "direct"
+      structure: "puzzle_tokens"
+      structure_kwargs:
+        num_buttons: 20
+        token_dim: 128
+        robot_hidden_dim: 128
+        token_mlp_hidden_dim: 64
+        channel_mlp_hidden_dim: 256
+        num_mixer_blocks: 2
+        index_embedding: true
+        readout: "mean"
+        tm_mode: "none"
