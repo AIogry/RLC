@@ -1,9 +1,26 @@
 # RLC project state
 
-Last reviewed: 2026-09-11. This is a compact state summary; run artifacts and
-resolved configurations remain authoritative for exact progress and results.
+Last reviewed: 2026-09-19 for the M26 capability task only. Existing-study
+execution statements below retain their 2026-09-11 review boundary; no formal
+run inventory or result was re-audited in this task. Run artifacts and resolved
+configurations remain authoritative for exact progress and results.
 
-## Current scientific focus
+## Current capability handoff — M26
+
+The isolated `m26-goal-conditioning-diagnostics` worktree implements versioned
+actor/value-side goal coordinates, fixed-width token auxiliary inputs, explicit
+permutation/GF(2) transforms, semantic checkpoint guards, and production-input
+audits on the committed local main/M24 base `38fccf0`. There are 144 passing
+targeted CPU tests plus 10 exact pre-change legacy reference comparisons.
+This is uncommitted capability work, not a frozen experiment or a performance
+result. No M26 Study/config matrix, real-data/GPU smoke, or formal launch has
+been performed. User review and formal configuration decisions come next.
+
+See [M26 design](experiments/M26/DESIGN.md) and
+[implementation handoff](experiments/M26/IMPLEMENTATION_HANDOFF.md) for exact
+source, file inventory, test coverage, and actions intentionally not taken.
+
+## Scientific context recorded on 2026-09-11
 
 The current thread concerns Puzzle computation, goal-coordinate semantics, and
 failure mechanisms in the unified RLC runtime. M24A is configured as the next
@@ -36,7 +53,7 @@ intervention.
   across board, residual, and exact operation-parity conditioning. This is a
   design/runtime validation only; it is not training evidence.
 
-## Active studies
+## Existing studies — 2026-09-11 execution snapshot
 
 | Item | Current state | Authority |
 | --- | --- | --- |
@@ -62,7 +79,7 @@ diff was recovered or their source was fully verified clean. Sampled M22
 runtime metadata records `2617634f29a883581b6fbf582db072f08b9d24ff` with
 `git_dirty: false`, matching its frozen worktree.
 
-## Immediate next study
+## Historical next-study guidance — 2026-09-11
 
 Review and commit the M24 capability and M24A Study definitions separately,
 then repeat the dry-run from a clean detached snapshot. Before any formal

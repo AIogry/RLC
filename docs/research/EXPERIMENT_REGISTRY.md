@@ -16,3 +16,7 @@ from the linked Study/configs and external run artifacts.
 | M22 | Six official OGBench Puzzle baselines in unified RLC | active/partial; not paper-ready | [`M22 study`](../../experiments/M22_puzzle_baselines_unified_rlc/study.yaml) | [`M22 context`](experiments/M22/README.md) |
 | M23A | Puzzle direct-rollout behavioral audit | completed, 12/12 cells and 3,000 controlled paired rollouts; single-seed/provenance-qualified interpretation | [`M23A Study`](../../experiments/M23A_puzzle_direct_rollout_audit/study.yaml) | [`M23A authority`](experiments/M23A-F0/README.md), [`results brief`](experiments/M23A-F0/RESULTS_DISCUSSION_BRIEF.md) |
 | M24A | Puzzle goal-coordinate intervention: board, residual, and exact operation parity | configured; 6/6 cells validated; formal training not started | [`M24A Study`](../../experiments/M24A_puzzle_goal_conditioning_intervention/study.yaml) | [`M24A protocol and gates`](../../experiments/M24A_puzzle_goal_conditioning_intervention/README.md) |
+| M26 | Role-specific goal-coordinate mechanism diagnostic capability | implementation ready; 144 CPU tests and 10 pre-change parity cases passed; uncommitted; no formal Study or launch | [`M26 capability design`](experiments/M26/DESIGN.md) | [`M26 handoff and scope`](experiments/M26/IMPLEMENTATION_HANDOFF.md) |
+
+The M26 row is a 2026-09-19 capability update, not a new audit of older rows'
+external execution status. Historical M24A/M22 progress is not rewritten here.

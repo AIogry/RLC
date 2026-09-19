@@ -11,6 +11,74 @@ from pathlib import Path
 import numpy as np
 from flax.traverse_util import flatten_dict
 
+
+class GoalConditioningMismatch(ValueError):
+    """A same-shaped checkpoint must not silently change input semantics."""
+
+
+def goal_conditioning_checkpoint_semantics(agent):
+    """Reconstruct semantics from config and verify the actual bound modules."""
+    config = getattr(agent, 'config', {})
+    goal_config = config.get('goal_conditioning')
+    if goal_config is None or goal_config.get('schema_version', 1) != 2:
+        modules = getattr(getattr(getattr(agent, 'network', None), 'model_def', None), 'modules', {})
+        if any(getattr(getattr(module, 'goal_conditioner', None), 'fingerprint', None) is not None
+               for module in modules.values()):
+            raise GoalConditioningMismatch('A bound v2 agent cannot be relabeled with legacy config')
+        return None
+    from ..networks.goal_conditioning import resolve_goal_conditioning
+    plan = resolve_goal_conditioning(
+        goal_config, compute_slots=config.get('compute'),
+        dataset_class=config.get('dataset_class'), agent_config=config,
+    )
+    role_fingerprints = {'actor': plan.actor.fingerprint, 'value_side': plan.value_side.fingerprint}
+    for name, role in (('actor', 'actor'), ('value', 'value_side'),
+                       ('critic', 'value_side'), ('target_critic', 'value_side')):
+        module = agent.network.model_def.modules[name]
+        actual = getattr(module.goal_conditioner, 'fingerprint', None)
+        if actual != role_fingerprints[role] or module.token_aux_dim != 1:
+            raise GoalConditioningMismatch('Agent config and bound goal-conditioning modules disagree')
+    return {
+        'schema_version': 2, 'input_schema': 'token_aux_v1',
+        'semantic_fingerprint': plan.fingerprint,
+        'role_fingerprints': role_fingerprints,
+        'resolved_goal_conditioning': plan.to_config(),
+    }
+
+
+def with_goal_conditioning_metadata(agent, metadata):
+    semantics = goal_conditioning_checkpoint_semantics(agent)
+    if semantics is None:
+        if isinstance(metadata, Mapping) and metadata.get('goal_conditioning_semantics') is not None:
+            raise GoalConditioningMismatch('Legacy agent cannot claim v2 checkpoint semantics')
+        return metadata  # Preserve the complete old None/dict metadata contract.
+    result = dict(metadata or {})
+    existing = result.get('goal_conditioning_semantics')
+    if existing is not None and existing != semantics:
+        raise GoalConditioningMismatch('Supplied checkpoint goal-conditioning semantics disagree with agent')
+    result['goal_conditioning_semantics'] = semantics
+    return result
+
+
+def validate_checkpoint_goal_conditioning(agent, metadata):
+    expected = goal_conditioning_checkpoint_semantics(agent)
+    actual = metadata.get('goal_conditioning_semantics') if isinstance(metadata, Mapping) else None
+    if expected is None and actual is None:
+        return
+    if expected is None or not isinstance(actual, Mapping):
+        raise GoalConditioningMismatch('Legacy/v2 checkpoint input schema mismatch or missing semantic fingerprint')
+    from ..networks.goal_conditioning import resolve_goal_conditioning
+    try:
+        saved_plan = resolve_goal_conditioning(actual['resolved_goal_conditioning'])
+    except (ValueError, KeyError, TypeError) as error:
+        raise GoalConditioningMismatch('Invalid saved goal-conditioning semantic metadata') from error
+    if (actual.get('schema_version') != 2 or actual.get('input_schema') != 'token_aux_v1'
+            or actual.get('semantic_fingerprint') != saved_plan.fingerprint
+            or actual.get('semantic_fingerprint') != expected['semantic_fingerprint']
+            or actual.get('role_fingerprints') != expected['role_fingerprints']):
+        raise GoalConditioningMismatch('Checkpoint goal-conditioning semantic fingerprint mismatch')
+
+
 def _jsonable(value):
     if isinstance(value, Mapping):
         return {str(key): _jsonable(item) for key, item in value.items()}

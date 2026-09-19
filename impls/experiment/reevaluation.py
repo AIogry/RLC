@@ -655,9 +655,13 @@ def _restore_agent_for_reevaluation(agent, checkpoint_path):
     """Restore native checkpoints, with one exact legacy Mixer inference adapter."""
 
     from ..utils.flax_utils import restore_agent_from_checkpoint
+    from ..utils.checkpointing import GoalConditioningMismatch
 
     try:
         return restore_agent_from_checkpoint(agent, checkpoint_path), 'native_state_dict'
+    except GoalConditioningMismatch:
+        # A semantic rejection is not evidence of the old pre-M17 layout.
+        raise
     except ValueError as native_error:
         try:
             restored = _restore_legacy_mixer_agent_for_reevaluation(agent, checkpoint_path)
@@ -672,6 +676,7 @@ def _restore_agent_for_reevaluation(agent, checkpoint_path):
 def _make_restored_agent(provenance):
     from ..agents import agents
     from ..utils.datasets import GCDataset, HGCDataset, MultiHGCDataset
+    from ..utils.puzzle_datasets import PuzzleBoardGCDataset
     from ..utils.env_utils import make_env_and_datasets
 
     metadata = provenance['source_metadata']
@@ -698,6 +703,7 @@ def _make_restored_agent(provenance):
         'GCDataset': GCDataset,
         'HGCDataset': HGCDataset,
         'MultiHGCDataset': MultiHGCDataset,
+        'PuzzleBoardGCDataset': PuzzleBoardGCDataset,
     }
     dataset_name = config.get('dataset_class')
     if dataset_name not in dataset_classes:

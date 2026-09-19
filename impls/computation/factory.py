@@ -656,6 +656,7 @@ def make_computation_core(
     hidden_dims: Sequence[int],
     activate_final: Optional[bool] = None,
     layer_norm: bool = False,
+    token_aux_dim: int = 0,
 ):
     """Build a computation core from a static slot specification.
 
@@ -665,6 +666,21 @@ def make_computation_core(
 
     if not isinstance(spec, ComputationSpec):
         spec = ComputationSpec.from_mapping(spec)
+    if isinstance(token_aux_dim, bool) or not isinstance(token_aux_dim, Integral) or token_aux_dim not in (0, 1):
+        raise ValueError('token_aux_dim must be 0 (legacy) or 1 (token_aux_v1)')
+    if any('token_aux_dim' in values for values in (
+        spec.structure_kwargs, spec.block_kwargs, spec.topology_kwargs, spec.readout_kwargs,
+    )):
+        raise ValueError('token_aux_dim is derived from goal conditioning, not a compute field')
+    if token_aux_dim and (
+        spec.structure != 'puzzle_tokens' or spec.topology != 'feedforward'
+        or spec.block != 'mlp_mixer' or spec.credit != 'direct'
+        or spec.relation_mode != 'legacy_none' or spec.relation_augmenter != 'none'
+        or spec.input_semantics != 'goal_pair'
+        or spec.action_semantics not in ('none', 'robot_context')
+        or spec.readout not in ('mean', 'mean_context')
+    ):
+        raise ValueError('token_aux_v1 supports only relation-free Puzzle goal-pair feedforward Mixer')
     hidden_dims = tuple(hidden_dims)
     if not hidden_dims:
         raise ValueError('Recurrent computation cores require at least one hidden dimension')
@@ -768,6 +784,7 @@ def make_computation_core(
             input_semantics=spec.input_semantics,
             action_semantics=spec.action_semantics,
             layer_norm=layer_norm,
+            token_aux_dim=token_aux_dim,
         )
         block_unit = MLPMixerStack(
             num_blocks=num_blocks,

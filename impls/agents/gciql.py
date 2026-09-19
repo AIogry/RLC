@@ -12,7 +12,7 @@ import optax
 from ..computation.factory import resolve_slot_spec
 from ..computation.slots import validate_compute_slots
 from ..networks.common import GCActor, GCDiscreteActor, GCDiscreteCritic, GCValue
-from ..networks.goal_conditioning import make_goal_conditioner
+from ..networks.goal_conditioning import make_goal_conditioners
 from ..utils.encoders import GCEncoder, encoder_modules
 from ..utils.flax_utils import (
     ModuleDict,
@@ -179,11 +179,15 @@ class GCIQLAgent(flax.struct.PyTreeNode):
     @classmethod
     def create(cls, seed, ex_observations, ex_actions, config):
         validate_compute_slots('gciql', config)
-        goal_conditioner = make_goal_conditioner(
+        goal_plan = make_goal_conditioners(
             config.get('goal_conditioning'),
             compute_slots=config.get('compute'),
             dataset_class=config.get('dataset_class'),
+            agent_config=config,
         )
+        if goal_plan.token_aux_dim:
+            config = dict(config)
+            config['goal_conditioning'] = goal_plan.to_config()
         rng = jax.random.PRNGKey(seed)
         rng, init_rng = jax.random.split(rng, 2)
         ex_goals = ex_observations
@@ -205,7 +209,8 @@ class GCIQLAgent(flax.struct.PyTreeNode):
             ensemble=False,
             gc_encoder=encoders.get('value'),
             computation_spec=resolve_slot_spec(config, 'value'),
-            goal_conditioner=goal_conditioner,
+            goal_conditioner=goal_plan.value_side,
+            token_aux_dim=goal_plan.token_aux_dim,
         )
         if config['discrete']:
             critic_def = GCDiscreteCritic(
@@ -215,7 +220,7 @@ class GCIQLAgent(flax.struct.PyTreeNode):
                 gc_encoder=encoders.get('critic'),
                 action_dim=action_dim,
                 computation_spec=resolve_slot_spec(config, 'critic'),
-                goal_conditioner=goal_conditioner,
+                goal_conditioner=goal_plan.value_side,
             )
         else:
             critic_def = GCValue(
@@ -224,7 +229,8 @@ class GCIQLAgent(flax.struct.PyTreeNode):
                 ensemble=True,
                 gc_encoder=encoders.get('critic'),
                 computation_spec=resolve_slot_spec(config, 'critic'),
-                goal_conditioner=goal_conditioner,
+                goal_conditioner=goal_plan.value_side,
+                token_aux_dim=goal_plan.token_aux_dim,
             )
         if config['discrete']:
             actor_def = GCDiscreteActor(
@@ -232,7 +238,7 @@ class GCIQLAgent(flax.struct.PyTreeNode):
                 action_dim=action_dim,
                 gc_encoder=encoders.get('actor'),
                 computation_spec=resolve_slot_spec(config, 'actor'),
-                goal_conditioner=goal_conditioner,
+                goal_conditioner=goal_plan.actor,
             )
         else:
             actor_def = GCActor(
@@ -242,7 +248,8 @@ class GCIQLAgent(flax.struct.PyTreeNode):
                 const_std=config['const_std'],
                 gc_encoder=encoders.get('actor'),
                 computation_spec=resolve_slot_spec(config, 'actor'),
-                goal_conditioner=goal_conditioner,
+                goal_conditioner=goal_plan.actor,
+                token_aux_dim=goal_plan.token_aux_dim,
             )
 
         network_info = {

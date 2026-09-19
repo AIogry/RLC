@@ -6,7 +6,7 @@ from typing import Mapping
 import flax.linen as nn
 import jax.numpy as jnp
 
-from .interfaces import StructuredRepresentation
+from .interfaces import StructuredNetworkInput, StructuredRepresentation
 from .relations import build_puzzle_relations
 
 
@@ -77,8 +77,14 @@ class PuzzleTokenAdapter(nn.Module):
     layer_norm: bool = False
     relation_mode: str = 'legacy_none'
     relation_kwargs: Mapping | None = None
+    token_aux_dim: int = 0
 
     def setup(self):
+        if (isinstance(self.token_aux_dim, bool) or not isinstance(self.token_aux_dim, Integral)
+                or self.token_aux_dim not in (0, 1)):
+            raise ValueError('Puzzle token_aux_dim must be 0 (legacy) or 1 (token_aux_v1)')
+        if self.token_aux_dim and (self.input_semantics != 'goal_pair' or self.relation_mode != 'legacy_none'):
+            raise ValueError('token_aux_v1 requires relation-free Puzzle goal_pair input')
         integer_fields = {
             'num_buttons': self.num_buttons,
             'robot_dim': self.robot_dim,
@@ -167,7 +173,23 @@ class PuzzleTokenAdapter(nn.Module):
         return robot, buttons
 
     def __call__(self, x):
-        robot, buttons = self._split_input(jnp.asarray(x))
+        if isinstance(x, StructuredNetworkInput):
+            if not self.token_aux_dim:
+                raise ValueError('Legacy Puzzle adapter cannot consume token auxiliary input')
+            flat_inputs = jnp.asarray(x.flat_inputs)
+            if x.token_aux is None:
+                raise ValueError('Puzzle typed input is missing token_aux')
+            aux = jnp.asarray(x.token_aux)
+        else:
+            if self.token_aux_dim:
+                raise ValueError('Puzzle token_aux_v1 requires StructuredNetworkInput')
+            flat_inputs, aux = jnp.asarray(x), None
+        robot, buttons = self._split_input(flat_inputs)
+        if aux is not None:
+            expected = (*buttons.shape[:-1], self.token_aux_dim)
+            if aux.shape != expected:
+                raise ValueError(f'Puzzle token_aux shape must be {expected}, got {aux.shape}; no implicit batch broadcast')
+            buttons = jnp.concatenate([buttons, aux], axis=-1)
         tokens = self.button_projection(buttons)
         if self.index_embedding_param is not None:
             tokens = tokens + self.index_embedding_param

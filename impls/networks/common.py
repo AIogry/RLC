@@ -10,6 +10,7 @@ import jax.numpy as jnp
 from ..computation.factory import ComputationSpec, make_computation_core
 from ..computation.interfaces import ComputationOutput
 from ..computation.primitives.mlp import MLP, default_init
+from ..representation.interfaces import GoalConditioningOutput, StructuredNetworkInput
 
 
 _TOKEN_STRUCTURES = frozenset({'puzzle_tokens', 'cube_tokens', 'scene_tokens'})
@@ -31,6 +32,28 @@ def _condition_goals(
             'A raw-observation goal conditioner cannot consume an already encoded goal'
         )
     return goal_conditioner(observations, goals)
+
+
+def prepare_goal_conditioning(goal_conditioner, observations, goals, *, goal_encoded=False):
+    """Production preparation shared by forward paths and input audits."""
+    if goal_conditioner is not None and hasattr(goal_conditioner, 'prepare'):
+        if goal_encoded:
+            raise ValueError('A raw-observation goal conditioner cannot consume an already encoded goal')
+        return goal_conditioner.prepare(observations, goals)
+    return GoalConditioningOutput(_condition_goals(
+        goal_conditioner, observations, goals, goal_encoded=goal_encoded,
+    ))
+
+
+def structured_network_input(flat_inputs, prepared, token_aux_dim):
+    """Keep the legacy array API; wrap only the explicit auxiliary schema."""
+    if token_aux_dim == 0:
+        if prepared.token_aux is not None:
+            raise ValueError('Auxiliary goal features require a matching network input schema')
+        return flat_inputs
+    if token_aux_dim != 1 or prepared.token_aux is None:
+        raise ValueError('token_aux_v1 requires exactly one auxiliary feature per token')
+    return StructuredNetworkInput(flat_inputs, prepared.token_aux)
 
 
 def ensemblize(cls, num_qs, out_axes=0, in_axes=None, methods=None, **kwargs):
@@ -57,6 +80,7 @@ class _ComputationValueBody(nn.Module):
     hidden_dims: Sequence[int]
     layer_norm: bool
     computation_spec: ComputationSpec
+    token_aux_dim: int = 0
 
     def setup(self):
         self.core = make_computation_core(
@@ -64,6 +88,7 @@ class _ComputationValueBody(nn.Module):
             hidden_dims=self.hidden_dims,
             activate_final=True,
             layer_norm=self.layer_norm,
+            token_aux_dim=self.token_aux_dim,
         )
 
     def __call__(self, x):
@@ -187,27 +212,32 @@ class GCActor(nn.Module):
     gc_encoder: nn.Module = None
     computation_spec: Optional[ComputationSpec] = None
     goal_conditioner: Any = None
+    token_aux_dim: int = 0
 
     def setup(self):
+        if self.token_aux_dim and self.computation_spec is None:
+            raise ValueError('Auxiliary goal features require structured computation')
         if self.computation_spec is not None and self.computation_spec.structure in _TOKEN_STRUCTURES and self.gc_encoder is not None:
             raise ValueError('Structured token computation requires raw standard observations; encoder is unsupported')
         if self.computation_spec is None:
             self.actor_net = MLP(self.hidden_dims, activate_final=True)
         else:
-            self.actor_net = make_computation_core(self.computation_spec, hidden_dims=self.hidden_dims, activate_final=True)
+            self.actor_net = make_computation_core(self.computation_spec, hidden_dims=self.hidden_dims, activate_final=True, token_aux_dim=self.token_aux_dim)
         self.mean_net = nn.Dense(self.action_dim, kernel_init=default_init(self.final_fc_init_scale))
         if self.state_dependent_std:
             self.log_std_net = nn.Dense(self.action_dim, kernel_init=default_init(self.final_fc_init_scale))
         elif not self.const_std:
             self.log_stds = self.param('log_stds', nn.initializers.zeros, (self.action_dim,))
 
-    def __call__(self, observations, goals=None, goal_encoded=False, temperature=1.0):
-        goals = _condition_goals(
+    def prepare_inputs(self, observations, goals=None, goal_encoded=False):
+        """Actual body input, also capturable by Flax's intermediate audit."""
+        prepared = prepare_goal_conditioning(
             self.goal_conditioner,
             observations,
             goals,
             goal_encoded=goal_encoded,
         )
+        goals = prepared.goals
         if self.gc_encoder is not None:
             inputs = self.gc_encoder(observations, goals, goal_encoded=goal_encoded)
         else:
@@ -215,7 +245,10 @@ class GCActor(nn.Module):
             if goals is not None:
                 inputs.append(goals)
             inputs = jnp.concatenate(inputs, axis=-1)
-        outputs = self.actor_net(inputs)
+        return structured_network_input(inputs, prepared, self.token_aux_dim)
+
+    def __call__(self, observations, goals=None, goal_encoded=False, temperature=1.0):
+        outputs = self.actor_net(self.prepare_inputs(observations, goals, goal_encoded))
         if isinstance(outputs, ComputationOutput):
             outputs = outputs.representation
 
@@ -243,19 +276,7 @@ class GCActor(nn.Module):
 
         if self.computation_spec is None or self.computation_spec.structure != 'puzzle_tokens':
             raise ValueError('GCActor diagnostic_trace requires puzzle_tokens structured computation')
-        goals = _condition_goals(
-            self.goal_conditioner,
-            observations,
-            goals,
-            goal_encoded=goal_encoded,
-        )
-        if self.gc_encoder is not None:
-            inputs = self.gc_encoder(observations, goals, goal_encoded=goal_encoded)
-        else:
-            inputs = [observations]
-            if goals is not None:
-                inputs.append(goals)
-            inputs = jnp.concatenate(inputs, axis=-1)
+        inputs = self.prepare_inputs(observations, goals, goal_encoded)
         trace_fn = getattr(self.actor_net, 'trace_tokens', None)
         if trace_fn is None:
             raise ValueError('GCActor structured body does not expose trace_tokens')
@@ -381,8 +402,11 @@ class GCValue(nn.Module):
     gc_encoder: nn.Module = None
     computation_spec: Optional[ComputationSpec] = None
     goal_conditioner: Any = None
+    token_aux_dim: int = 0
 
     def setup(self):
+        if self.token_aux_dim and self.computation_spec is None:
+            raise ValueError('Auxiliary goal features require structured computation')
         if self.computation_spec is not None and self.computation_spec.structure in _TOKEN_STRUCTURES and self.gc_encoder is not None:
             raise ValueError('Structured token computation requires raw standard observations; encoder is unsupported')
         if self.computation_spec is None:
@@ -416,6 +440,7 @@ class GCValue(nn.Module):
                 hidden_dims=self.hidden_dims,
                 layer_norm=self.layer_norm,
                 computation_spec=self.computation_spec,
+                token_aux_dim=self.token_aux_dim,
             )
             self.value_readout = readout_module(1, kernel_init=default_init())
         else:
@@ -423,11 +448,14 @@ class GCValue(nn.Module):
                 hidden_dims=self.hidden_dims,
                 layer_norm=self.layer_norm,
                 computation_spec=self.computation_spec,
+                token_aux_dim=self.token_aux_dim,
             )
             self.value_readout = nn.Dense(1, kernel_init=default_init())
 
-    def __call__(self, observations, goals=None, actions=None):
-        goals = _condition_goals(self.goal_conditioner, observations, goals)
+    def prepare_inputs(self, observations, goals=None, actions=None):
+        """Actual pre-ensemble body input; actions remain the flat tail."""
+        prepared = prepare_goal_conditioning(self.goal_conditioner, observations, goals)
+        goals = prepared.goals
         if self.gc_encoder is not None:
             inputs = [self.gc_encoder(observations, goals)]
         else:
@@ -436,7 +464,10 @@ class GCValue(nn.Module):
                 inputs.append(goals)
         if actions is not None:
             inputs.append(actions)
-        outputs = self.value_net(jnp.concatenate(inputs, axis=-1))
+        return structured_network_input(jnp.concatenate(inputs, axis=-1), prepared, self.token_aux_dim)
+
+    def __call__(self, observations, goals=None, actions=None):
+        outputs = self.value_net(self.prepare_inputs(observations, goals, actions))
         if isinstance(outputs, ComputationOutput):
             outputs = outputs.representation
         if self.value_readout is not None:
@@ -448,16 +479,11 @@ class GCValue(nn.Module):
 
         if self.computation_spec is None or self.computation_spec.structure != 'puzzle_tokens':
             raise ValueError('GCValue diagnostic_trace requires puzzle_tokens structured computation')
-        goals = _condition_goals(self.goal_conditioner, observations, goals)
-        inputs = [observations]
-        if goals is not None:
-            inputs.append(goals)
-        if actions is not None:
-            inputs.append(actions)
+        inputs = self.prepare_inputs(observations, goals, actions)
         trace_fn = getattr(self.value_net, 'trace_tokens', None)
         if trace_fn is None:
             raise ValueError('GCValue structured body does not expose trace_tokens')
-        trace = trace_fn(jnp.concatenate(inputs, axis=-1), max_iterations)
+        trace = trace_fn(inputs, max_iterations)
         if self.value_readout is None:
             raise ValueError('GCValue diagnostic_trace requires a computation value readout')
         return {

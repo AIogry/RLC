@@ -273,11 +273,14 @@ def _make_config(args, configuration=None):
         raise ValueError(
             'goal_conditioning is currently wired only for the GCIQL GC networks'
         )
-    validate_goal_conditioning_config(
+    resolved_goal_conditioning = validate_goal_conditioning_config(
         config.get('goal_conditioning'),
         compute_slots=config.get('compute'),
         dataset_class=config.get('dataset_class'),
+        agent_config=config,
     )
+    if resolved_goal_conditioning is not None and resolved_goal_conditioning.get('schema_version') == 2:
+        config['goal_conditioning'] = resolved_goal_conditioning
     return config
 
 

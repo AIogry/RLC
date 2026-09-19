@@ -8,6 +8,20 @@ parameters: ownership belongs to the adapter module that produces them.
 from typing import Any, NamedTuple
 
 
+class StructuredNetworkInput(NamedTuple):
+    """Explicit side channel; flat_inputs retains the historical raw layout."""
+
+    flat_inputs: Any
+    token_aux: Any
+
+
+class GoalConditioningOutput(NamedTuple):
+    """Prepared raw-layout goal plus optional per-token auxiliary features."""
+
+    goals: Any
+    token_aux: Any = None
+
+
 class StructuredRepresentation(NamedTuple):
     """Canonical structured input for a computation body.
 

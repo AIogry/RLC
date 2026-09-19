@@ -192,3 +192,25 @@ yet assigned.
 Evidence: [`M24A Study`](../../experiments/M24A_puzzle_goal_conditioning_intervention/study.yaml),
 [`M24A protocol`](../../experiments/M24A_puzzle_goal_conditioning_intervention/README.md),
 and [`m24a_doctor.py`](../../tools/m24a_doctor.py).
+
+## 2026-09-19 — M26 uses explicit role inputs and semantic checkpoint identity
+
+**Verified.** The independent M26 worktree was created from the committed local
+main/M24 base `38fccf0ff8e034723e85a2016026244f425f0309`, without copying M25 code.
+Its v2 input schema keeps one auxiliary scalar per Puzzle token for every
+condition, binds actor separately from V/Q/target Q, and preserves raw Dataset
+sampling/equality and GCIQL losses/updates. Actual forward capture, isolated
+gradients, four-step paired-value/Adam invariants, and fresh JSON-config restore
+are covered by targeted CPU tests. Legacy outputs/updates remain exactly equal
+to references captured from that base before source modification.
+
+**Decision.** Keep one top-level versioned goal_conditioning schema; v1 stays
+array-only and v2 uses typed token_aux input. Freeze actual transform contents
+at setup and require semantic fingerprints at checkpoint restoration, including
+same-shaped matrix/role changes. Do not permit semantic failures to enter the
+old Mixer layout fallback. Count Dense work from actual kernels and keep GF(2)
+preprocessing outside that metric. No learning module, planner, reward shaping,
+formal condition matrix, or launch is implied by this capability delivery.
+
+Evidence: [M26 design](experiments/M26/DESIGN.md),
+[M26 implementation/validation handoff](experiments/M26/IMPLEMENTATION_HANDOFF.md).

@@ -22,6 +22,8 @@ from .checkpointing import (
     should_update_best,
     write_checkpoint_index,
     write_checkpoint_metadata,
+    validate_checkpoint_goal_conditioning,
+    with_goal_conditioning_metadata,
 )
 
 
@@ -172,6 +174,7 @@ def synchronize_target_module(network, module_name):
 def _write_checkpoint(agent, checkpoint_path, checkpoint_metadata=None):
     """Serialize a complete agent PyTree, including optimizer and RNG state."""
 
+    checkpoint_metadata = with_goal_conditioning_metadata(agent, checkpoint_metadata)
     checkpoint_path = Path(checkpoint_path)
     checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
     save_dict = {
@@ -199,6 +202,7 @@ def save_semantic_checkpoint(agent, run_dir, role, step, checkpoint_metadata=Non
 
     if role not in {'best', 'last'}:
         raise ValueError(f'Unsupported semantic checkpoint role: {role!r}')
+    checkpoint_metadata = with_goal_conditioning_metadata(agent, checkpoint_metadata)
     run_dir = Path(run_dir)
     role_dir = run_dir / 'checkpoints' / role
     role_dir.mkdir(parents=True, exist_ok=True)
@@ -229,6 +233,7 @@ def restore_agent_from_checkpoint(agent, checkpoint_path):
 
     with open(checkpoint_path, 'rb') as file:
         loaded = pickle.load(file)
+    validate_checkpoint_goal_conditioning(agent, loaded.get('checkpoint_metadata'))
     agent_state = loaded['agent']
     # Checkpoints created before M9 had no TrainState.model_state field.
     # Preserve their baseline restore compatibility with an empty collection.
@@ -289,6 +294,7 @@ def restore_module_from_checkpoint(agent, checkpoint_path, module_name):
 
     with open(checkpoint_path, 'rb') as file:
         loaded = pickle.load(file)
+    validate_checkpoint_goal_conditioning(agent, loaded.get('checkpoint_metadata'))
     try:
         source_params = loaded['agent']['network']['params']
         source_key = parameter_module_key(source_params, module_name)
